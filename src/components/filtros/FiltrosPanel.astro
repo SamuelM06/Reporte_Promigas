@@ -134,28 +134,67 @@ const chips = defs
 </style>
 
 <script is:inline>
-  // Al filtrar: estado de carga en el botón y fundido del gráfico (los gráficos
-  // se re-animan solos al recargar con el filtro aplicado).
+  // ---------------------------------------------------------------------------
+  // Wiring GLOBAL, registrado UNA sola vez y por delegación.
+  //
+  // Por qué NO se ata listener por formulario: los <script is:inline> no se
+  // re-ejecutan tras una navegación con <ClientRouter />, así que el panel
+  // quedaba sin listeners al cambiar de página y los filtros dejaban de
+  // filtrar en silencio (solo aplicaba el primero). Delegar en `document`
+  // cubre cualquier panel que aparezca en el DOM más adelante.
+  // ---------------------------------------------------------------------------
   (function () {
-    document.querySelectorAll('[data-filtros]').forEach(function (form) {
-      // Aplicado inmediato: al elegir un ítem se filtra solo, sin buscar el botón.
-      form.querySelectorAll('select').forEach(function (sel) {
-        sel.addEventListener('change', function () { form.requestSubmit(); });
+    if (window.__xumaFiltrosListo) return;
+    window.__xumaFiltrosListo = true;
+
+    // El overlay tiene z-index 100 (por encima del menú lateral, z-70), así que
+    // un watchdog global es obligatorio: nunca debe atrapar la página tapada.
+    var MAX_ESPERA_MS = 15000;
+    var watchdog = null;
+
+    function apagar() {
+      if (watchdog) { clearTimeout(watchdog); watchdog = null; }
+      document.body.classList.remove('filtrando');
+      document.querySelectorAll('[data-filtros] [data-btn-filtrar]').forEach(function (btn) {
+        btn.classList.remove('is-loading');
+        if (btn.dataset.etiqueta) btn.textContent = btn.dataset.etiqueta;
       });
-      form.addEventListener('submit', function () {
-        var btn = form.querySelector('[data-btn-filtrar]');
-        if (btn) { btn.classList.add('is-loading'); btn.textContent = 'Filtrando…'; }
-        document.body.classList.add('filtrando');
-        // Red de seguridad: si la navegación se interrumpe (servidor caído, red
-        // lenta), el overlay nunca debe atrapar al usuario con la página tapada.
-        setTimeout(function () { document.body.classList.remove('filtrando'); }, 15000);
-      });
+    }
+
+    function tapando() {
+      document.body.classList.add('filtrando');
+      if (watchdog) clearTimeout(watchdog);
+      watchdog = setTimeout(apagar, MAX_ESPERA_MS);
+    }
+
+    // Aplicado inmediato: al elegir un ítem se filtra solo, sin buscar el botón.
+    document.addEventListener('change', function (e) {
+      var sel = e.target;
+      if (!sel || sel.tagName !== 'SELECT') return;
+      if (!sel.closest || !sel.closest('[data-filtros]')) return;
+      if (sel.form) sel.form.requestSubmit();
     });
-    // Limpieza al volver/mostrar la página (botón atrás, bfcache) o tras
-    // una transición cliente: el overlay siempre arranca apagado.
-    function apagarOverlay() { document.body.classList.remove('filtrando'); }
-    window.addEventListener('pageshow', apagarOverlay);
-    document.addEventListener('astro:after-swap', apagarOverlay);
+
+    // Estado de carga en el botón + fundido del gráfico (los gráficos se
+    // re-animan solos al recargar con el filtro aplicado).
+    document.addEventListener('submit', function (e) {
+      var form = e.target;
+      if (!form || !form.closest || !form.closest('[data-filtros]')) return;
+      var btn = form.querySelector('[data-btn-filtrar]');
+      if (btn) {
+        if (!btn.dataset.etiqueta) btn.dataset.etiqueta = btn.textContent;
+        btn.classList.add('is-loading');
+        btn.textContent = 'Filtrando…';
+      }
+      tapando();
+    });
+
+    // El overlay se apaga en cuanto la navegación termina, venga del router
+    // cliente o de una carga nativa (botón atrás, bfcache, recarga).
+    window.addEventListener('pageshow', apagar);
+    window.addEventListener('beforeunload', apagar);
+    document.addEventListener('astro:after-swap', apagar);
+    document.addEventListener('astro:page-load', apagar);
   })();
 </script>
 

@@ -59,7 +59,6 @@ server.listen(PORT, HOST, () => {
         fetch(`${base}/dashboard`).then((r) => r.text()),
         fetch(`${base}/por-gasera`).then((r) => r.text()),
         fetch(`${base}/detalle`).then((r) => r.text()),
-        fetch(`${base}/api/dashboard-mensual`).then((r) => r.text()),
       ]);
       console.log('[serve.mjs] 🔥 Rutas y datos precalentados en RAM: respuestas instantáneas (<20ms)');
     } catch {

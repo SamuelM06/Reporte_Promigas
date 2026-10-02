@@ -25,7 +25,7 @@ await Promise.all(
   }),
 );
 
-const metadatos = await cargaSSR('por-gasera/metadatos', getMetadatos(f), METADATOS_VACIOS);
+const metadatos = await cargaSSR('global/metadatos', getMetadatos(f), METADATOS_VACIOS, 300_000);
 const fmt = new Intl.NumberFormat('es-CO');
 const selMes = f.mes ?? '';
 const selCabina = (f.cabina ?? [])[0] ?? '';

@@ -19,7 +19,7 @@ function num(key: string, fallback: number): number {
 }
 
 // ----------------------------------------------------------------------------
-// HTTPS: decide si la cookie de sesión va con `Secure` y si se manda HSTS.
+// HTTPS: decide si se manda HSTS.
 // ----------------------------------------------------------------------------
 // Modos (`APP_HTTPS`):
 //   'true'  → siempre HTTPS (útil detrás de un proxy que termina TLS).
@@ -62,19 +62,10 @@ export const ENV = {
   isHttps: resolverHttps(),
   allowedHosts: resolverAllowedHosts(),
 
-  adminUser: env('ADMIN_USER', 'analista'),
-  adminPasswordHash: env('ADMIN_PASSWORD_HASH'),
-  sessionSecret: env('SESSION_SECRET'),
-  authTtlHours: num('AUTH_TTL_HOURS', 12),
-
-  rateLoginMax: num('RATE_LIMIT_LOGIN_MAX', 5),
-  rateLoginWindowMs: num('RATE_LIMIT_LOGIN_WINDOW_MS', 600_000),
+  // Guarda de rate limiting para /api/*. Hoy no hay rutas /api (el portal es
+  // solo SSR); queda preparado por si se vuelven a añadir.
   rateApiMax: num('RATE_LIMIT_API_MAX', 180),
   rateApiWindowMs: num('RATE_LIMIT_API_WINDOW_MS', 60_000),
-  // El purgado de caché es la única operación que provoca una avalancha de
-  // consultas a la BD compartida, así que lleva su propio tope, más estricto.
-  rateCacheMax: num('RATE_LIMIT_CACHE_MAX', 5),
-  rateCacheWindowMs: num('RATE_LIMIT_CACHE_WINDOW_MS', 60_000),
 
   shutdownGraceMs: num('SHUTDOWN_GRACE_MS', 10_000),
 } as const;

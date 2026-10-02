@@ -1,7 +1,7 @@
 # Gestión Diaria Promigas 2026
 
 Portal de consulta del acumulado de gestión diaria de **Promigas 2026** (corte enero a septiembre),
-con identidad visual Xuma y navegación lateral auto-hide.
+con identidad visual Xuma y navegación siempre visible.
 
 > Nota de privacidad: este repositorio es una plantilla pública. No contiene credenciales,
 > datos reales ni información sensible: todo lo delicado vive en el entorno privado local
@@ -14,9 +14,10 @@ con identidad visual Xuma y navegación lateral auto-hide.
 - **Gráfico mensual general**: columnas por mes (total, inbound, outbound, retenciones) más
   línea de % de retención en movimiento continuo.
 - **Filtros activados**: Mes, Gasera, Cabina y Estado, con ítems traídos de la base de datos;
-  al elegir un ítem el reporte se actualiza solo.
+  al elegir un ítem el reporte se actualiza solo. El panel funciona igual en la carga inicial
+  y después de navegar por el portal (`<ClientRouter />`).
 - **Gestión mensual por aseguradora**: un solo gráfico general con las aseguradoras como columnas.
-- **Tabla de gestión por mes y detalle paginado** de registros.
+- **Tabla de gestión por mes** con totales por columna y % de retención.
 
 ## Vistas
 
@@ -25,10 +26,13 @@ con identidad visual Xuma y navegación lateral auto-hide.
 | `/` | Inicio: portada del reporte y corte vigente |
 | `/dashboard` | Página 1: KPIs + gráfico mensual general + filtros |
 | `/por-gasera` | Gestión por gasera: el mismo gráfico separado por gasera (página 1: principales, página 2: Efigas) |
-| `/detalle` | Página 2: tabla de gestión por mes, gráfico por aseguradora y detalle paginado |
+| `/detalle` | Página 2: tabla de gestión por mes y gráfico por aseguradora |
+| `/politica-datos` | Aviso de privacidad (plantilla con marcadores `<<...>>` pendientes) |
 
-La navegación vive en un **sidebar lateral con iconos** que se abre al pasar el mouse por el
-borde izquierdo y se esconde solo al cambiar de página.
+La navegación vive en una **barra superior fija** y, en pantallas pequeñas, en un **menú
+lateral** que se abre con el botón ☰. Los tres elementos de navegación llevan
+`transition:persist`: el router cliente nunca los desmonta, así que la navegación está
+siempre disponible sin importar cuántas veces se cambie de vista.
 
 ## Estructura
 
@@ -40,8 +44,8 @@ src/
   components/
     charts/      # Gráfico mensual reutilizable
     filtros/     # Catálogo y panel de filtros compartido
-    ui/          # Fondo animado, pie, controles de tema
-  layouts/       # Layout principal + layout con sidebar
+    ui/          # Fondo animado, pie, control de tema
+  layouts/       # Layout principal + layout con navegación
   lib/           # Base de datos, consultas, entorno, utilidades
   pages/         # Vistas + API (metadatos, KPIs, tendencias, tabla)
 ```

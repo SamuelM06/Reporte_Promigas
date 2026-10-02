@@ -76,12 +76,20 @@ function crearProxyRespuesta(req, res) {
     raw.setHeader('content-encoding', usaBrotli ? 'br' : 'gzip');
     raw.setHeader('vary', 'accept-encoding');
 
+    // Si el cliente se fue (navegó a otra página, cerró la pestaña o canceló
+    // un prefetch), `res` ya está destruido: escribir en él lanza
+    // ERR_STREAM_DESTROYED. Sin este try/catch, ese error sube como 'error' del
+    // Writable SIN listener y tumba el proceso entero (el portal se cae
+    // entero por un clic). Un 'error' en un stream sin handler es fatal.
     const salida = new Writable({
       write(chunk, _enc, cb) {
-        raw.write(chunk, cb);
+        if (res.writableEnded || res.destroyed) { cb(); return; }
+        try { raw.write(chunk, cb); } catch { cb(); }
       },
       final(cb) {
-        raw.end();
+        if (!res.writableEnded && !res.destroyed) {
+          try { raw.end(); } catch { /* ya destruido */ }
+        }
         cb();
       },
     });
@@ -94,13 +102,19 @@ function crearProxyRespuesta(req, res) {
       onwritePendientes = [];
       for (const cb of q) cb();
     });
-    zlibStream.on('error', () => {
-      try {
-        res.destroy();
-      } catch {
-        /* ya destruido */
-      }
-    });
+
+    // Soltar todo cuando la conexión muere, sin propagar el error.
+    // Es idempotente: en el camino normal ya está todo cerrado y no hace nada.
+    const soltar = () => {
+      try { zlibStream.unpipe(salida); } catch { /* ya soltado */ }
+      try { zlibStream.destroy(); } catch { /* ya destruido */ }
+      try { salida.destroy(); } catch { /* ya destruido */ }
+    };
+    zlibStream.on('error', soltar);
+    salida.on('error', soltar);
+    res.on('close', soltar);
+    res.on('error', soltar);
+
     zlibStream.pipe(salida);
 
     comprimiendo = true;

@@ -8,12 +8,10 @@
     "build": "astro build",
     "preview": "astro preview",
     "start": "node ./scripts/serve.mjs",
-    "set-password": "node ./scripts/set-password.mjs",
     "scan-secrets": "node ./scripts/scan-secrets.mjs --strict",
     "scan-secrets:soft": "node ./scripts/scan-secrets.mjs",
     "db:init": "node ./scripts/db-init.mjs",
-    "db:load": "node ./scripts/load-excel.mjs",
-    "test:e2e": "node ./scripts/test-e2e.mjs"
+    "db:load": "node ./scripts/load-excel.mjs"
   },
   "repository": {
     "type": "git",
@@ -32,13 +30,10 @@
     "@tailwindcss/vite": "^4.3.3",
     "astro": "^7.3.3",
     "dotenv": "^17.4.2",
-    "exceljs": "^4.4.0",
-    "lucide-react": "^1.47.0",
     "motion": "^13.4.0",
     "pg": "^8.23.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "recharts": "^3.10.1",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {

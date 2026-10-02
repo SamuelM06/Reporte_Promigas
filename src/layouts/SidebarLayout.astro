@@ -18,20 +18,77 @@ const nav = [
 ---
 
 <MainLayout title={title}>
-  <!-- Zona sensible al borde izquierdo: abre el sidebar al pasar el mouse -->
-  <div id="sidebar-edge" aria-hidden="true"></div>
-  <div id="sidebar-scrim" aria-hidden="true"></div>
+  <!-- Topbar fija y visible siempre: la navegación nunca se desaparece.
+       transition:persist = el header NO se desmonta al cambiar de página con
+       <ClientRouter />: sobrevive al swap, así que la navegación siempre está.
+       El estado activo se re-sincroniza en el script de abajo. -->
+  <header transition:persist="topbar" class="topbar sticky top-0 z-40 backdrop-blur-xl border-b border-tinta/10 bg-canvas/85">
+    <div class="mx-auto flex w-full max-w-[1720px] items-center justify-between gap-3 px-3 py-2 sm:px-6">
+      <div class="flex items-center gap-3">
+        <!-- Botón del menú lateral. SIN `md:hidden` a propósito: el menú lateral
+             debe poder abrirse en cualquier ancho, no solo en móvil. (Además
+             `md:hidden` nunca ganaba aquí: la regla scoped de abajo está sin
+             capa de Tailwind y las utilidades en capa no la pueden superar.) -->
+        <button id="sidebar-toggle" type="button" class="btn-menu" aria-label="Abrir navegación" title="Menú" aria-expanded="false" aria-controls="sidebar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"><line x1="3" x2="21" y1="6" y2="6"/><line x1="3" x2="21" y1="12" y2="12"/><line x1="3" x2="21" y1="18" y2="18"/></svg>
+        </button>
 
-  <aside id="sidebar" aria-label="Navegación principal">
+        <a href="/" class="flex items-center gap-2.5" aria-label="Inicio">
+          <img src="/logos/Transparente_Logo_azul_letra_azul.svg" alt="Xuma" class="h-8 w-auto dark:hidden" />
+          <img src="/logos/Transparente_Logo_blanco_letra_blanca.svg" alt="Xuma" class="hidden h-8 w-auto dark:block" />
+          <div class="hidden sm:block">
+            <span class="block text-[10px] font-extrabold uppercase tracking-widest text-tinta/50 leading-tight">Gestión Diaria</span>
+            <span class="block text-sm font-extrabold text-tinta leading-tight">Promigas <span class="text-xuma-verde-oscuro dark:text-xuma-verde-claro">· 2026</span></span>
+          </div>
+        </a>
+      </div>
+
+      <!-- Navegación central siempre visible en desktop (Navbar) -->
+      <nav class="hidden md:flex items-center gap-1 rounded-2xl glass p-1" aria-label="Navegación principal">
+        {nav.map((item) => {
+          const activo = actual === item.href || actual === `${item.href}/`;
+          return (
+            <a
+              href={item.href}
+              data-astro-prefetch="hover"
+              class="nav-pill"
+              aria-current={activo ? 'page' : undefined}
+            >
+              <span class="h-4 w-4 shrink-0 inline-flex items-center" set:html={item.svg} />
+              <span>{item.label}</span>
+            </a>
+          );
+        })}
+      </nav>
+
+      <div class="flex items-center gap-2">
+        <span class="hidden lg:inline-flex items-center gap-1.5 rounded-full bg-tinta/10 px-3 py-1 text-[11px] font-bold text-tinta/70">
+          <span class="h-1.5 w-1.5 rounded-full bg-xuma-verde-claro animate-pulse"></span>
+          Corte Ene-Sep 2026
+        </span>
+        <ThemeToggle client:load />
+      </div>
+    </div>
+  </header>
+
+  <!-- Telón de fondo móvil -->
+  <div id="sidebar-scrim" transition:persist="scrim" aria-hidden="true"></div>
+
+  <!-- Drawer lateral para móvil o acceso directo. Persistido: el menú lateral
+       está siempre en el DOM y nunca desaparece al cambiar de página. -->
+  <aside id="sidebar" transition:persist="sidebar" aria-label="Menú lateral" aria-hidden="true">
     <div class="side-brand">
       <a href="/" class="side-logo" aria-label="Inicio Gestión Diaria Promigas">
-        <img src="/logos/Transparente_Logo_azul_letra_azul.svg" alt="Xuma" class="h-10 w-auto dark:hidden" />
-        <img src="/logos/Transparente_Logo_blanco_letra_blanca.svg" alt="Xuma" class="hidden h-10 w-auto dark:block" />
+        <img src="/logos/Transparente_Logo_azul_letra_azul.svg" alt="Xuma" class="h-9 w-auto dark:hidden" />
+        <img src="/logos/Transparente_Logo_blanco_letra_blanca.svg" alt="Xuma" class="hidden h-9 w-auto dark:block" />
       </a>
-      <div class="side-title">
+      <div class="side-title flex-1">
         <p class="side-kicker">Gestión Diaria</p>
         <p class="side-name">Promigas <span>· 2026</span></p>
       </div>
+      <button id="sidebar-close" type="button" class="side-close-btn" aria-label="Cerrar menú">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="18" y2="6"/></svg>
+      </button>
     </div>
 
     <p class="side-section">Corte · Enero a Septiembre 2026</p>
@@ -40,7 +97,7 @@ const nav = [
       {nav.map((item) => {
         const activo = actual === item.href || actual === `${item.href}/`;
         return (
-          <a href={item.href} data-astro-prefetch="hover" class={`side-link ${activo ? 'side-active' : ''}`} aria-current={activo ? 'page' : undefined}>
+          <a href={item.href} class="side-link" aria-current={activo ? 'page' : undefined}>
             <span class="side-icon" set:html={item.svg} />
             <span class="side-text">
               <span class="side-label">{item.label}</span>
@@ -60,43 +117,84 @@ const nav = [
           <span class="side-desc">Acumulado 2026</span>
         </span>
       </div>
-      <div class="side-actions">
-        <ThemeToggle client:load />
-      </div>
     </div>
   </aside>
 
   <div class="side-page">
-    <main class="mx-auto w-full max-w-[1720px] px-4 py-4 sm:px-6">
+    <main class="mx-auto w-full max-w-[1720px] px-3 py-3 sm:px-6">
       <slot />
     </main>
     <Footer />
   </div>
 
   <style>
-    #sidebar-edge { position: fixed; inset: 0 auto 0 0; width: 18px; z-index: 60; }
-    #sidebar-scrim { position: fixed; inset: 0; z-index: 55; background: rgba(5,8,30,.45); backdrop-filter: blur(2px); opacity: 0; pointer-events: none; transition: opacity .35s ease; }
-    #sidebar { position: fixed; inset: 0 auto 0 0; z-index: 70; width: 288px; display: flex; flex-direction: column; gap: 1rem; padding: 1.25rem 1rem; transform: translateX(-105%); transition: transform .45s cubic-bezier(.22,1,.36,1); border-right: 1px solid color-mix(in srgb, currentColor 12%, transparent); background: color-mix(in srgb, Canvas 88%, transparent); backdrop-filter: blur(20px); box-shadow: 0 0 60px -20px rgba(18,1,128,.35); }
+    .topbar { background: color-mix(in srgb, Canvas 88%, transparent); }
+    .btn-menu {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 2.3rem; height: 2.3rem; border-radius: .75rem;
+      border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+      background: color-mix(in srgb, currentColor 6%, transparent);
+      color: inherit; cursor: pointer; transition: background .2s ease;
+    }
+    .btn-menu:hover { background: color-mix(in srgb, currentColor 12%, transparent); }
+    /* Estado activo por CSS (no por clases sueltas): el header es persistido y
+       el script solo re-sincroniza `aria-current`, sin reescribir classNames. */
+    .nav-pill {
+      display: inline-flex; align-items: center; gap: .5rem;
+      border-radius: .75rem; padding: .375rem .875rem;
+      font-size: .75rem; font-weight: 700;
+      color: color-mix(in srgb, var(--color-tinta) 70%, transparent);
+      transition: background-color .3s ease, color .3s ease, box-shadow .3s ease;
+    }
+    .nav-pill:hover { background: color-mix(in srgb, var(--color-tinta) 10%, transparent); color: var(--color-tinta); }
+    .nav-pill[aria-current="page"] {
+      background: var(--color-xuma-azul); color: #fff;
+      box-shadow: 0 6px 16px -8px rgba(18, 1, 128, .55);
+    }
+    :global(.dark) .nav-pill[aria-current="page"] { background: var(--color-xuma-verde-claro); color: #0a1030; }
+    .nav-pill :global(svg) { width: 1.05rem; height: 1.05rem; }
+
+    #sidebar-scrim {
+      position: fixed; inset: 0; z-index: 55;
+      background: rgba(5,8,30,.45); backdrop-filter: blur(3px);
+      opacity: 0; pointer-events: none; transition: opacity .3s ease;
+    }
+    #sidebar {
+      position: fixed; inset: 0 auto 0 0; z-index: 70; width: 290px;
+      display: flex; flex-direction: column; gap: 1rem; padding: 1.25rem 1rem;
+      transform: translateX(-105%); transition: transform .35s cubic-bezier(.22,1,.36,1);
+      border-right: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+      background: color-mix(in srgb, Canvas 94%, transparent);
+      backdrop-filter: blur(24px); box-shadow: 0 0 60px -20px rgba(18,1,128,.4);
+    }
     body.sidebar-open #sidebar { transform: translateX(0); }
     body.sidebar-open #sidebar-scrim { opacity: 1; pointer-events: auto; }
-    .side-page { min-height: 100dvh; display: flex; flex-direction: column; }
+
+    .side-page { min-height: calc(100dvh - 3.75rem); display: flex; flex-direction: column; }
     .side-brand { display: flex; align-items: center; gap: .75rem; }
     .side-kicker { font-size: .68rem; letter-spacing: .18em; text-transform: uppercase; opacity: .6; font-weight: 800; }
     .side-name { font-weight: 800; font-size: 1.05rem; }
     .side-name span { color: var(--color-xuma-verde-oscuro); }
+    .side-close-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 2rem; height: 2rem; border-radius: .6rem;
+      border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+      background: transparent; cursor: pointer; color: inherit;
+    }
+    .side-close-btn:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
     .side-section { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; opacity: .55; border: 1px dashed currentColor; border-radius: .9rem; padding: .55rem .8rem; }
     .side-nav { display: flex; flex-direction: column; gap: .5rem; }
-    .side-link { display: flex; align-items: center; gap: .8rem; padding: .7rem .8rem; border-radius: 1rem; border: 1px solid transparent; transition: all .3s ease; }
+    .side-link { display: flex; align-items: center; gap: .8rem; padding: .7rem .8rem; border-radius: 1rem; border: 1px solid transparent; transition: all .25s ease; }
     .side-link:hover { background: color-mix(in srgb, currentColor 8%, transparent); transform: translateX(4px); }
-    .side-active { background: var(--color-xuma-azul) !important; color: #fff !important; box-shadow: 0 12px 30px -12px rgba(18,1,128,.6); }
-    :global(.dark) .side-active { background: color-mix(in srgb, var(--color-xuma-verde-claro) 90%, transparent) !important; color: #0a1030 !important; }
+    .side-link[aria-current="page"] { background: var(--color-xuma-azul) !important; color: #fff !important; box-shadow: 0 12px 30px -12px rgba(18,1,128,.6); }
+    :global(.dark) .side-link[aria-current="page"] { background: color-mix(in srgb, var(--color-xuma-verde-claro) 90%, transparent) !important; color: #0a1030 !important; }
     .side-icon :global(svg) { width: 1.15rem; height: 1.15rem; }
     .side-icon { display: inline-flex; padding: .55rem; border-radius: .8rem; background: color-mix(in srgb, currentColor 10%, transparent); }
     .side-text { display: flex; flex-direction: column; line-height: 1.15; flex: 1; }
     .side-label { font-weight: 800; font-size: .92rem; }
     .side-desc { font-size: .72rem; opacity: .6; }
-    .side-arrow { opacity: 0; transform: translateX(-6px); transition: all .3s ease; }
-    .side-link:hover .side-arrow, .side-active .side-arrow { opacity: 1; transform: none; }
+    .side-arrow { opacity: 0; transform: translateX(-6px); transition: all .25s ease; }
+    .side-link:hover .side-arrow, .side-link[aria-current="page"] .side-arrow { opacity: 1; transform: none; }
     .side-foot { margin-top: auto; display: flex; flex-direction: column; gap: .8rem; border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent); padding-top: 1rem; }
     .side-user { display: flex; align-items: center; gap: .7rem; }
     .side-avatar { width: 2.4rem; height: 2.4rem; border-radius: 1rem; display: grid; place-items: center; font-weight: 800; background: linear-gradient(135deg, var(--color-xuma-azul), var(--color-xuma-verde-oscuro)); color: #fff; }
@@ -104,29 +202,75 @@ const nav = [
   </style>
 
   <script is:inline>
+    // ---------------------------------------------------------------------------
+    // Menú lateral: wiring GLOBAL registrado UNA sola vez y por delegación.
+    //
+    // El <header>, el telón y el <aside> llevan `transition:persist`, así que
+    // <ClientRouter /> ya no los desmonta al cambiar de página. Lo que queda por
+    // resolver en el cliente es el ESTADO (abierto/cerrado y enlace activo), y
+    // como el DOM persiste, ese estado hay que re-sincronizarlo a mano.
+    //
+    // Todo se ata con `document` + un flag: si el script llegara a ejecutarse
+    // dos veces, el segundo pase no duplica listeners (un doble toggle se
+    // cancelaría solo y el menú "dejaría de abrir").
+    // ---------------------------------------------------------------------------
     (function () {
-      var edge = document.getElementById('sidebar-edge');
-      var scrim = document.getElementById('sidebar-scrim');
-      var sidebar = document.getElementById('sidebar');
-      var timer = null;
-      function open() { document.body.classList.add('sidebar-open'); }
-      function close() { document.body.classList.remove('sidebar-open'); }
-      if (edge) {
-        edge.addEventListener('mouseenter', open);
-        edge.addEventListener('click', open);
+      if (window.__xumaSidebarListo) return;
+      window.__xumaSidebarListo = true;
+
+      function btn() { return document.getElementById('sidebar-toggle'); }
+
+      function sincronizar() {
+        var b = btn();
+        if (!b) return;
+        var abierto = document.body.classList.contains('sidebar-open');
+        b.setAttribute('aria-expanded', abierto ? 'true' : 'false');
+        var sb = document.getElementById('sidebar');
+        if (sb) sb.setAttribute('aria-hidden', abierto ? 'false' : 'true');
       }
-      if (sidebar) sidebar.addEventListener('mouseleave', function () {
-        clearTimeout(timer);
-        timer = setTimeout(close, 350);
-      });
-      if (sidebar) sidebar.addEventListener('mouseenter', function () { clearTimeout(timer); });
-      if (scrim) scrim.addEventListener('click', close);
-      document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
-      // Al cambiar de página, se esconde solo con animación (el layout se re-monta cerrado por defecto).
+
+      function abrir() { document.body.classList.add('sidebar-open'); sincronizar(); }
+      function cerrar() { document.body.classList.remove('sidebar-open'); sincronizar(); }
+      function toggle() {
+        if (document.body.classList.contains('sidebar-open')) cerrar();
+        else abrir();
+      }
+
+      // Estado activo según la ruta real (el header persistido conserva el
+      // marcado viejo: sin esto la "página actual" se queda congelada).
+      function marcarActivo() {
+        var ruta = location.pathname.replace(/\/+$/, '') || '/';
+        document.querySelectorAll('#sidebar a[href], nav[aria-label="Navegación principal"] a[href]').forEach(function (a) {
+          var href = a.getAttribute('href') || '';
+          var destino = href.replace(/\/+$/, '') || '/';
+          if (destino === ruta) a.setAttribute('aria-current', 'page');
+          else a.removeAttribute('aria-current');
+        });
+      }
+
       document.addEventListener('click', function (e) {
-        var a = e.target && e.target.closest ? e.target.closest('#sidebar a[href]') : null;
-        if (a) { close(); }
+        var t = e.target;
+        if (!t || !t.closest) return;
+        if (t.closest('#sidebar-toggle')) {
+          e.preventDefault();
+          toggle();
+        } else if (t.closest('#sidebar-close') || t.closest('#sidebar-scrim') || t.closest('#sidebar a[href]')) {
+          cerrar();
+        }
       });
+
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') cerrar();
+      });
+
+      // Tras cada navegación: el drawer arranca cerrado, coherente y con la
+      // ruta activa marcada.
+      document.addEventListener('astro:after-swap', function () { cerrar(); marcarActivo(); });
+      document.addEventListener('astro:page-load', function () { cerrar(); marcarActivo(); });
+      window.addEventListener('pageshow', function () { cerrar(); marcarActivo(); });
+
+      marcarActivo();
+      sincronizar();
     })();
   </script>
 </MainLayout>

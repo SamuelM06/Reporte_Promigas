@@ -5,7 +5,7 @@ import { cargaSSR, filtrosPorDefecto, getMetadatos, METADATOS_VACIOS } from '../
 const f = filtrosPorDefecto();
 let metadatos = METADATOS_VACIOS;
 try {
-  metadatos = await cargaSSR('inicio/metadatos', getMetadatos(f), METADATOS_VACIOS);
+  metadatos = await cargaSSR('global/metadatos', getMetadatos(f), METADATOS_VACIOS, 300_000);
 } catch { metadatos = METADATOS_VACIOS; }
 const total = metadatos?.total ?? 0;
 const fmt = new Intl.NumberFormat('es-CO');
@@ -42,7 +42,8 @@ const fmt = new Intl.NumberFormat('es-CO');
           Portal de la gestión diaria de <strong class="text-tinta">Promigas 2026</strong>:
           gaseras, aseguradoras, canales, productos y estados
           <strong class="text-tinta"> hasta septiembre</strong>, con la identidad
-          visual de Xuma. Pasa el mouse por el borde izquierdo para abrir el menú lateral.
+          visual de Xuma. Navega con la barra superior o con el botón de menú
+          (☰) en pantallas pequeñas.
         </p>
         <div class="mt-6 flex flex-wrap items-center gap-3">
           <a href="/dashboard" class="group inline-flex h-12 items-center gap-2 rounded-2xl bg-xuma-azul px-6 font-bold text-white shadow-lg shadow-xuma-azul/20 transition-all duration-300 hover:scale-105 hover:bg-xuma-azul-2 dark:bg-xuma-verde-claro dark:text-[#0a1030] dark:hover:bg-xuma-verde-oscuro">
@@ -67,8 +68,8 @@ const fmt = new Intl.NumberFormat('es-CO');
           <h2 class="text-lg font-bold text-tinta">¿Cómo leer este reporte?</h2>
           <p class="mt-2 text-xs leading-relaxed text-tinta/65 md:text-sm">
             Los datos viven en <code class="rounded-md bg-tinta/10 px-2 py-0.5">DataCenter_Promigas · reportes.reporte_promi</code>.
-            El corte cubre de enero a septiembre de 2026 por fecha de ejecución. Usa el menú lateral
-            (se abre con el mouse y se esconde solo al cambiar de página) para navegar.
+            El corte cubre de enero a septiembre de 2026 por fecha de ejecución. La barra de
+            navegación superior siempre está visible; en móvil se abre además el menú lateral con el botón ☰.
           </p>
         </div>
         <a href="/dashboard" class="glass glass-hover inline-flex h-11 items-center gap-2 rounded-2xl px-5 text-sm font-semibold text-tinta">Ir al dashboard</a>

@@ -37,7 +37,10 @@ export function filtrosPorDefecto(): Filtros {
 }
 
 export function parseFiltros(url: URL): Filtros {
-  const g = (k: string) => url.searchParams.get(k) ?? undefined;
+  const g = (k: string) => {
+    const v = url.searchParams.get(k)?.trim();
+    return v && v.length > 0 ? v : undefined;
+  };
   const gl = (k: string) => {
     const v = url.searchParams.getAll(k).map((s) => s.trim()).filter(Boolean);
     return v.length ? v : undefined;
@@ -45,29 +48,27 @@ export function parseFiltros(url: URL): Filtros {
   return {
     desde: g('desde') ?? '2026-01-01',
     hasta: g('hasta') ?? '2026-12-31',
-    mes: g('mes') ?? undefined,
+    mes: g('mes'),
     gasera: gl('gasera'),
     aseguradora: gl('aseguradora'),
     canal: gl('canal'),
     cabina: gl('cabina'),
     estado: gl('estado'),
-    q: g('q') ?? undefined,
+    q: g('q'),
   };
 }
 
 // El grano mensual del reporte es la columna MES de la base (mes_norm),
 // en el orden ENERO → DICIEMBRE.
-export const MESES_ORDEN = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
-
 const ORDEN_MES_SQL = `CASE mes_norm WHEN 'ENERO' THEN 1 WHEN 'FEBRERO' THEN 2 WHEN 'MARZO' THEN 3 WHEN 'ABRIL' THEN 4 WHEN 'MAYO' THEN 5 WHEN 'JUNIO' THEN 6 WHEN 'JULIO' THEN 7 WHEN 'AGOSTO' THEN 8 WHEN 'SEPTIEMBRE' THEN 9 WHEN 'OCTUBRE' THEN 10 WHEN 'NOVIEMBRE' THEN 11 WHEN 'DICIEMBRE' THEN 12 ELSE 99 END`;
 
 function whereGestion(f: Filtros, params: unknown[]): string {
   const cond: string[] = ['1=1'];
-  if (f.desde) { params.push(f.desde); cond.push(`(fecha_ejecucion IS NULL OR fecha_ejecucion >= $${params.length}::date)`); }
-  if (f.hasta) { params.push(f.hasta); cond.push(`(fecha_ejecucion IS NULL OR fecha_ejecucion <= $${params.length}::date)`); }
-  if (f.mes) { params.push(f.mes.trim().toUpperCase()); cond.push(`mes_norm = $${params.length}`); }
+  if (f.desde && !f.mes) { params.push(f.desde); cond.push(`(fecha_ejecucion IS NULL OR fecha_ejecucion >= $${params.length}::date)`); }
+  if (f.hasta && !f.mes) { params.push(f.hasta); cond.push(`(fecha_ejecucion IS NULL OR fecha_ejecucion <= $${params.length}::date)`); }
+  if (f.mes?.trim()) { params.push(f.mes.trim().toUpperCase()); cond.push(`mes_norm = $${params.length}`); }
   const lista = (col: string, vals?: string[]) => {
-    const l = (vals ?? []).map((v) => v.trim()).filter(Boolean);
+    const l = (vals ?? []).map((v) => v.trim().toUpperCase()).filter(Boolean);
     if (!l.length) return;
     params.push(l);
     cond.push(`${col} = ANY($${params.length})`);
@@ -87,8 +88,9 @@ function whereGestion(f: Filtros, params: unknown[]): string {
 const VISTA = `reportes.reporte_promi`;
 
 export async function getMetadatos(_f: Filtros): Promise<Metadatos> {
-  try {
-    const total = await queryOne<{ n: string }>(`SELECT COUNT(*)::text AS n FROM ${VISTA}`);
+  // Sin try/catch interno: si la DB falla, el error SUBE hasta cargaSSR, que
+  // aplica el fallback SIN cachearlo (un vacío cacheado dejaba todo en 0).
+  const total = await queryOne<{ n: string }>(`SELECT COUNT(*)::text AS n FROM ${VISTA}`);
     const rango = await queryOne<{ min: string; max: string }>(
       `SELECT COALESCE(MIN(fecha_ejecucion)::text,'2026-01-01') AS min, COALESCE(MAX(fecha_ejecucion)::text,'2026-12-31') AS max FROM ${VISTA}`,
     );
@@ -114,57 +116,6 @@ export async function getMetadatos(_f: Filtros): Promise<Metadatos> {
       estados: estados.map((r) => r.v),
       porMes: porMes.map((r) => ({ mes: r.mes, total: Number(r.total) })),
     };
-  } catch {
-    return METADATOS_VACIOS;
-  }
-}
-
-export interface Kpis {
-  total: number;
-  retenidos: number;
-  aptos: number;
-  noAptos: number;
-  cancelados: number;
-  noContacto: number;
-  pctRetencion: number;
-}
-
-export async function getKpis(f: Filtros): Promise<Kpis> {
-  const params: unknown[] = [];
-  const w = whereGestion(f, params);
-  const row = await queryOne<any>(
-    `SELECT COUNT(*)::int AS total,
-      COUNT(*) FILTER (WHERE ${RETENIDOS_SQL})::int AS retenidos,
-      COUNT(*) FILTER (WHERE ${APTOS_SQL})::int AS aptos,
-      COUNT(*) FILTER (WHERE ${NO_APTOS_SQL})::int AS noaptos,
-      COUNT(*) FILTER (WHERE estado_norm ILIKE 'CANCELAD%')::int AS cancelados,
-      COUNT(*) FILTER (WHERE estado_norm ILIKE 'NO CONTACTO%')::int AS nocon
-     FROM ${VISTA} WHERE ${w}`,
-    params,
-  ).catch(() => undefined);
-  const retenidos = row?.retenidos ?? 0;
-  const aptos = row?.aptos ?? 0;
-  return {
-    total: row?.total ?? 0,
-    retenidos,
-    aptos,
-    noAptos: row?.noaptos ?? 0,
-    cancelados: row?.cancelados ?? 0,
-    noContacto: row?.nocon ?? 0,
-    pctRetencion: aptos ? Math.round((retenidos / aptos) * 1000) / 10 : 0,
-  };
-}
-
-export async function getTendencia(f: Filtros) {
-  const params: unknown[] = [];
-  const w = whereGestion(f, params);
-  return query(
-    `SELECT mes_norm AS mes, COUNT(*)::int AS total,
-      COUNT(*) FILTER (WHERE estado_norm ILIKE 'RETENID%')::int AS retenidos,
-      COUNT(*) FILTER (WHERE estado_norm ILIKE 'CANCELAD%')::int AS cancelados
-     FROM ${VISTA} WHERE ${w} AND mes_norm IS NOT NULL GROUP BY mes_norm ORDER BY ${ORDEN_MES_SQL}`,
-    params,
-  ).catch(() => []);
 }
 
 export interface FilaMensualAseguradora { mes: string; aseguradora: string; total: number; }
@@ -187,9 +138,9 @@ export async function getMensualPorAseguradora(f: Filtros): Promise<FilaMensualA
      FROM ${VISTA} WHERE ${w} AND mes_norm IS NOT NULL
      GROUP BY mes_norm, ${ASEG_CANON}
      HAVING COUNT(*) > 0
-     ORDER BY ${ORDEN_MES_SQL}, 2`,
+      ORDER BY ${ORDEN_MES_SQL}, 2`,
     params,
-  ).catch(() => []);
+  );
 }
 
 // Aptos / No aptos salen de la columna CLASIFICACION de la base (índice 19 del Excel).
@@ -221,7 +172,7 @@ export async function getDashboardMensual(f: Filtros): Promise<FilaDashboardMens
       COUNT(*) FILTER (WHERE ${NO_APTOS_SQL})::int AS no_aptos
      FROM ${VISTA} WHERE ${w} AND mes_norm IS NOT NULL GROUP BY mes_norm ORDER BY ${ORDEN_MES_SQL}`,
     params,
-  ).catch(() => []);
+  );
   return rows.map((r: any) => {
     const aptos = Number(r.aptos ?? 0);
     const retenidos = Number(r.retenidos ?? 0);
@@ -237,20 +188,6 @@ export async function getDashboardMensual(f: Filtros): Promise<FilaDashboardMens
     };
   });
 }
-export async function getTabla(f: Filtros, page = 1, pageSize = 50) {
-  const params: unknown[] = [];
-  const w = whereGestion(f, params);
-  const offset = (Math.max(1, page) - 1) * pageSize;
-  params.push(pageSize, offset);
-  const rows = await query(
-    `SELECT id, gasera, aseguradora, contrato, localidad, operador, canal, producto, tipo_contacto, estado, motivo, fecha_ejecucion::text AS fecha_ejecucion, mes, cabina, asesor_venta, clasificacion
-     FROM ${VISTA} WHERE ${w} ORDER BY fecha_ejecucion DESC NULLS LAST, id DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
-    params,
-  ).catch(() => []);
-  const tot = await queryOne<{ n: string }>(`SELECT COUNT(*)::text AS n FROM ${VISTA} WHERE ${w}`, params.slice(0, -2)).catch(() => ({ n: '0' }));
-  return { rows, total: Number((tot as any)?.n ?? 0), page, pageSize };
-}
-
 // Caché SSR acotada (evita golpear la DB compartida en cada request SIN crecer sin límite).
 // - TTL por entrada + borrado perezoso de vencidas al leer.
 // - Tope duro de entradas con desalojo FIFO (las claves incluyen página y filtros,
@@ -293,19 +230,22 @@ if (!g.__barridoCachePromi) {
   if (typeof t === 'object' && t !== null && 'unref' in t) (t as { unref(): void }).unref();
 }
 
-/** Limpieza manual (p. ej. tras recargar la base con db:load). */
-export function limpiarCacheSSR(): void {
-  cache.clear();
-}
-
 export async function cargaSSR<T>(clave: string, promesa: Promise<T>, fallback: T, ttlMs = 30_000): Promise<T> {
   const hit = cacheGet<T>(clave);
   if (hit !== undefined) return hit;
   try {
     const val = await promesa;
-    cacheSet(clave, val, ttlMs);
+    // No cachear resultados vacíos provenientes de un error o fallback transitorio
+    if (val !== undefined && val !== null) {
+      const esArrayVacio = Array.isArray(val) && val.length === 0;
+      const esMetaVacio = typeof val === 'object' && (val as any)?.total === 0;
+      if (!esArrayVacio && !esMetaVacio) {
+        cacheSet(clave, val, ttlMs);
+      }
+    }
     return val;
-  } catch {
+  } catch (err) {
+    console.error(`[cargaSSR] Falló carga para clave "${clave}":`, err);
     return fallback;
   }
 }

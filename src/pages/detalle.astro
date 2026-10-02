@@ -6,11 +6,9 @@ import { cargaSSR, filtrosPorDefecto, getMetadatos, getMensualPorAseguradora, ge
 const f = { ...filtrosPorDefecto(), ...parseFiltros(Astro.url) };
 const claveFiltros = JSON.stringify(f);
 
-const [mensual, tablaMes]: [any[], any[]] = await Promise.all([
-  cargaSSR(`detalle/mensual-aseguradora/${claveFiltros}`, getMensualPorAseguradora(f), []),
-  cargaSSR(`detalle/tabla-mes/${claveFiltros}`, getDashboardMensual(f), []),
-]);
-const metadatos = await cargaSSR('detalle/metadatos', getMetadatos(f), METADATOS_VACIOS);
+const metadatos = await cargaSSR('global/metadatos', getMetadatos(f), METADATOS_VACIOS, 300_000);
+const tablaMes: any[] = await cargaSSR(`mensual/${claveFiltros}`, getDashboardMensual(f), []);
+const mensual: any[] = await cargaSSR(`mensual-aseguradora/${claveFiltros}`, getMensualPorAseguradora(f), []);
 const fmt = new Intl.NumberFormat('es-CO');
 
 const selMes = f.mes ?? '';
@@ -39,8 +37,8 @@ const COLORES: Record<string,string> = {
 const mapaMensual: Record<string, Record<string, number>> = {};
 for (const r of mensual) {
   if (!r?.mes) continue;
-  mapaMensual[r.mes] = mapaMensual[r.mes] ?? {};
-  mapaMensual[r.mes][r.aseguradora] = Number(r.total ?? 0);
+  const mesMap = mapaMensual[r.mes] ?? (mapaMensual[r.mes] = {});
+  mesMap[r.aseguradora] = Number(r.total ?? 0);
 }
 const mesesChart = ORDEN_MES.filter((m) => mapaMensual[m]);
 const maxBar = Math.max(1, ...mensual.map((r: any) => Number(r.total ?? 0)));
@@ -48,13 +46,17 @@ const totalesAseg = ASEGS.map((a) => ({ a, total: mensual.filter((r: any) => r.a
 // Alturas precalculadas para el gráfico general (evita expresiones frágiles en el template)
 const barrasPorMes: Record<string, { a: string; total: number; h: number; delay: string }[]> = {};
 mesesChart.forEach((mes, i) => {
-  barrasPorMes[mes] = ASEGS.filter((a) => (mapaMensual[mes]?.[a] ?? 0) > 0).map((a, j) => {
-    const total = mapaMensual[mes][a] ?? 0;
+  const mesMap = mapaMensual[mes] ?? {};
+  barrasPorMes[mes] = ASEGS.filter((a) => (mesMap[a] ?? 0) > 0).map((a, j) => {
+    const total = mesMap[a] ?? 0;
     return { a, total, h: Math.max(6, Math.round((total / maxBar) * 250)), delay: `${(0.1 + i * 0.09 + j * 0.05).toFixed(2)}s` };
   });
 });
 const totalMes: Record<string, number> = {};
-mesesChart.forEach((mes) => { totalMes[mes] = ASEGS.reduce((s, a) => s + (mapaMensual[mes]?.[a] ?? 0), 0); });
+mesesChart.forEach((mes) => {
+  const mesMap = mapaMensual[mes] ?? {};
+  totalMes[mes] = ASEGS.reduce((s, a) => s + (mesMap[a] ?? 0), 0);
+});
 
 const tTot = (k: string) => tablaMes.reduce((s: number, r: any) => s + Number(r[k] ?? 0), 0);
 const TT = tTot('total'), TRET = tTot('retenidos'), TAPT = tTot('aptos');

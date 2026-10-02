@@ -15,6 +15,7 @@ config/
 # Scripts de consulta a la DB con credenciales embebidas (¡NO subir!)
 query_db.mjs
 query_observ.mjs
+inspect_pg.mjs
 
 
 # Logs (auditoría / seguridad)

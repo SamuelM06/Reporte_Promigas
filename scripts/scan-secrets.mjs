@@ -21,9 +21,6 @@ import { readFileSync } from 'node:fs';
 
 const ESTRICTO = process.argv.includes('--strict');
 
-// Directorios que nunca aportan ruido: no se versionan, no se escanean.
-const EXCLUIDOS = new Set(['node_modules', 'dist', '.astro', '.git', 'logs', 'coverage']);
-
 // Extensiones que legítimamente guardan binarios o_LOCK no texto.
 const BINARIOS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.ico', '.pdf', '.xlsx', '.zip', '.woff', '.woff2', '.ttf', '.map', '.geojson']);
 

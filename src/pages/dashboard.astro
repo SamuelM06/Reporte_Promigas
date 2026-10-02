@@ -5,8 +5,8 @@ import { cargaSSR, filtrosPorDefecto, getDashboardMensual, getMetadatos, METADAT
 
 const f = { ...filtrosPorDefecto(), ...parseFiltros(Astro.url) };
 const claveFiltros = JSON.stringify(f);
-const mensual: any[] = await cargaSSR(`dashboard/mensual/${claveFiltros}`, getDashboardMensual(f), []);
-const metadatos = await cargaSSR('dashboard/metadatos', getMetadatos(f), METADATOS_VACIOS);
+const mensual: any[] = await cargaSSR(`mensual/${claveFiltros}`, getDashboardMensual(f), []);
+const metadatos = await cargaSSR('global/metadatos', getMetadatos(f), METADATOS_VACIOS, 300_000);
 const fmt = new Intl.NumberFormat('es-CO');
 
 const tot = (k: string) => mensual.reduce((s: number, r: any) => s + Number(r[k] ?? 0), 0);
@@ -53,7 +53,17 @@ const svgUserX = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 const svgPct = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" x2="5" y1="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>';
 const svgChart = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg>';
 
-const kpis = [
+interface KpiCard {
+  label: string;
+  valor: number;
+  texto: string;
+  icon: string;
+  chip: string;
+  num: string;
+  nota?: string;
+}
+
+const kpis: KpiCard[] = [
   { label: 'Total llamadas', valor: T, texto: fmt.format(T), icon: svgLlamadas, chip: 'kpi-azul', num: 'text-tinta' },
   { label: 'Inbound', valor: INB, texto: fmt.format(INB), icon: svgIn, chip: 'kpi-verde', num: 'text-xuma-verde-oscuro' },
   { label: 'Outbound', valor: OUT, texto: fmt.format(OUT), icon: svgOut, chip: 'kpi-violeta', num: 'text-[#5b3df0]' },

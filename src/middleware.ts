@@ -1,22 +1,21 @@
 // ============================================================================
-// MIDDLEWARE DE SEGURIDAD (Astro)
+// MIDDLEWARE (Astro)
 // ----------------------------------------------------------------------------
 // 1) Autenticación: DESACTIVADA A PROPÓSITO desde el commit 921e33a
 //    ("desactiva login obligatorio... para acceso directo al dashboard").
-//    `/login` solo redirige a `/dashboard` y `getSessionUser` ya no se llama
-//    en ningún punto del request. El portal queda abierto para quien tenga
-//    acceso a la red.
-//
-//    AVISO: el login está deshabilitado y los endpoints /api/auth/* se eliminaron
-//    del repo para no emitir tokens sin consumidor. Este portal muestra datos
-//    de gestión (contrato, asesor, motivo): publicarlo fuera de una red
+//    `/login` solo redirige a `/dashboard`. Este portal muestra datos de
+//    gestión (contrato, asesor, motivo): publicarlo fuera de una red
 //    controlada es un problema de datos, no de código.
 //
-//    Si se reactiva la auth, hay que llamar a `getSessionUser(context.cookies)`
-//    aquí antes de `next()` y proteger /api/* con 401.
+//    Si se reactiva la auth, hay que volver a traer `lib/auth.ts` (se borró al
+//    eliminar el código muerto), validar la sesión aquí antes de `next()` y
+//    proteger las rutas que la necesiten.
 // 2) Endurecimiento: headers de seguridad + CSP en toda respuesta.
-// 3) Rate limiting genérico sobre la API (mitigación de abuso / recolección),
-//    con excepción de /api/health para no gastar el cupo de los usuarios.
+// 3) Rate limiting sobre /api/* (mitigación de abuso / recolección). Hoy el
+//    portal no expone rutas /api: queda como guarda si se vuelve a añadir
+//    alguna. NO se aplica a las páginas: detrás de un proxy `clientAddress` es
+//    siempre la IP del proxy y el cupo lo consumirían todos los usuarios a la
+//    vez. Para las páginas SSR la mitigación es la caché LRU de `lib/query.ts`.
 // ============================================================================
 import { defineMiddleware } from 'astro:middleware';
 import { rateLimit } from './lib/ratelimit';
@@ -37,11 +36,6 @@ const esEstatico = (p: string) =>
 // Página dinámica = todo lo que no es API ni estático (el HTML del portal).
 const esPaginaDinamica = (p: string) => !esRutaApi(p) && !esEstatico(p);
 
-// El health check queda fuera del rate limit: lo sondea el orquestador cada
-// pocos segundos, y como `clientAddress` detrás de un proxy es siempre la IP
-// del proxy, consumiría el cupo de la API de todos los usuarios a la vez.
-const esHealth = (p: string) => p === '/api/health' || p === '/api/health/';
-
 export const onRequest = defineMiddleware(async (context, next) => {
   const { url, redirect, clientAddress } = context;
   const path = url.pathname;
@@ -50,8 +44,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
     return redirect('/dashboard');
   }
 
-  // --- Ratelimit sobre la API autenticada ------------------------------------
-  if (esRutaApi(path) && !esHealth(path)) {
+  // --- Ratelimit sobre /api/* (solo si algún día vuelve a haber rutas) -------
+  if (esRutaApi(path)) {
     const kapi = rateLimit(`api:${clientAddress}`, ENV.rateApiMax, ENV.rateApiWindowMs);
     if (!kapi.allowed) {
       return new Response(JSON.stringify({ error: 'Demasiadas solicitudes. Intente luego.' }), {
