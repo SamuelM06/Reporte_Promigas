@@ -71,9 +71,11 @@ const chips = defs
   @media (min-width: 1024px) { .filtros-grid { grid-template-columns: repeat(4, minmax(0,1fr)) auto; align-items: end; } }
   .filtro { display: flex; flex-direction: column; gap: .25rem; min-width: 0; font-size: .68rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: color-mix(in srgb, currentColor 55%, transparent); }
   .filtro-nombre { display: inline-flex; align-items: center; gap: .4rem; }
-  .filtro-ico { display: inline-flex; align-items: center; justify-content: center; width: 1.5rem; height: 1.5rem; border-radius: .5rem; color: #fff; background: linear-gradient(135deg, var(--color-xuma-azul), var(--color-xuma-verde-oscuro)); }
-  .filtro-ico :global(svg) { width: .85rem; height: .85rem; }
-  .filtro-titulo-ico { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; border-radius: .7rem; color: #fff; background: linear-gradient(135deg, var(--color-xuma-azul), var(--color-xuma-verde-oscuro)); }
+  .filtro-ico { display: inline-flex; align-items: center; justify-content: center; width: 1.5rem; height: 1.5rem; color: var(--color-xuma-verde-oscuro); }
+  :global(.dark) .filtro-ico { color: var(--color-xuma-verde-claro); }
+  .filtro-ico :global(svg) { width: 1rem; height: 1rem; }
+  .filtro-titulo-ico { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; color: var(--color-xuma-verde-oscuro); }
+  :global(.dark) .filtro-titulo-ico { color: var(--color-xuma-verde-claro); }
   .filtro-titulo-ico :global(svg) { width: 1rem; height: 1rem; }
   .filtro-sel {
     height: 2.75rem; border-radius: .9rem; padding: 0 .8rem;
