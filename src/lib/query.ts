@@ -1,0 +1,183 @@
+// Query layer para Gestión Diaria Promigas 2026.
+// Tabla: gestion.reporte_promi (en DataCenter_Promigas).
+import { query, queryOne } from './db';
+
+export interface Filtros {
+  desde?: string;
+  hasta?: string;
+  mes?: string;
+  distribuidora?: string[];
+  aseguradora?: string[];
+  canal?: string[];
+  cabina?: string[];
+  estado?: string[];
+  q?: string;
+}
+
+export interface Metadatos {
+  total: number;
+  rangoFechas: { min: string; max: string };
+  meses: string[];
+  distribuidoras: string[];
+  aseguradoras: string[];
+  canales: string[];
+  cabinas: string[];
+  estados: string[];
+  porMes: { mes: string; total: number }[];
+}
+
+export const METADATOS_VACIOS: Metadatos = {
+  total: 0,
+  rangoFechas: { min: '2026-01-01', max: '2026-12-31' },
+  meses: [], distribuidoras: [], aseguradoras: [], canales: [], cabinas: [], estados: [], porMes: [],
+};
+
+export function filtrosPorDefecto(): Filtros {
+  return { desde: '2026-01-01', hasta: '2026-12-31' };
+}
+
+export function parseFiltros(url: URL): Filtros {
+  const g = (k: string) => url.searchParams.get(k) ?? undefined;
+  const gl = (k: string) => {
+    const v = url.searchParams.getAll(k).map((s) => s.trim()).filter(Boolean);
+    return v.length ? v : undefined;
+  };
+  return {
+    desde: g('desde') ?? '2026-01-01',
+    hasta: g('hasta') ?? '2026-12-31',
+    mes: g('mes') ?? undefined,
+    distribuidora: gl('distribuidora'),
+    aseguradora: gl('aseguradora'),
+    canal: gl('canal'),
+    cabina: gl('cabina'),
+    estado: gl('estado'),
+    q: g('q') ?? undefined,
+  };
+}
+
+function whereGestion(f: Filtros, params: unknown[]): string {
+  const cond: string[] = ['1=1'];
+  if (f.desde) { params.push(f.desde); cond.push(`(fecha_ejecucion IS NULL OR fecha_ejecucion >= $${params.length}::date)`); }
+  if (f.hasta) { params.push(f.hasta); cond.push(`(fecha_ejecucion IS NULL OR fecha_ejecucion <= $${params.length}::date)`); }
+  if (f.mes) { params.push(f.mes.trim().toUpperCase()); cond.push(`UPPER(btrim(mes)) = $${params.length}`); }
+  const lista = (col: string, vals?: string[]) => {
+    const l = (vals ?? []).map((v) => v.trim()).filter(Boolean);
+    if (!l.length) return;
+    params.push(l);
+    cond.push(`${col} = ANY($${params.length})`);
+  };
+  lista('distribuidora_norm', f.distribuidora);
+  lista('aseguradora_norm', f.aseguradora);
+  lista('canal_norm', f.canal);
+  lista('cabina_norm', f.cabina);
+  lista('estado_norm', f.estado);
+  if (f.q?.trim()) {
+    params.push(`%${f.q.trim()}%`);
+    cond.push(`(contrato ILIKE $${params.length} OR asesor_venta ILIKE $${params.length} OR producto ILIKE $${params.length} OR motivo ILIKE $${params.length})`);
+  }
+  return cond.join(' AND ');
+}
+
+const VISTA = `gestion.reporte_promi`;
+
+export async function getMetadatos(_f: Filtros): Promise<Metadatos> {
+  try {
+    const total = await queryOne<{ n: string }>(`SELECT COUNT(*)::text AS n FROM ${VISTA}`);
+    const rango = await queryOne<{ min: string; max: string }>(
+      `SELECT COALESCE(MIN(fecha_ejecucion)::text,'2026-01-01') AS min, COALESCE(MAX(fecha_ejecucion)::text,'2026-12-31') AS max FROM ${VISTA}`,
+    );
+    const meses = await query<{ mes: string }>(`SELECT DISTINCT mes_norm AS mes FROM ${VISTA} WHERE mes_norm IS NOT NULL ORDER BY 1`);
+    const dist = await query<{ v: string }>(`SELECT DISTINCT distribuidora_norm AS v FROM ${VISTA} WHERE distribuidora_norm IS NOT NULL ORDER BY 1`);
+    const aseg = await query<{ v: string }>(`SELECT DISTINCT aseguradora_norm AS v FROM ${VISTA} WHERE aseguradora_norm IS NOT NULL ORDER BY 1`);
+    const canales = await query<{ v: string }>(`SELECT DISTINCT canal_norm AS v FROM ${VISTA} WHERE canal_norm IS NOT NULL ORDER BY 1`);
+    const cabinas = await query<{ v: string }>(`SELECT DISTINCT cabina_norm AS v FROM ${VISTA} WHERE cabina_norm IS NOT NULL ORDER BY 1`);
+    const estados = await query<{ v: string }>(`SELECT DISTINCT estado_norm AS v FROM ${VISTA} WHERE estado_norm IS NOT NULL ORDER BY 1`);
+    const porMes = await query<{ mes: string; total: string }>(
+      `SELECT mes_norm AS mes, COUNT(*)::text AS total FROM ${VISTA} GROUP BY mes_norm ORDER BY CASE mes_norm WHEN 'ENERO' THEN 1 WHEN 'FEBRERO' THEN 2 WHEN 'MARZO' THEN 3 WHEN 'ABRIL' THEN 4 WHEN 'MAYO' THEN 5 WHEN 'JUNIO' THEN 6 WHEN 'JULIO' THEN 7 WHEN 'AGOSTO' THEN 8 WHEN 'SEPTIEMBRE' THEN 9 WHEN 'OCTUBRE' THEN 10 WHEN 'NOVIEMBRE' THEN 11 WHEN 'DICIEMBRE' THEN 12 ELSE 99 END`,
+    );
+    return {
+      total: Number(total?.n ?? 0),
+      rangoFechas: { min: rango?.min ?? '2026-01-01', max: rango?.max ?? '2026-12-31' },
+      meses: meses.map((r) => r.mes),
+      distribuidoras: dist.map((r) => r.v),
+      aseguradoras: aseg.map((r) => r.v),
+      canales: canales.map((r) => r.v),
+      cabinas: cabinas.map((r) => r.v),
+      estados: estados.map((r) => r.v),
+      porMes: porMes.map((r) => ({ mes: r.mes, total: Number(r.total) })),
+    };
+  } catch {
+    return METADATOS_VACIOS;
+  }
+}
+
+export interface Kpis {
+  total: number;
+  retenidos: number;
+  cancelados: number;
+  noContacto: number;
+  pctRetencion: number;
+}
+
+export async function getKpis(f: Filtros): Promise<Kpis> {
+  const params: unknown[] = [];
+  const w = whereGestion(f, params);
+  const row = await queryOne<any>(
+    `SELECT COUNT(*)::int AS total,
+      COUNT(*) FILTER (WHERE estado_norm ILIKE 'RETENID%')::int AS retenidos,
+      COUNT(*) FILTER (WHERE estado_norm ILIKE 'CANCELAD%')::int AS cancelados,
+      COUNT(*) FILTER (WHERE estado_norm ILIKE 'NO CONTACTO%')::int AS nocon
+     FROM ${VISTA} WHERE ${w}`,
+    params,
+  ).catch(() => undefined);
+  const total = row?.total ?? 0;
+  const retenidos = row?.retenidos ?? 0;
+  return {
+    total,
+    retenidos,
+    cancelados: row?.cancelados ?? 0,
+    noContacto: row?.nocon ?? 0,
+    pctRetencion: total ? Math.round((retenidos / total) * 1000) / 10 : 0,
+  };
+}
+
+export async function getTendencia(f: Filtros) {
+  const params: unknown[] = [];
+  const w = whereGestion(f, params);
+  return query(
+    `SELECT mes_norm AS mes, COUNT(*)::int AS total,
+      COUNT(*) FILTER (WHERE estado_norm ILIKE 'RETENID%')::int AS retenidos,
+      COUNT(*) FILTER (WHERE estado_norm ILIKE 'CANCELAD%')::int AS cancelados
+     FROM ${VISTA} WHERE ${w} GROUP BY mes_norm
+     ORDER BY CASE mes_norm WHEN 'ENERO' THEN 1 WHEN 'FEBRERO' THEN 2 WHEN 'MARZO' THEN 3 WHEN 'ABRIL' THEN 4 WHEN 'MAYO' THEN 5 WHEN 'JUNIO' THEN 6 WHEN 'JULIO' THEN 7 WHEN 'AGOSTO' THEN 8 WHEN 'SEPTIEMBRE' THEN 9 WHEN 'OCTUBRE' THEN 10 WHEN 'NOVIEMBRE' THEN 11 WHEN 'DICIEMBRE' THEN 12 ELSE 99 END`,
+    params,
+  ).catch(() => []);
+}
+
+export async function getTabla(f: Filtros, page = 1, pageSize = 50) {
+  const params: unknown[] = [];
+  const w = whereGestion(f, params);
+  const offset = (Math.max(1, page) - 1) * pageSize;
+  params.push(pageSize, offset);
+  const rows = await query(
+    `SELECT id, distribuidora, aseguradora, contrato, localidad, operador, canal, producto, tipo_contacto, estado, motivo, fecha_ejecucion::text AS fecha_ejecucion, mes, cabina, asesor_venta
+     FROM ${VISTA} WHERE ${w} ORDER BY fecha_ejecucion DESC NULLS LAST, id DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
+    params,
+  ).catch(() => []);
+  const tot = await queryOne<{ n: string }>(`SELECT COUNT(*)::text AS n FROM ${VISTA} WHERE ${w}`, params.slice(0, -2)).catch(() => ({ n: '0' }));
+  return { rows, total: Number((tot as any)?.n ?? 0), page, pageSize };
+}
+
+// SSR con caché en memoria muy simple (evita golpear la DB compartida en cada request).
+const cache = new Map<string, { exp: number; val: any }>();
+export async function cargaSSR<T>(clave: string, promesa: Promise<T>, fallback: T, ttlMs = 30_000): Promise<T> {
+  const hit = cache.get(clave);
+  if (hit && hit.exp > Date.now()) return hit.val as T;
+  try {
+    const val = await promesa;
+    cache.set(clave, { exp: Date.now() + ttlMs, val });
+    return val;
+  } catch {
+    return fallback;
+  }
+}

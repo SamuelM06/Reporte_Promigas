@@ -1,0 +1,33 @@
+---
+import SidebarLayout from '../layouts/SidebarLayout.astro';
+import { cargaSSR, filtrosPorDefecto, getTabla, getMetadatos, METADATOS_VACIOS } from '../lib/query';
+const f = filtrosPorDefecto();
+const pagina: any = await cargaSSR('detalle/tabla', getTabla(f, 1, 50), { rows: [], total: 0, page: 1, pageSize: 50 });
+const metadatos = await cargaSSR('detalle/metadatos', getMetadatos(f), METADATOS_VACIOS);
+const fmt = new Intl.NumberFormat('es-CO');
+---
+
+<SidebarLayout title="Detalle · Gestión Diaria Promigas 2026">
+  <div class="mb-4 flex items-end justify-between gap-3">
+    <div>
+      <p class="text-xs font-bold uppercase tracking-widest text-tinta/55">Corte · Enero a Diciembre 2026</p>
+      <h1 class="text-2xl font-extrabold md:text-3xl">Detalle de gestión</h1>
+    </div>
+    <p class="rounded-full bg-tinta/10 px-4 py-1.5 text-xs font-bold">{fmt.format(pagina.total)} registros</p>
+  </div>
+  <section class="glass overflow-x-auto rounded-3xl p-3">
+    <table class="w-full min-w-[900px] text-left text-xs">
+      <thead><tr class="text-tinta/55 uppercase tracking-wider">
+        <th class="p-3">Contrato</th><th class="p-3">Distribuidora</th><th class="p-3">Aseguradora</th><th class="p-3">Canal</th><th class="p-3">Producto</th><th class="p-3">Estado</th><th class="p-3">Fecha</th><th class="p-3">Mes</th><th class="p-3">Cabina</th>
+      </tr></thead>
+      <tbody>
+        {pagina.rows.map((r: any) => (
+          <tr class="border-t border-tinta/10 hover:bg-tinta/5">
+            <td class="p-3 font-bold">{r.contrato ?? '—'}</td><td class="p-3">{r.distribuidora ?? '—'}</td><td class="p-3">{r.aseguradora ?? '—'}</td><td class="p-3">{r.canal ?? '—'}</td><td class="p-3">{r.producto ?? '—'}</td><td class="p-3">{r.estado ?? '—'}</td><td class="p-3">{r.fecha_ejecucion ?? '—'}</td><td class="p-3">{r.mes ?? '—'}</td><td class="p-3">{r.cabina ?? '—'}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </section>
+  <p class="mt-3 text-xs text-tinta/60">Mostrando {pagina.rows.length} de {fmt.format(pagina.total)}. Tabla avanzada con filtros y paginación en el siguiente paso.</p>
+</SidebarLayout>

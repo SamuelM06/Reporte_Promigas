@@ -1,0 +1,554 @@
+---
+import DashboardLayout from '../layouts/DashboardLayout.astro';
+
+/*
+  AVISO DE PRIVACIDAD - Ley 1581 de 2012 / Decreto 1074 de 2015.
+
+  Plantilla redactada para el esquema `siniestros` de DataCenter_Promigas.
+
+  IMPORTANTE
+  -----------
+  Los marcadores <<...>> son datos de la entidad que NO se pueden deducir del
+  codigo. No publiques esta pagina hasta llenarlos todos. La banda de
+  "pendientes" se oculta sola cuando la lista queda vacia: si la ves, la
+  politica esta incompleta.
+
+  Revisar con juridico antes de publicar. Esta plantilla es un punto de partida
+  tecnico, no un concepto juridico.
+*/
+
+// Quitar cada elemento al completarlo. Si la lista queda vacia, la banda se oculta.
+const pendientes = [
+  'Nombre de la entidad propietaria de la base de datos corporativa (el responsable legal). Xuma Insurtech solo opera el portal: no es responsable de los datos.',
+  'Confirmar si el portal queda restringido a la red interna o es alcanzable desde internet.',
+  'Definir el plazo de conservacion y que ocurre al cumplirse.',
+  'Definir con que terceros se autoriza la transmision de datos.',
+  'Numero de registro en el RNBD, si aplica.',
+];
+
+const hayPendientes = pendientes.length > 0;
+const fecha = new Date().toISOString().slice(0, 10);
+
+const datosTratados = [
+  ['Nombre completo del asegurado', 'Identificacion directa', 'Visible en el detalle y en las exportaciones.'],
+  ['Numero de contrato', 'Identificacion directa', 'Visible en tabla, detalle y exportaciones.'],
+  ['Numero de radicado del caso', 'Pseudonimo', 'Clave interna del registro.'],
+  ['Aseguradora, gasera, producto y clase', 'Datos del proceso', 'Alimentan filtros y graficos.'],
+  ['Estado del proceso', 'Datos del proceso', 'Pagado, objetado, en tramite, entre otros.'],
+  ['Fecha de radicacion', 'Datos del proceso', 'Eje de todos los reportes.'],
+  ['Monto declarado o pagado', 'Patrimonial', 'Solo cuando el registro lo tiene diligenciado.'],
+];
+
+const datosNoExpuestos = [
+  'Numero de cedula o documento de identidad',
+  'Correo electronico',
+  'Telefono o direccion de contacto',
+  'Fecha de nacimiento',
+  'Observaciones y documentos del expediente',
+];
+
+const medidas = [
+  ['Canal cifrado', 'El portal debe publicarse bajo HTTPS con HSTS. Configuracion en APP_HTTPS y APP_BASE_URL.'],
+  ['Consultas parametrizadas', 'Todas las consultas usan parametros vinculados. No hay concatenacion de SQL desde la peticion.'],
+  ['Base de datos de solo lectura', 'El usuario de conexion solo consulta: no escribe ni borra.'],
+  ['Sin datos sensibles en el navegador', 'Cedula, correo, telefono, direccion y observaciones se descartan en el servidor antes de armar la respuesta.'],
+  ['Cabeceras de seguridad', 'CSP, X-Frame-Options, nosniff, Referrer-Policy y noindex en todas las paginas.'],
+  ['Sesion sin credenciales en el cliente', 'Con la autenticacion activa, la cookie de sesion es HttpOnly y SameSite estricto.'],
+  ['Limite de peticiones', 'Limite por IP en las APIs para evitar consultas masivas automatizadas.'],
+  ['Apagado sin perdida de datos', 'Al desplegar, el servidor drena las peticiones en curso antes de cerrar la conexion.'],
+  ['Control de cambios', 'El codigo se versiona y el pipeline verifica que no se suban credenciales.'],
+];
+
+const principios = [
+  ['Finalidad', 'Los datos se usan solo para consolidar y analizar estadisticas de siniestros. No se usan para marketing, perfiles ni decisiones automatizadas sobre personas.'],
+  ['Veracidad y calidad', 'La informacion proviene de la base corporativa. Si un registro esta mal diligenciado, el portal lo refleja tal cual.'],
+  ['Transparencia', 'Esta pagina es el aviso de privacidad. Quien use el portal debe saber que mostrara datos de terceros.'],
+  ['Acceso y restriccion', 'Solo personal autorizado accede al portal. Ver seccion 4.'],
+  ['Seguridad', 'Las medidas tecnicas estan descritas en la seccion 5.'],
+  ['Confidencialidad e integridad', 'El acceso se hace por canales cifrados y la base de datos es de solo lectura.'],
+  ['Eliminacion', 'Cuando los datos dejan de ser necesarios, se eliminan. Plazo por definir en la seccion 8.'],
+];
+
+const derechos = [
+  ['Conocer', 'Saber que datos personales tiene la entidad sobre el titular y como los utiliza.'],
+  ['Consultar', 'Acceder a los datos que la entidad tenga sobre el titular.'],
+  ['Rectificar', 'Corregir datos inexactos, incompletos o con errores.'],
+  ['Actualizar', 'Actualizar los datos para que reflejen la situacion actual del titular.'],
+  ['Supresion', 'Pedir la eliminacion de datos que no tengan justificacion legal.'],
+  ['Revocar el consentimiento', 'Retirar el consentimiento dado, sin costo y de forma sencilla.'],
+  ['Saber de quien recibio sus datos', 'Conocer a que entidades se le comunicaron sus datos.'],
+];
+
+const limites = [
+  'El derecho de consulta no es absoluto. Puede quedar limitado cuando el dato afecta los derechos de terceros, cuando la informacion esta protegida por secreto de empresa, o cuando una ley lo restringe.',
+  'Los datos de ninos, ninas y adolescentes son de especial proteccion. Su tratamiento requiere el consentimiento del representante legal y respeta sus derechos.',
+  'Si el portal llegara a usarse para consultar datos de un nino sin autorizacion del representante, debe dejarse de usar: la ley lo prohibe expresamente.',
+];
+---
+
+<DashboardLayout title="Aviso de privacidad - Gestion de Siniestros Promigas">
+  <div class="mx-auto flex w-full max-w-4xl flex-col gap-4 pb-4">
+    <header class="show fade-up">
+      <a
+        href="/"
+        class="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-tinta/55 transition-colors hover:text-tinta"
+      >
+        <span aria-hidden="true">&larr;</span> Volver al inicio
+      </a>
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="inline-flex items-center gap-2 rounded-full border border-xuma-violeta/40 bg-xuma-violeta/10 px-4 py-1.5 text-xs font-bold text-[#5b3df0] uppercase dark:text-[#b8c0ff]">
+          Ley 1581 de 2012
+        </span>
+        <span class="inline-flex items-center gap-2 rounded-full border border-xuma-verde-claro/30 bg-xuma-verde-claro/10 px-4 py-1.5 text-xs font-semibold text-xuma-verde-oscuro dark:text-xuma-verde-claro">
+          Aviso de privacidad
+        </span>
+      </div>
+      <h1 class="mt-3 text-3xl font-extrabold leading-tight md:text-4xl">
+        Politica de tratamiento de <span class="texto-brillo">datos personales</span>
+      </h1>
+      <p class="mt-3 max-w-2xl text-sm leading-relaxed text-tinta/65 md:text-base">
+        Este portal consulta informacion de siniestros que incluye datos personales de personas
+        naturales. Antes de usarla, lee que datos se muestran, quien puede verlos y como ejercer
+        tus derechos.
+      </p>
+      <p class="mt-2 text-xs text-tinta/45">
+        Fundamento: Ley 1581 de 2012, Ley 1266 de 2008 y Decreto 1074 de 2015.
+        Plantilla actualizada el {fecha}.
+      </p>
+    </header>
+
+    {
+      hayPendientes && (
+        <aside
+          class="show fade-up rounded-2xl border-2 border-dashed border-amber-500/60 bg-amber-500/10 p-5"
+          style="animation-delay:0.05s"
+        >
+          <h2 class="flex items-center gap-2 text-base font-bold text-amber-700 dark:text-amber-300">
+            <span aria-hidden="true">&#9888;</span>
+            Documento incompleto - {pendientes.length} punto(s) por definir
+          </h2>
+          <p class="mt-1.5 text-xs leading-relaxed text-tinta/65">
+            Hay marcadores <code class="rounded bg-tinta/10 px-1.5 py-0.5">&lt;&lt;...&gt;&gt;</code> que dependen de la entidad. No publiques el portal hasta completarlos.
+          </p>
+          <ul class="mt-3 list-disc space-y-1 pl-5 text-xs leading-relaxed text-tinta/75">
+            {pendientes.map((p) => (
+              <li>{p}</li>
+            ))}
+          </ul>
+        </aside>
+      )
+    }
+
+    <section class="show fade-up glass rounded-3xl p-5 md:p-6" style="animation-delay:0.1s">
+      <h2 class="text-lg font-bold text-tinta">En resumen</h2>
+      <div class="mt-3 grid gap-3 sm:grid-cols-3">
+        <div class="rounded-2xl bg-tinta/5 p-4">
+          <p class="text-xs font-bold tracking-wide text-tinta/50 uppercase">Si se muestran</p>
+          <p class="mt-1 text-sm font-semibold text-tinta">Nombre, contrato y monto</p>
+          <p class="mt-1 text-xs leading-relaxed text-tinta/60">
+            De terceros. No son tus datos: son los de las personas aseguradas.
+          </p>
+        </div>
+        <div class="rounded-2xl bg-tinta/5 p-4">
+          <p class="text-xs font-bold tracking-wide text-tinta/50 uppercase">No se muestran</p>
+          <p class="mt-1 text-sm font-semibold text-tinta">Cedula, correo y telefono</p>
+          <p class="mt-1 text-xs leading-relaxed text-tinta/60">
+            Se descartan en el servidor antes de armar la respuesta.
+          </p>
+        </div>
+        <div class="rounded-2xl bg-tinta/5 p-4">
+          <p class="text-xs font-bold tracking-wide text-tinta/50 uppercase">Tu deber al entrar</p>
+          <p class="mt-1 text-sm font-semibold text-tinta">Usar solo lo necesario</p>
+          <p class="mt-1 text-xs leading-relaxed text-tinta/60">
+            No descargues, copies ni reenvies informacion sin necesidad.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section id="responsable" class="show fade-up glass rounded-3xl p-5 md:p-6">
+      <h2 class="flex items-baseline gap-2 text-lg font-bold text-tinta">
+        <span class="text-sm text-xuma-violeta">1</span> Quien responde por los datos
+      </h2>
+      <p class="mt-2 text-sm leading-relaxed text-tinta/70">
+        Xuma Insurtech <strong class="text-tinta">opera la herramienta</strong>: construye y mantiene
+        este portal. No decide para que se usan los datos ni responde por el contenido de la base de
+        datos, porque esa base es corporativa y su propiedad es de la entidad que la administra.
+      </p>
+      <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+        <div class="rounded-2xl bg-tinta/5 p-3.5">
+          <dt class="text-xs font-bold text-tinta/50 uppercase">Motivo del tratamiento</dt>
+          <dd class="mt-1 leading-relaxed text-tinta/85">
+            Reportaria y analisis de datos de siniestros
+          </dd>
+        </div>
+        <div class="rounded-2xl bg-tinta/5 p-3.5">
+          <dt class="text-xs font-bold text-tinta/50 uppercase">Operador del portal</dt>
+          <dd class="mt-1 leading-relaxed text-tinta/85">Xuma Insurtech</dd>
+        </div>
+        <div class="rounded-2xl bg-tinta/5 p-3.5">
+          <dt class="text-xs font-bold text-tinta/50 uppercase">Sede</dt>
+          <dd class="mt-1 leading-relaxed text-tinta/85">
+            Cl. 74 #55-57, Norte Centro Historico, Barranquilla, Atlantico
+          </dd>
+        </div>
+        <div class="rounded-2xl bg-tinta/5 p-3.5">
+          <dt class="text-xs font-bold text-tinta/50 uppercase">Contacto</dt>
+          <dd class="mt-1 leading-relaxed text-tinta/85">
+            <a
+              href="https://xumainsurtech.com"
+              rel="noopener noreferrer"
+              class="font-semibold text-xuma-verde-oscuro underline decoration-dotted underline-offset-4 hover:text-xuma-verde-claro dark:text-xuma-verde-claro"
+              >xumainsurtech.com</a
+            >
+          </dd>
+        </div>
+      </dl>
+      <div class="mt-3 rounded-2xl border border-tinta/12 p-3.5">
+        <p class="text-xs leading-relaxed text-tinta/65">
+          <strong class="text-tinta">Responsable del tratamiento.</strong> La ley exige que exista
+          una entidad responsable de los datos. Esa es la propietaria de la base corporativa, que
+          debe identificarse aqui:
+          <span class="text-tinta/85">&lt;&lt;entidad responsable&gt;&gt;</span>. Si prefieres no
+          designar una, la via alternativa es que Promigas asuma ese rol por escrito.
+        </p>
+      </div>
+    </section>
+
+    <section id="datos" class="show fade-up glass rounded-3xl p-5 md:p-6">
+      <h2 class="flex items-baseline gap-2 text-lg font-bold text-tinta">
+        <span class="text-sm text-xuma-violeta">2</span> Que datos se tratan y cuales no
+      </h2>
+      <p class="mt-2 text-sm leading-relaxed text-tinta/70">
+        El portal no crea datos: los consulta de la base corporativa. Estos son los campos que llega
+        a mostrar.
+      </p>
+      <div class="mt-4 overflow-x-auto">
+        <table class="w-full min-w-[32rem] text-left text-sm">
+          <thead>
+            <tr class="border-b border-tinta/15 text-xs tracking-wide text-tinta/50 uppercase">
+              <th class="py-2 pr-3 font-bold">Dato</th>
+              <th class="py-2 pr-3 font-bold">Tipo</th>
+              <th class="py-2 font-bold">Observacion</th>
+            </tr>
+          </thead>
+          <tbody>
+            {
+              datosTratados.map(([campo, clase, nota]) => (
+                <tr class="border-b border-tinta/8">
+                  <td class="py-2.5 pr-3 font-semibold text-tinta">{campo}</td>
+                  <td class="py-2.5 pr-3 text-tinta/60">{clase}</td>
+                  <td class="py-2.5 text-tinta/60">{nota}</td>
+                </tr>
+              ))
+            }
+          </tbody>
+        </table>
+      </div>
+      <div class="mt-5 rounded-2xl border border-xuma-verde-oscuro/25 bg-xuma-verde-oscuro/10 p-4">
+        <p class="text-xs font-bold tracking-wide text-xuma-verde-oscuro uppercase dark:text-xuma-verde-claro">
+          El portal NO expone
+        </p>
+        <ul class="mt-2 grid gap-1 text-xs leading-relaxed text-tinta/70 sm:grid-cols-2">
+          {
+            datosNoExpuestos.map((d) => (
+              <li class="flex items-start gap-1.5">
+                <span class="mt-px shrink-0 text-xuma-verde-oscuro dark:text-xuma-verde-claro" aria-hidden="true">
+                  &#10003;
+                </span>
+                <span>{d}</span>
+              </li>
+            ))
+          }
+        </ul>
+        <p class="mt-3 text-xs leading-relaxed text-tinta/55">
+          Estos campos existen en la base de origen pero el portal los descarta en el servidor: nunca
+          viajan al navegador, ni en las paginas ni en las exportaciones.
+        </p>
+      </div>
+    </section>
+
+    <section id="finalidad" class="show fade-up glass rounded-3xl p-5 md:p-6">
+      <h2 class="flex items-baseline gap-2 text-lg font-bold text-tinta">
+        <span class="text-sm text-xuma-violeta">3</span> Para que se usan los datos
+      </h2>
+      <p class="mt-2 text-sm leading-relaxed text-tinta/70">
+        El principio de <strong class="text-tinta">finalidad</strong> obliga a recoger los datos para
+        un proposito determinado y no usarlos para otros. Las finalidades de este portal son
+        estadisticas y de gestion:
+      </p>
+      <ul class="mt-3 list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-tinta/70">
+        <li>Consolidar el numero de siniestros y sus montos por periodo.</li>
+        <li>Analizar la distribucion por aseguradora, gasera, producto y clase.</li>
+        <li>Proyectar tendencias y comparar periodos.</li>
+        <li>Generar las exportaciones Excel y PDF que consumen los reportes.</li>
+      </ul>
+      <p class="mt-3 text-sm leading-relaxed text-tinta/70">
+        <strong class="text-tinta">No se usan</strong> para perfiles, publicidad, decisiones
+        automatizadas sobre personas, ni para ceder o transferir los datos a terceros con fines
+        distintos a los anteriores.
+      </p>
+    </section>
+
+    <section id="acceso" class="show fade-up rounded-3xl border-2 border-amber-500/40 bg-amber-500/10 p-5 md:p-6">
+      <h2 class="flex flex-wrap items-baseline gap-2 text-lg font-bold text-tinta">
+        <span class="text-sm text-amber-600 dark:text-amber-400">4</span> Quien puede acceder
+        <span class="rounded-full bg-amber-500/25 px-2.5 py-0.5 text-[10px] font-bold tracking-wide text-amber-700 uppercase dark:text-amber-300">
+          Revisar
+        </span>
+      </h2>
+      <div class="mt-3 rounded-2xl bg-tinta/5 p-4">
+        <p class="text-xs font-bold text-amber-700 dark:text-amber-300">Estado real de la aplicacion</p>
+        <p class="mt-1.5 text-sm leading-relaxed text-tinta/75">
+          El portal esta configurado con la autenticacion desactivada. En el estado actual
+          <strong class="text-tinta">no hay control de acceso por usuario</strong>: cualquier persona
+          que conozca la direccion puede consultar los datos, incluido el nombre, el contrato y el
+          monto.
+        </p>
+        <p class="mt-2 text-sm leading-relaxed text-tinta/75">
+          El codigo de acceso por usuario ya esta desarrollado y esta en el repositorio, pero
+          apagado. Esta decision es definitiva o temporal? Ver
+          <code class="rounded bg-tinta/10 px-1.5 py-0.5 text-xs">context/docs/seguridad.md</code>.
+        </p>
+      </div>
+      <p class="mt-4 text-sm leading-relaxed text-tinta/70">
+        Mientras la autenticacion siga apagada, el unico control es la red. Defina aqui la medida que
+        aplica en su caso:
+      </p>
+      <div class="mt-3 grid gap-3 sm:grid-cols-2">
+        <div class="rounded-2xl border border-tinta/12 p-4">
+          <p class="text-xs font-bold text-tinta/60 uppercase">Si es red interna</p>
+          <p class="mt-1.5 text-xs leading-relaxed text-tinta/70">
+            El portal solo es alcanzable desde la VPN o la red corporativa, y el acceso queda
+            limitado a los empleados autorizados.
+            <span class="text-tinta/80">&lt;&lt;Nombre de la entidad que administra la red&gt;&gt;</span>
+          </p>
+        </div>
+        <div class="rounded-2xl border border-tinta/12 p-4">
+          <p class="text-xs font-bold text-tinta/60 uppercase">Si es alcanzable desde internet</p>
+          <p class="mt-1.5 text-xs leading-relaxed text-tinta/70">
+            Este escenario exige activar la autenticacion antes de publicar. Con nombres, contratos
+            y montos expuestos sin control de acceso, no cumple una politica de uso razonable.
+          </p>
+        </div>
+      </div>
+      <p class="mt-4 rounded-2xl bg-tinta/5 p-4 text-xs leading-relaxed text-tinta/65">
+        <strong class="text-tinta">Responsabilidad de quien accede.</strong> El uso del portal obliga
+        a usar la informacion solo para los fines de la seccion 3, a no copiarla mas alla de lo
+        necesario y a no compartirla por canales no autorizados. El incumplimiento genera las
+        responsabilidades previstas en la Ley 1581 de 2012 y en el Codigo Penal.
+      </p>
+    </section>
+
+    <section id="medidas" class="show fade-up glass rounded-3xl p-5 md:p-6">
+      <h2 class="flex items-baseline gap-2 text-lg font-bold text-tinta">
+        <span class="text-sm text-xuma-violeta">5</span> Medidas de seguridad
+      </h2>
+      <p class="mt-2 text-sm leading-relaxed text-tinta/70">
+        Esta lista refleja lo que el portal implementa hoy.
+      </p>
+      <dl class="mt-4 space-y-2.5">
+        {
+          medidas.map(([titulo, texto]) => (
+            <div class="flex flex-col gap-1 rounded-2xl bg-tinta/5 p-3.5 sm:flex-row sm:gap-4">
+              <dt class="shrink-0 text-xs font-bold text-xuma-verde-oscuro uppercase sm:w-44 dark:text-xuma-verde-claro">
+                {titulo}
+              </dt>
+              <dd class="text-xs leading-relaxed text-tinta/70">{texto}</dd>
+            </div>
+          ))
+        }
+      </dl>
+      <p class="mt-4 text-xs leading-relaxed text-tinta/55">
+        Pendientes: rotar la contrasena de la base de datos, que estuvo expuesta en un commit del
+        repositorio; activar la autenticacion; y activar las cabeceras HTTPS en el despliegue.
+      </p>
+    </section>
+
+    <section id="principios" class="show fade-up glass rounded-3xl p-5 md:p-6">
+      <h2 class="flex items-baseline gap-2 text-lg font-bold text-tinta">
+        <span class="text-sm text-xuma-violeta">6</span> Principios del tratamiento
+      </h2>
+      <p class="mt-2 text-sm leading-relaxed text-tinta/70">
+        El tratamiento se apoya en los principios del articulo 3 de la Ley 1581 de 2012.
+      </p>
+      <dl class="mt-4 grid gap-3 sm:grid-cols-2">
+        {
+          principios.map(([titulo, texto]) => (
+            <div class="rounded-2xl bg-tinta/5 p-4">
+              <dt class="text-sm font-bold text-tinta">{titulo}</dt>
+              <dd class="mt-1 text-xs leading-relaxed text-tinta/65">{texto}</dd>
+            </div>
+          ))
+        }
+      </dl>
+    </section>
+
+    <section id="terceros" class="show fade-up glass rounded-3xl p-5 md:p-6">
+      <h2 class="flex items-baseline gap-2 text-lg font-bold text-tinta">
+        <span class="text-sm text-xuma-violeta">7</span> Transmision a terceros
+      </h2>
+      <p class="mt-2 text-sm leading-relaxed text-tinta/70">
+        Los datos no se venden ni se ceden. Solo podrian transmitirse a un tercero cuando el titular
+        lo autorice expresamente, cuando exista una obligacion legal que lo exija, o cuando sea
+        necesario para ejercer un derecho.
+      </p>
+      <div class="mt-3 rounded-2xl bg-tinta/5 p-4">
+        <p class="text-xs font-bold text-tinta/60 uppercase">Encargados por definir</p>
+        <p class="mt-1.5 text-xs leading-relaxed text-tinta/70">
+          &lt;&lt;Lista de proveedores con acceso a los datos: alojamiento del servidor, base de
+          datos, equipo de desarrollo. Para cada uno: nombre, NIT, pais y motivo de la relacion.&gt;&gt;
+        </p>
+        <p class="mt-2 text-xs leading-relaxed text-tinta/55">
+          Si alguno de estos proveedores esta en el exterior, la ley exige que existan garantias
+          sobre el nivel de proteccion de los datos en ese pais.
+        </p>
+      </div>
+    </section>
+
+    <section id="conservacion" class="show fade-up glass rounded-3xl p-5 md:p-6">
+      <h2 class="flex items-baseline gap-2 text-lg font-bold text-tinta">
+        <span class="text-sm text-xuma-violeta">8</span> Conservacion
+      </h2>
+      <p class="mt-2 text-sm leading-relaxed text-tinta/70">
+        Los datos se conservan mientras sean necesarios para la finalidad del reporte. Cumplida esa,
+        la obligacion es eliminarlos, no guardarlos indefinidamente.
+      </p>
+      <div class="mt-3 rounded-2xl bg-tinta/5 p-4 text-xs leading-relaxed text-tinta/70">
+        <p class="font-bold text-tinta/60 uppercase">Por definir</p>
+        <p class="mt-1.5">
+          &lt;&lt;Plazo de conservacion. Al vencer, que se hace: eliminar el registro, anonimizar el
+          nombre, o descartar los campos personales dejando solo los agregados estadisticos?&gt;&gt;
+        </p>
+      </div>
+      <p class="mt-3 text-xs leading-relaxed text-tinta/60">
+        El portal es un <strong class="text-tinta">lector</strong>. Borrar un registro aqui no borra
+        el dato en la base corporativa: el borrado se solicita al administrador de esa base.
+      </p>
+    </section>
+
+    <section id="derechos" class="show fade-up glass rounded-3xl p-5 md:p-6">
+      <h2 class="flex items-baseline gap-2 text-lg font-bold text-tinta">
+        <span class="text-sm text-xuma-violeta">9</span> Derechos del titular
+      </h2>
+      <p class="mt-2 text-sm leading-relaxed text-tinta/70">
+        La persona a la que corresponden los datos puede ejercer, en cualquier momento y de forma
+        gratuita, los derechos del articulo 18 de la Ley 1581 de 2012.
+      </p>
+      <dl class="mt-4 grid gap-2.5 sm:grid-cols-2">
+        {
+          derechos.map(([titulo, texto]) => (
+            <div class="rounded-2xl bg-tinta/5 p-3.5">
+              <dt class="flex items-center gap-1.5 text-sm font-bold text-tinta">
+                <span class="text-xuma-verde-oscuro dark:text-xuma-verde-claro" aria-hidden="true">
+                  &#10003;
+                </span>
+                {titulo}
+              </dt>
+              <dd class="mt-1 text-xs leading-relaxed text-tinta/65">{texto}</dd>
+            </div>
+          ))
+        }
+      </dl>
+
+      <div class="mt-5 rounded-2xl border border-xuma-violeta/25 bg-xuma-violeta/10 p-4">
+        <p class="text-xs font-bold text-[#5b3df0] uppercase dark:text-[#b8c0ff]">Como ejercerlos</p>
+        <ol class="mt-2 list-decimal space-y-1.5 pl-5 text-xs leading-relaxed text-tinta/70">
+          <li>
+            Escriba al canal de contacto de la seccion 1 indicando que derecho desea ejercer y los
+            datos que permiten identificarlo.
+          </li>
+          <li>
+            La entidad responde dentro de los plazos que fija la ley. Si se niega a atender el
+            reclamo, debe explicar las razones de forma clara y sencilla.
+          </li>
+          <li>
+            Si la respuesta no convence, puede pedir la revision interna del reclamo, con respuesta
+            en un termino corto adicional.
+          </li>
+          <li>
+            Si tampoco queda conforme, puede acudir a la Superintendencia de Industria y Comercio.
+          </li>
+        </ol>
+      </div>
+
+      <div class="mt-4 rounded-2xl bg-tinta/5 p-4">
+        <p class="text-xs font-bold text-tinta/60 uppercase">Limites y proteccion especial</p>
+        <ul class="mt-2 list-disc space-y-1.5 pl-5 text-xs leading-relaxed text-tinta/65">
+          {limites.map((l) => <li>{l}</li>)}
+        </ul>
+      </div>
+    </section>
+
+    <section id="cambios" class="show fade-up glass rounded-3xl p-5 md:p-6">
+      <h2 class="flex items-baseline gap-2 text-lg font-bold text-tinta">
+        <span class="text-sm text-xuma-violeta">10</span> Cambios en esta politica
+      </h2>
+      <p class="mt-2 text-sm leading-relaxed text-tinta/70">
+        Esta politica puede actualizarse. Los cambios sustanciales (que datos se muestran, quien accede
+        o para que se usan) se comunicaran a los usuarios del portal antes de aplicarles, y se
+        actualizara la fecha de la seccion 12.
+      </p>
+    </section>
+
+    <section id="rndb" class="show fade-up glass rounded-3xl p-5 md:p-6">
+      <h2 class="flex items-baseline gap-2 text-lg font-bold text-tinta">
+        <span class="text-sm text-xuma-violeta">11</span> Registro de bases de datos
+      </h2>
+      <p class="mt-2 text-sm leading-relaxed text-tinta/70">
+        Las bases de datos personales de entidades privadas deben estar inscritas en el Registro
+        Nacional de Bases de Datos Personales (RNBD) que administra la Superintendencia de Industria
+        y Comercio, en los terminos del Decreto 1074 de 2015.
+      </p>
+      <div class="mt-3 rounded-2xl bg-tinta/5 p-4 text-xs leading-relaxed text-tinta/70">
+        <p class="font-bold text-tinta/60 uppercase">Por definir</p>
+        <p class="mt-1.5">
+          &lt;&lt;Si la base esta inscrita, indique numero de registro y fecha. Si no lo esta, defina
+          quien la inscribe y en que plazo. La inscripcion no es opcional cuando hay datos
+          personales.&gt;&gt;
+        </p>
+      </div>
+    </section>
+
+    <section id="control" class="show fade-up rounded-3xl border border-tinta/12 p-5 md:p-6">
+      <h2 class="flex items-baseline gap-2 text-lg font-bold text-tinta">
+        <span class="text-sm text-xuma-violeta">12</span> Control del documento
+      </h2>
+      <p class="mt-2 text-xs leading-relaxed text-tinta/60">
+        Registro de versiones y responsables de este aviso de privacidad.
+      </p>
+      <dl class="mt-3 grid gap-2 text-xs sm:grid-cols-2 lg:grid-cols-4">
+        <div class="rounded-xl bg-tinta/5 p-3">
+          <dt class="font-bold text-tinta/50 uppercase">Version</dt>
+          <dd class="mt-0.5 text-tinta/80">{fecha}</dd>
+        </div>
+        <div class="rounded-xl bg-tinta/5 p-3">
+          <dt class="font-bold text-tinta/50 uppercase">Elaborado por</dt>
+          <dd class="mt-0.5 text-tinta/80">Xuma Insurtech</dd>
+        </div>
+        <div class="rounded-xl bg-tinta/5 p-3">
+          <dt class="font-bold text-tinta/50 uppercase">Revision legal</dt>
+          <dd class="mt-0.5 text-tinta/80">&lt;&lt;fecha de revision&gt;&gt;</dd>
+        </div>
+        <div class="rounded-xl bg-tinta/5 p-3">
+          <dt class="font-bold text-tinta/50 uppercase">Proxima revision</dt>
+          <dd class="mt-0.5 text-tinta/80">&lt;&lt;periodicidad&gt;&gt;</dd>
+        </div>
+      </dl>
+    </section>
+
+    <p class="pb-2 text-center text-xs leading-relaxed text-tinta/45">
+      Quien accede al portal se obliga a usar la informacion solo para los fines descritos en la
+      seccion 3 y a no compartirla por canales no autorizados.
+    </p>
+  </div>
+
+  <style>
+    .show { opacity: 0; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+    @media (prefers-reduced-motion: reduce) {
+      .show { opacity: 1; }
+    }
+    .fade-up { animation: fadeUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  </style>
+</DashboardLayout>

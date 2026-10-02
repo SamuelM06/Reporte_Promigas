@@ -1,0 +1,36 @@
+# Dependencias
+node_modules/
+
+# Build
+dist/
+.output/
+.astro/
+
+# Variables de entorno (¡NUNCA subir credenciales!)
+.env
+.env.local
+.env.*.local
+config/
+
+# Scripts de consulta a la DB con credenciales embebidas (¡NO subir!)
+query_db.mjs
+query_observ.mjs
+
+
+# Logs (auditoría / seguridad)
+logs/
+*.log
+npm-debug.log*
+
+# Sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Entorno del backend temporal
+*.cjs.bak

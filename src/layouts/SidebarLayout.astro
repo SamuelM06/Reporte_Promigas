@@ -1,0 +1,131 @@
+---
+import MainLayout from './MainLayout.astro';
+import ThemeToggle from '../components/ui/ThemeToggle.tsx';
+import Footer from '../components/ui/Footer.astro';
+
+interface Props {
+  title?: string;
+}
+const { title = 'Gestión Diaria Promigas 2026' } = Astro.props;
+const actual = Astro.url.pathname;
+
+const nav = [
+  { href: '/', label: 'Inicio', desc: 'Portada del reporte', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>' },
+  { href: '/dashboard', label: 'Dashboard', desc: 'KPIs y tendencias', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg>' },
+  { href: '/detalle', label: 'Detalle', desc: 'Tabla de gestión', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>' },
+];
+---
+
+<MainLayout title={title}>
+  <!-- Zona sensible al borde izquierdo: abre el sidebar al pasar el mouse -->
+  <div id="sidebar-edge" aria-hidden="true"></div>
+  <div id="sidebar-scrim" aria-hidden="true"></div>
+
+  <aside id="sidebar" aria-label="Navegación principal">
+    <div class="side-brand">
+      <a href="/" class="side-logo" aria-label="Inicio Gestión Diaria Promigas">
+        <img src="/logos/Transparente_Logo_azul_letra_azul.svg" alt="Xuma" class="h-10 w-auto dark:hidden" />
+        <img src="/logos/Transparente_Logo_blanco_letra_blanca.svg" alt="Xuma" class="hidden h-10 w-auto dark:block" />
+      </a>
+      <div class="side-title">
+        <p class="side-kicker">Gestión Diaria</p>
+        <p class="side-name">Promigas <span>· 2026</span></p>
+      </div>
+    </div>
+
+    <p class="side-section">Corte · Enero a Diciembre 2026</p>
+
+    <nav class="side-nav">
+      {nav.map((item) => {
+        const activo = actual === item.href || actual === `${item.href}/`;
+        return (
+          <a href={item.href} data-astro-prefetch="hover" class={`side-link ${activo ? 'side-active' : ''}`} aria-current={activo ? 'page' : undefined}>
+            <span class="side-icon" set:html={item.svg} />
+            <span class="side-text">
+              <span class="side-label">{item.label}</span>
+              <span class="side-desc">{item.desc}</span>
+            </span>
+            <span class="side-arrow">→</span>
+          </a>
+        );
+      })}
+    </nav>
+
+    <div class="side-foot">
+      <div class="side-user">
+        <span class="side-avatar">GP</span>
+        <span class="side-text">
+          <span class="side-label">Gestión Promigas</span>
+          <span class="side-desc">Acumulado 2026</span>
+        </span>
+      </div>
+      <div class="side-actions">
+        <ThemeToggle client:load />
+      </div>
+    </div>
+  </aside>
+
+  <div class="side-page">
+    <main class="mx-auto w-full max-w-[1720px] px-4 py-4 sm:px-6">
+      <slot />
+    </main>
+    <Footer />
+  </div>
+
+  <style>
+    #sidebar-edge { position: fixed; inset: 0 auto 0 0; width: 18px; z-index: 60; }
+    #sidebar-scrim { position: fixed; inset: 0; z-index: 55; background: rgba(5,8,30,.45); backdrop-filter: blur(2px); opacity: 0; pointer-events: none; transition: opacity .35s ease; }
+    #sidebar { position: fixed; inset: 0 auto 0 0; z-index: 70; width: 288px; display: flex; flex-direction: column; gap: 1rem; padding: 1.25rem 1rem; transform: translateX(-105%); transition: transform .45s cubic-bezier(.22,1,.36,1); border-right: 1px solid color-mix(in srgb, currentColor 12%, transparent); background: color-mix(in srgb, Canvas 88%, transparent); backdrop-filter: blur(20px); box-shadow: 0 0 60px -20px rgba(18,1,128,.35); }
+    body.sidebar-open #sidebar { transform: translateX(0); }
+    body.sidebar-open #sidebar-scrim { opacity: 1; pointer-events: auto; }
+    .side-page { min-height: 100dvh; display: flex; flex-direction: column; }
+    .side-brand { display: flex; align-items: center; gap: .75rem; }
+    .side-kicker { font-size: .68rem; letter-spacing: .18em; text-transform: uppercase; opacity: .6; font-weight: 800; }
+    .side-name { font-weight: 800; font-size: 1.05rem; }
+    .side-name span { color: var(--color-xuma-verde-oscuro); }
+    .side-section { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; opacity: .55; border: 1px dashed currentColor; border-radius: .9rem; padding: .55rem .8rem; }
+    .side-nav { display: flex; flex-direction: column; gap: .5rem; }
+    .side-link { display: flex; align-items: center; gap: .8rem; padding: .7rem .8rem; border-radius: 1rem; border: 1px solid transparent; transition: all .3s ease; }
+    .side-link:hover { background: color-mix(in srgb, currentColor 8%, transparent); transform: translateX(4px); }
+    .side-active { background: var(--color-xuma-azul) !important; color: #fff !important; box-shadow: 0 12px 30px -12px rgba(18,1,128,.6); }
+    :global(.dark) .side-active { background: color-mix(in srgb, var(--color-xuma-verde-claro) 90%, transparent) !important; color: #0a1030 !important; }
+    .side-icon :global(svg) { width: 1.15rem; height: 1.15rem; }
+    .side-icon { display: inline-flex; padding: .55rem; border-radius: .8rem; background: color-mix(in srgb, currentColor 10%, transparent); }
+    .side-text { display: flex; flex-direction: column; line-height: 1.15; flex: 1; }
+    .side-label { font-weight: 800; font-size: .92rem; }
+    .side-desc { font-size: .72rem; opacity: .6; }
+    .side-arrow { opacity: 0; transform: translateX(-6px); transition: all .3s ease; }
+    .side-link:hover .side-arrow, .side-active .side-arrow { opacity: 1; transform: none; }
+    .side-foot { margin-top: auto; display: flex; flex-direction: column; gap: .8rem; border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent); padding-top: 1rem; }
+    .side-user { display: flex; align-items: center; gap: .7rem; }
+    .side-avatar { width: 2.4rem; height: 2.4rem; border-radius: 1rem; display: grid; place-items: center; font-weight: 800; background: linear-gradient(135deg, var(--color-xuma-azul), var(--color-xuma-verde-oscuro)); color: #fff; }
+    @media (prefers-reduced-motion: reduce) { #sidebar, .side-link { transition: none; } }
+  </style>
+
+  <script is:inline>
+    (function () {
+      var edge = document.getElementById('sidebar-edge');
+      var scrim = document.getElementById('sidebar-scrim');
+      var sidebar = document.getElementById('sidebar');
+      var timer = null;
+      function open() { document.body.classList.add('sidebar-open'); }
+      function close() { document.body.classList.remove('sidebar-open'); }
+      if (edge) {
+        edge.addEventListener('mouseenter', open);
+        edge.addEventListener('click', open);
+      }
+      if (sidebar) sidebar.addEventListener('mouseleave', function () {
+        clearTimeout(timer);
+        timer = setTimeout(close, 350);
+      });
+      if (sidebar) sidebar.addEventListener('mouseenter', function () { clearTimeout(timer); });
+      if (scrim) scrim.addEventListener('click', close);
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+      // Al cambiar de página, se esconde solo con animación (el layout se re-monta cerrado por defecto).
+      document.addEventListener('click', function (e) {
+        var a = e.target && e.target.closest ? e.target.closest('#sidebar a[href]') : null;
+        if (a) { close(); }
+      });
+    })();
+  </script>
+</MainLayout>

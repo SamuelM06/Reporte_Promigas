@@ -1,0 +1,88 @@
+---
+import SidebarLayout from '../layouts/SidebarLayout.astro';
+import { cargaSSR, filtrosPorDefecto, getMetadatos, METADATOS_VACIOS } from '../lib/query';
+
+const f = filtrosPorDefecto();
+let metadatos = METADATOS_VACIOS;
+try {
+  metadatos = await cargaSSR('inicio/metadatos', getMetadatos(f), METADATOS_VACIOS);
+} catch { metadatos = METADATOS_VACIOS; }
+const total = metadatos?.total ?? 0;
+const fmt = new Intl.NumberFormat('es-CO');
+---
+
+<SidebarLayout title="Inicio · Gestión Diaria Promigas 2026">
+  <div class="flex min-h-[calc(100dvh-6rem)] flex-col justify-center gap-6">
+    <section class="grid items-center gap-8 lg:grid-cols-[1.05fr_0.95fr]">
+      <div class="show fade-up" style="animation-delay:0.05s">
+        <div class="mb-3 flex flex-wrap items-center gap-2">
+          <p class="inline-flex items-center gap-2 rounded-full border border-xuma-verde-claro/30 bg-xuma-verde-claro/10 px-4 py-1.5 text-xs font-bold tracking-widest text-xuma-verde-oscuro uppercase dark:text-xuma-verde-claro">
+            <span class="h-2 w-2 animate-pulse rounded-full bg-xuma-verde-oscuro dark:bg-xuma-verde-claro"></span>
+            Corte · Enero a Diciembre 2026
+          </p>
+          <p class="inline-flex items-center gap-2 rounded-full border border-xuma-violeta/40 bg-xuma-violeta/10 px-4 py-1.5 text-xs font-bold text-[#5b3df0] dark:text-[#b8c0ff]">
+            {fmt.format(total)} registros en base
+          </p>
+        </div>
+        <h1 class="text-3xl font-extrabold leading-tight md:text-4xl lg:text-5xl">
+          Gestión Diaria <span class="texto-brillo">Promigas</span>
+          <br />
+          <span class="text-tinta/85">2026 · Acumulado anual</span>
+        </h1>
+        <p class="mt-4 max-w-xl text-sm leading-relaxed text-tinta/65 md:text-base">
+          Portal de la gestión diaria de <strong class="text-tinta">Promigas 2026</strong>:
+          distribuidoras, aseguradoras, canales, productos y estados de
+          <strong class="text-tinta"> enero a diciembre</strong>, con la identidad
+          visual de Xuma. Pasa el mouse por el borde izquierdo para abrir el menú lateral.
+        </p>
+        <div class="mt-6 flex flex-wrap items-center gap-3">
+          <a href="/dashboard" class="group inline-flex h-12 items-center gap-2 rounded-2xl bg-xuma-azul px-6 font-bold text-white shadow-lg shadow-xuma-azul/20 transition-all duration-300 hover:scale-105 hover:bg-xuma-azul-2 dark:bg-xuma-verde-claro dark:text-[#0a1030] dark:hover:bg-xuma-verde-oscuro">
+            Ver tablero <span class="transition-transform duration-300 group-hover:translate-x-1">→</span>
+          </a>
+          <a href="/detalle" class="glass glass-hover inline-flex h-12 items-center gap-2 rounded-2xl px-5 font-semibold text-tinta">
+            Ver detalle
+          </a>
+        </div>
+      </div>
+      <div class="hidden justify-center lg:flex">
+        <div class="show scale-in relative" style="animation-delay:0.2s">
+          <img src="/logos/Transparente_Logo_azul_letra_azul.svg" alt="Xuma" class="w-56 opacity-90 drop-shadow-[0_0_60px_rgba(18,1,128,0.25)] md:w-64 dark:hidden" />
+          <img src="/logos/Transparente_Logo_blanco_letra_blanca.svg" alt="Xuma" class="hidden w-56 opacity-90 drop-shadow-[0_0_60px_rgba(90,226,128,0.35)] md:w-64 dark:block" />
+        </div>
+      </div>
+    </section>
+
+    <section class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {(metadatos?.porMes ?? []).slice(0, 4).map((m: any, i: number) => (
+        <article class="glass glass-hover show fade-up rounded-3xl p-5" style={`animation-delay:${0.15 + i * 0.12}s`}>
+          <p class="text-xs font-bold uppercase tracking-widest text-tinta/55">{m.mes}</p>
+          <p class="mt-1 text-2xl font-extrabold text-tinta">{fmt.format(m.total)}</p>
+          <p class="mt-1 text-xs text-tinta/60">gestiones del mes</p>
+        </article>
+      ))}
+    </section>
+
+    <section class="glass rounded-3xl p-5 md:p-6">
+      <div class="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
+        <div class="max-w-2xl">
+          <h2 class="text-lg font-bold text-tinta">¿Cómo leer este reporte?</h2>
+          <p class="mt-2 text-xs leading-relaxed text-tinta/65 md:text-sm">
+            Los datos viven en <code class="rounded-md bg-tinta/10 px-2 py-0.5">DataCenter_Promigas · gestion.reporte_promi</code>.
+            El corte cubre de enero a diciembre de 2026 por fecha de ejecución. Usa el menú lateral
+            (se abre con el mouse y se esconde solo al cambiar de página) para navegar.
+          </p>
+        </div>
+        <a href="/dashboard" class="glass glass-hover inline-flex h-11 items-center gap-2 rounded-2xl px-5 text-sm font-semibold text-tinta">Ir al dashboard</a>
+      </div>
+    </section>
+  </div>
+
+  <style>
+    .show { opacity: 0; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: none; } }
+    @keyframes scaleIn { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
+    @media (prefers-reduced-motion: reduce) { .show { opacity: 1; } }
+    .fade-up { animation: fadeUp 0.9s cubic-bezier(0.22, 1, 0.36, 1) both; }
+    .scale-in { animation: scaleIn 1s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  </style>
+</SidebarLayout>

@@ -1,0 +1,41 @@
+---
+/*
+  Pie de pagina del portal.
+
+  El aviso de privacidad tiene que ser alcanzable desde cualquier pantalla, no
+  solo desde Inicio: asi lo piden los auditores y asi funciona en la practica.
+*/
+const anio = new Date().getFullYear();
+---
+
+<footer class="mx-auto w-full max-w-[1720px] px-2.5 pb-6 sm:px-4">
+  <div
+    class="flex flex-col items-center justify-between gap-3 rounded-2xl border border-tinta/10 px-4 py-3 text-center sm:flex-row sm:gap-4 sm:text-left"
+  >
+    <div class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-tinta/55">
+      <span>&copy; {anio} Xuma &middot; Promigas</span>
+      <span aria-hidden="true" class="hidden sm:inline">&middot;</span>
+      <span>Uso interno &middot; datos de terceros</span>
+    </div>
+
+    <a
+      href="/politica-datos"
+      data-astro-prefetch="hover"
+      class="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-xuma-violeta/30 bg-xuma-violeta/10 px-3 py-1.5 text-xs font-semibold text-[#5b3df0] transition-colors hover:bg-xuma-violeta/20 dark:text-[#b8c0ff]"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        class="h-3.5 w-3.5"
+        aria-hidden="true"
+      >
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"></path>
+      </svg>
+      Aviso de privacidad y datos personales
+    </a>
+  </div>
+</footer>

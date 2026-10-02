@@ -1,0 +1,23 @@
+---
+// Fondo animado de marca: orbes de gradiente con blur + línea que se dibuja sola.
+// Puro CSS (keyframes) — sin JavaScript, sin coste de rendimiento.
+---
+<div class="fondo-animado" aria-hidden="true">
+  <div class="orbe orbe-1" style="width: 52vw; height: 52vw; top: -18%; left: -10%;"></div>
+  <div class="orbe orbe-2" style="width: 44vw; height: 44vw; bottom: -16%; right: -8%;"></div>
+  <div class="orbe orbe-3" style="width: 34vw; height: 34vw; top: 38%; left: 55%;"></div>
+
+  <svg class="fondo-trazo" viewBox="0 0 1440 220" preserveAspectRatio="none">
+    <defs>
+      <linearGradient id="gradTrazo" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="var(--trazo-1)" />
+        <stop offset="55%" stop-color="var(--trazo-2)" />
+        <stop offset="100%" stop-color="var(--trazo-3)" />
+      </linearGradient>
+    </defs>
+    <path
+      class="trazo-luz"
+      d="M0,180 C140,120 260,70 430,110 C600,150 760,200 960,150 C1140,105 1290,55 1440,110"
+    />
+  </svg>
+</div>
