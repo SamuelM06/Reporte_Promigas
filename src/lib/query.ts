@@ -154,6 +154,30 @@ export async function getTendencia(f: Filtros) {
   ).catch(() => []);
 }
 
+export interface FilaMensualAseguradora { mes: string; aseguradora: string; total: number; }
+
+const ASEG_CANON = `CASE
+  WHEN aseguradora_norm ILIKE '%ALFA%' THEN 'ALFA'
+  WHEN aseguradora_norm ILIKE '%HDI%' OR aseguradora_norm ILIKE '%LIBERTY%' THEN 'HDI'
+  WHEN aseguradora_norm ILIKE '%SURA%' THEN 'SURA'
+  WHEN aseguradora_norm ILIKE '%GNP%' THEN 'GNP'
+  WHEN aseguradora_norm ILIKE '%PROEXEQUIAL%' OR aseguradora_norm ILIKE '%RECORDAR%' OR aseguradora_norm ILIKE '%CAPILLA%' THEN 'PROEXEQUIAL'
+  WHEN aseguradora_norm ILIKE '%IKE%' THEN 'IKE'
+  WHEN aseguradora_norm IS NULL OR aseguradora_norm IN ('','N/A','NA','NO APLICA','NO APTO') THEN 'SIN DATO'
+  ELSE 'OTRAS' END`;
+
+export async function getMensualPorAseguradora(f: Filtros): Promise<FilaMensualAseguradora[]> {
+  const params: unknown[] = [];
+  const w = whereGestion(f, params);
+  return query(
+    `SELECT mes_norm AS mes, ${ASEG_CANON} AS aseguradora, COUNT(*)::int AS total
+     FROM ${VISTA} WHERE ${w} AND mes_norm IS NOT NULL
+     GROUP BY mes_norm, ${ASEG_CANON}
+     ORDER BY CASE mes_norm WHEN 'ENERO' THEN 1 WHEN 'FEBRERO' THEN 2 WHEN 'MARZO' THEN 3 WHEN 'ABRIL' THEN 4 WHEN 'MAYO' THEN 5 WHEN 'JUNIO' THEN 6 WHEN 'JULIO' THEN 7 WHEN 'AGOSTO' THEN 8 WHEN 'SEPTIEMBRE' THEN 9 WHEN 'OCTUBRE' THEN 10 WHEN 'NOVIEMBRE' THEN 11 WHEN 'DICIEMBRE' THEN 12 ELSE 99 END, 2`,
+    params,
+  ).catch(() => []);
+}
+
 export async function getTabla(f: Filtros, page = 1, pageSize = 50) {
   const params: unknown[] = [];
   const w = whereGestion(f, params);
