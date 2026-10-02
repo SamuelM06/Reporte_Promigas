@@ -30,7 +30,7 @@ const BINARIOS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.ico', '.pd
 const REGLAS = [
   {
     nombre: 'Password de BD en texto plano',
-    // Coincide con DB_PASSWORD=valor, pero no con los placeholders de ejemplo.
+    // Coincide con asignaciones reales de la clave de BD, pero no con los placeholders de ejemplo.
     re: /DB_PASSWORD\s*[=:]\s*["']?([^\s"'#]{6,})/gi,
     permitir: /^(tu_|x?uma?bd\d{4}\*?$|changeme|password|<|\$\{|process\.env|placeholder|ejemplo|example|secret$)/i,
     contexto: 'Sustituye el valor real por una referencia a la variable de entorno.',

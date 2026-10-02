@@ -7,12 +7,10 @@
 //    en ningún punto del request. El portal queda abierto para quien tenga
 //    acceso a la red.
 //
-//    AVISO: las piezas de auth siguen en el repo (src/lib/auth.ts, endpoints
-//    /api/auth/*) pero están INERTES: /api/auth/login todavía responde 200 y
-//    entrega un token, y ese token no abre nada porque nadie lo verifica.
-//    Este portal muestra datos personales (nombre del asegurado, contrato,
-//    monto): publicarlo fuera de una red controlada es un problema de datos,
-//    no de código. Ver context/docs/seguridad.md.
+//    AVISO: el login está deshabilitado y los endpoints /api/auth/* se eliminaron
+//    del repo para no emitir tokens sin consumidor. Este portal muestra datos
+//    de gestión (contrato, asesor, motivo): publicarlo fuera de una red
+//    controlada es un problema de datos, no de código.
 //
 //    Si se reactiva la auth, hay que llamar a `getSessionUser(context.cookies)`
 //    aquí antes de `next()` y proteger /api/* con 401.
@@ -25,6 +23,19 @@ import { rateLimit } from './lib/ratelimit';
 import { ENV } from './lib/env';
 
 const esRutaApi = (p: string) => p === '/api' || p.startsWith('/api/');
+
+// Estáticos con nombre fijo que sirve Astro: no son HTML dinámico.
+const esEstatico = (p: string) =>
+  p.startsWith('/_astro/') ||
+  p.startsWith('/fonts/') ||
+  p.startsWith('/logos/') ||
+  p.startsWith('/vendor/') ||
+  p.startsWith('/data/') ||
+  p === '/favicon.svg' ||
+  p === '/favicon.ico';
+
+// Página dinámica = todo lo que no es API ni estático (el HTML del portal).
+const esPaginaDinamica = (p: string) => !esRutaApi(p) && !esEstatico(p);
 
 // El health check queda fuera del rate limit: lo sondea el orquestador cada
 // pocos segundos, y como `clientAddress` detrás de un proxy es siempre la IP
@@ -80,7 +91,10 @@ export const onRequest = defineMiddleware(async (context, next) => {
     ].join('; '),
   );
   if (ENV.isHttps) headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-  if (esRutaApi(path)) headers.set('Cache-Control', 'no-store');
+  // Las páginas son SSR con datos vivos: nunca se guardan en cachés intermedias.
+  // Los estáticos versionados (/_astro, /fonts, /logos, /vendor, /favicon) los
+  // sirve Astro con sus propios headers y no se tocan aquí.
+  if (esRutaApi(path) || esPaginaDinamica(path)) headers.set('Cache-Control', 'no-store');
 
   return new Response(response.body, {
     status: response.status,

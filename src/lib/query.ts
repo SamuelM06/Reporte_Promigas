@@ -251,14 +251,59 @@ export async function getTabla(f: Filtros, page = 1, pageSize = 50) {
   return { rows, total: Number((tot as any)?.n ?? 0), page, pageSize };
 }
 
-// SSR con caché en memoria muy simple (evita golpear la DB compartida en cada request).
-const cache = new Map<string, { exp: number; val: any }>();
-export async function cargaSSR<T>(clave: string, promesa: Promise<T>, fallback: T, ttlMs = 30_000): Promise<T> {
+// Caché SSR acotada (evita golpear la DB compartida en cada request SIN crecer sin límite).
+// - TTL por entrada + borrado perezoso de vencidas al leer.
+// - Tope duro de entradas con desalojo FIFO (las claves incluyen página y filtros,
+//   que antes hacían crecer el Map para siempre: 502 páginas × combinaciones).
+// - Barrido periódico cada 60s como red de seguridad.
+const CACHE_MAX = 300;
+const cache = new Map<string, { exp: number; val: unknown }>();
+
+function cacheGet<T>(clave: string): T | undefined {
   const hit = cache.get(clave);
-  if (hit && hit.exp > Date.now()) return hit.val as T;
+  if (!hit) return undefined;
+  if (hit.exp <= Date.now()) {
+    cache.delete(clave); // vencida: se libera de una vez, no se acumula
+    return undefined;
+  }
+  // Re-inserta para marcarla reciente (LRU).
+  cache.delete(clave);
+  cache.set(clave, hit);
+  return hit.val as T;
+}
+
+function cacheSet(clave: string, val: unknown, ttlMs: number): void {
+  while (cache.size >= CACHE_MAX) {
+    const oldest = cache.keys().next();
+    if (oldest.done) break;
+    cache.delete(oldest.value);
+  }
+  cache.set(clave, { exp: Date.now() + ttlMs, val });
+}
+
+const g = globalThis as typeof globalThis & { __barridoCachePromi?: boolean };
+if (!g.__barridoCachePromi) {
+  g.__barridoCachePromi = true;
+  const t = setInterval(() => {
+    const ahora = Date.now();
+    for (const [k, v] of cache) {
+      if (v.exp <= ahora) cache.delete(k);
+    }
+  }, 60_000);
+  if (typeof t === 'object' && t !== null && 'unref' in t) (t as { unref(): void }).unref();
+}
+
+/** Limpieza manual (p. ej. tras recargar la base con db:load). */
+export function limpiarCacheSSR(): void {
+  cache.clear();
+}
+
+export async function cargaSSR<T>(clave: string, promesa: Promise<T>, fallback: T, ttlMs = 30_000): Promise<T> {
+  const hit = cacheGet<T>(clave);
+  if (hit !== undefined) return hit;
   try {
     const val = await promesa;
-    cache.set(clave, { exp: Date.now() + ttlMs, val });
+    cacheSet(clave, val, ttlMs);
     return val;
   } catch {
     return fallback;
