@@ -1,19 +1,31 @@
 ---
 import SidebarLayout from '../layouts/SidebarLayout.astro';
-import { cargaSSR, filtrosPorDefecto, getTabla, getMetadatos, getMensualPorAseguradora, getDashboardMensual, METADATOS_VACIOS } from '../lib/query';
+import FiltrosPanel from '../components/filtros/FiltrosPanel.astro';
+import { cargaSSR, filtrosPorDefecto, getTabla, getMetadatos, getMensualPorAseguradora, getDashboardMensual, parseFiltros, METADATOS_VACIOS } from '../lib/query';
 
-const f = filtrosPorDefecto();
+const f = { ...filtrosPorDefecto(), ...parseFiltros(Astro.url) };
+const claveFiltros = JSON.stringify(f);
 const pageParam = Number(Astro.url.searchParams.get('page') ?? 1);
 const page = Number.isFinite(pageParam) && pageParam > 0 ? Math.floor(pageParam) : 1;
 const pageSize = 50;
 
 const [pagina, mensual, tablaMes]: [any, any[], any[]] = await Promise.all([
-  cargaSSR(`detalle/tabla/${page}`, getTabla(f, page, pageSize), { rows: [], total: 0, page, pageSize }, 15_000),
-  cargaSSR('detalle/mensual-aseguradora', getMensualPorAseguradora(f), []),
-  cargaSSR('detalle/tabla-mes', getDashboardMensual(f), []),
+  cargaSSR(`detalle/tabla/${claveFiltros}/${page}`, getTabla(f, page, pageSize), { rows: [], total: 0, page, pageSize }, 15_000),
+  cargaSSR(`detalle/mensual-aseguradora/${claveFiltros}`, getMensualPorAseguradora(f), []),
+  cargaSSR(`detalle/tabla-mes/${claveFiltros}`, getDashboardMensual(f), []),
 ]);
 const metadatos = await cargaSSR('detalle/metadatos', getMetadatos(f), METADATOS_VACIOS);
 const fmt = new Intl.NumberFormat('es-CO');
+
+const selMes = f.mes ?? '';
+const selGas = (f.gasera ?? [])[0] ?? '';
+const selCabina = (f.cabina ?? [])[0] ?? '';
+const selEstado = (f.estado ?? [])[0] ?? '';
+const gaseras = metadatos.gaseras ?? [];
+const cabinas = metadatos.cabinas ?? [];
+const estados = metadatos.estados ?? [];
+const mesesFiltro = (metadatos.meses ?? []).filter((m) => m !== 'SIN DATO');
+const totalBase = metadatos.total ?? 0;
 
 const totalPages = Math.max(1, Math.ceil((pagina.total ?? 0) / pageSize));
 const pageSafe = Math.min(page, totalPages);
@@ -49,12 +61,27 @@ mesesChart.forEach((mes, i) => {
   });
 });
 
-const prevHref = pageSafe > 1 ? `/detalle?page=${pageSafe - 1}` : null;
-const nextHref = pageSafe < totalPages ? `/detalle?page=${pageSafe + 1}` : null;
+const prevBase = new URLSearchParams(Astro.url.searchParams);
+prevBase.delete('page');
+const qsSinPage = prevBase.toString();
+const hrefPag = (p: number) => `/detalle?${qsSinPage ? qsSinPage + '&' : ''}page=${p}`;
+const prevHref = pageSafe > 1 ? hrefPag(pageSafe - 1) : null;
+const nextHref = pageSafe < totalPages ? hrefPag(pageSafe + 1) : null;
 
 const tTot = (k: string) => tablaMes.reduce((s: number, r: any) => s + Number(r[k] ?? 0), 0);
 const TT = tTot('total'), TRET = tTot('retenidos'), TAPT = tTot('aptos');
 const TPCT = TAPT > 0 ? Math.round((TRET / TAPT) * 1000) / 10 : 0;
+
+// Mini KPIs de la vista detalle (mismo cálculo que el dashboard, tarjetas compactas)
+const kpiMini = [
+  { label: 'Total llamadas', valor: fmt.format(TT), cls: 'mk-azul' },
+  { label: 'Inbound', valor: fmt.format(tTot('inbound')), cls: 'mk-verde' },
+  { label: 'Outbound', valor: fmt.format(tTot('outbound')), cls: 'mk-violeta' },
+  { label: 'Aptos', valor: fmt.format(TAPT), cls: 'mk-teal' },
+  { label: 'No aptos', valor: fmt.format(tTot('noAptos')), cls: 'mk-gris' },
+  { label: 'Retenciones', valor: fmt.format(TRET), cls: 'mk-ambar' },
+  { label: '% Retención', valor: `${TPCT}%`, cls: 'mk-rosa' },
+];
 ---
 
 <SidebarLayout title="Detalle · Gestión Diaria Promigas 2026">
@@ -66,8 +93,26 @@ const TPCT = TAPT > 0 ? Math.round((TRET / TAPT) * 1000) / 10 : 0;
     <p class="rounded-full bg-tinta/10 px-4 py-1.5 text-xs font-bold">{fmt.format(pagina.total)} registros</p>
   </div>
 
+  <FiltrosPanel
+    action="/detalle"
+    opciones={{ mes: mesesFiltro, gasera: gaseras, cabina: cabinas, estado: estados }}
+    actual={{ mes: selMes, gasera: selGas, cabina: selCabina, estado: selEstado }}
+    totalFiltrado={pagina.total}
+    totalBase={totalBase}
+  />
+
+  <!-- Mini KPIs -->
+  <section class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7" aria-label="Indicadores">
+    {kpiMini.map((k) => (
+      <div class={`kpi-mini ${k.cls}`}>
+        <p class="kpi-mini-num">{k.valor}</p>
+        <p class="kpi-mini-label">{k.label}</p>
+      </div>
+    ))}
+  </section>
+
   <!-- Página 2: tabla de gestión por mes -->
-  <section class="glass overflow-x-auto rounded-3xl p-3">
+  <section class="glass mt-4 overflow-x-auto rounded-3xl p-3">
     <h2 class="p-2 text-base font-bold">Tabla de gestión por mes</h2>
     <table class="w-full min-w-[760px] text-left text-xs">
       <thead><tr class="uppercase tracking-wider text-tinta/55">
@@ -143,6 +188,13 @@ const TPCT = TAPT > 0 ? Math.round((TRET / TAPT) * 1000) / 10 : 0;
   </section>
 
   <style>
+    .kpi-mini { position: relative; overflow: hidden; border-radius: 1rem; padding: .7rem .8rem; border: 1px solid color-mix(in srgb, currentColor 12%, transparent); background: color-mix(in srgb, Canvas 80%, transparent); backdrop-filter: blur(14px); transition: transform .3s cubic-bezier(0.22, 1, 0.36, 1), box-shadow .3s ease; }
+    .kpi-mini:hover { transform: translateY(-3px); box-shadow: 0 14px 28px -16px rgba(18,1,128,.55); }
+    .kpi-mini::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 3px; background: var(--mk, var(--color-xuma-azul)); }
+    .kpi-mini-num { font-size: 1.15rem; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
+    .kpi-mini-label { font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; opacity: .6; }
+    .mk-azul { --mk: #120180; } .mk-verde { --mk: #00cd93; } .mk-violeta { --mk: #8b7bff; }
+    .mk-teal { --mk: #0d9488; } .mk-gris { --mk: #64748b; } .mk-ambar { --mk: #f59e0b; } .mk-rosa { --mk: #f43f5e; }
     @keyframes growBar { from { transform: scaleY(0); } to { transform: scaleY(1); } }
     @media (prefers-reduced-motion: reduce) { .gen-bar { animation: none !important; transform: none !important; } }
     .gen-inner { min-width: 720px; }

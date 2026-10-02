@@ -146,8 +146,16 @@ const chips = defs
         var btn = form.querySelector('[data-btn-filtrar]');
         if (btn) { btn.classList.add('is-loading'); btn.textContent = 'Filtrando…'; }
         document.body.classList.add('filtrando');
+        // Red de seguridad: si la navegación se interrumpe (servidor caído, red
+        // lenta), el overlay nunca debe atrapar al usuario con la página tapada.
+        setTimeout(function () { document.body.classList.remove('filtrando'); }, 15000);
       });
     });
+    // Limpieza al volver/mostrar la página (botón atrás, bfcache) o tras
+    // una transición cliente: el overlay siempre arranca apagado.
+    function apagarOverlay() { document.body.classList.remove('filtrando'); }
+    window.addEventListener('pageshow', apagarOverlay);
+    document.addEventListener('astro:after-swap', apagarOverlay);
   })();
 </script>
 
