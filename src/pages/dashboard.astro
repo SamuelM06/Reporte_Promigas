@@ -1,50 +1,199 @@
 ---
 import SidebarLayout from '../layouts/SidebarLayout.astro';
-import { cargaSSR, filtrosPorDefecto, getKpis, getTendencia, getMetadatos, METADATOS_VACIOS } from '../lib/query';
+import { cargaSSR, filtrosPorDefecto, getDashboardMensual, getMetadatos, METADATOS_VACIOS, parseFiltros } from '../lib/query';
 
-const f = filtrosPorDefecto();
-const KPIS0 = { total: 0, retenidos: 0, cancelados: 0, noContacto: 0, pctRetencion: 0 };
-const kpis = await cargaSSR('dashboard/kpis', getKpis(f), KPIS0);
-const tendencia: any[] = await cargaSSR('dashboard/tendencia', getTendencia(f), []);
+const f = { ...filtrosPorDefecto(), ...parseFiltros(Astro.url) };
+const claveFiltros = JSON.stringify(f);
+const mensual: any[] = await cargaSSR(`dashboard/mensual/${claveFiltros}`, getDashboardMensual(f), []);
 const metadatos = await cargaSSR('dashboard/metadatos', getMetadatos(f), METADATOS_VACIOS);
 const fmt = new Intl.NumberFormat('es-CO');
-const maxT = Math.max(1, ...tendencia.map((t: any) => Number(t.total ?? 0)));
+
+const tot = (k: string) => mensual.reduce((s: number, r: any) => s + Number(r[k] ?? 0), 0);
+const T = tot('total'), INB = tot('inbound'), OUT = tot('outbound'), RET = tot('retenidos'), APT = tot('aptos');
+const PCT = APT > 0 ? Math.round((RET / APT) * 1000) / 10 : 0;
+
+const selMes = f.mes ?? '';
+const selGas = (f.distribuidora ?? [])[0] ?? '';
+const selAseg = (f.aseguradora ?? [])[0] ?? '';
+const gaseras = metadatos.distribuidoras ?? [];
+const asegs = metadatos.aseguradoras ?? [];
+const mesesFiltro = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'].filter((m) => (metadatos.meses ?? []).includes(m));
+
+const maxBar = Math.max(1, ...mensual.map((r: any) => Math.max(Number(r.total ?? 0), Number(r.inbound ?? 0), Number(r.outbound ?? 0), Number(r.retenidos ?? 0))));
+const maxPct = Math.max(10, ...mensual.map((r: any) => Number(r.pct ?? 0)));
+const H = 190;
+
+// Geometría de la línea de % (SVG sobre las columnas)
+const n = Math.max(1, mensual.length);
+const stepX = 100 / n;
+const px = (i: number) => (stepX * i + stepX / 2).toFixed(2);
+const py = (pct: number) => (H - 18 - (Number(pct) / maxPct) * (H - 46)).toFixed(1);
+const linePts = mensual.map((r: any, i: number) => `${px(i)},${py(Number(r.pct ?? 0))}`).join(' ');
+
+const SERIES = [
+  { key: 'total', label: 'Total llamadas', color: 'linear-gradient(180deg,#120180,#3d22c8)', dot: '#3d22c8' },
+  { key: 'inbound', label: 'Inbound', color: 'linear-gradient(180deg,#00cd93,#5ae280)', dot: '#00cd93' },
+  { key: 'outbound', label: 'Outbound', color: 'linear-gradient(180deg,#8b7bff,#c4b5fd)', dot: '#8b7bff' },
+  { key: 'retenidos', label: 'Retenciones', color: 'linear-gradient(180deg,#f59e0b,#fcd34d)', dot: '#f59e0b' },
+];
+
+const kpis = [
+  { label: 'Total llamadas', valor: T, color: 'text-tinta' },
+  { label: 'Inbound', valor: INB, color: 'text-xuma-verde-oscuro' },
+  { label: 'Outbound', valor: OUT, color: 'text-[#5b3df0]' },
+  { label: 'Retenciones', valor: RET, color: 'text-amber-600' },
+  { label: '% Retención', valor: `${PCT}%`, color: 'text-xuma-verde-oscuro', nota: 'Retenidos / Aptos × 100' },
+];
 ---
 
 <SidebarLayout title="Dashboard · Gestión Diaria Promigas 2026">
   <div class="mb-4">
-    <p class="text-xs font-bold uppercase tracking-widest text-tinta/55">Corte · Enero a Diciembre 2026</p>
+    <p class="text-xs font-bold uppercase tracking-widest text-tinta/55">Corte · Enero a Septiembre 2026</p>
     <h1 class="text-2xl font-extrabold md:text-3xl">Dashboard de <span class="texto-brillo">Gestión Diaria</span></h1>
   </div>
 
-  <section class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-    <article class="glass rounded-3xl p-5"><p class="text-xs font-bold uppercase tracking-widest text-tinta/55">Total gestiones</p><p class="mt-1 text-3xl font-extrabold">{fmt.format(kpis.total)}</p></article>
-    <article class="glass rounded-3xl p-5"><p class="text-xs font-bold uppercase tracking-widest text-tinta/55">Retenidos</p><p class="mt-1 text-3xl font-extrabold text-xuma-verde-oscuro">{fmt.format(kpis.retenidos)}</p><p class="text-xs text-tinta/60">{kpis.pctRetencion}% retención</p></article>
-    <article class="glass rounded-3xl p-5"><p class="text-xs font-bold uppercase tracking-widest text-tinta/55">Cancelados</p><p class="mt-1 text-3xl font-extrabold">{fmt.format(kpis.cancelados)}</p></article>
-    <article class="glass rounded-3xl p-5"><p class="text-xs font-bold uppercase tracking-widest text-tinta/55">No contacto</p><p class="mt-1 text-3xl font-extrabold">{fmt.format(kpis.noContacto)}</p></article>
+  <!-- Filtros: Mes · Gasera · Aseguradora -->
+  <form method="get" action="/dashboard" class="glass rounded-3xl p-4 md:p-5">
+    <div class="grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto]">
+      <label class="flex flex-col gap-1 text-xs font-bold uppercase tracking-widest text-tinta/55">Mes
+        <select name="mes" class="h-11 rounded-xl border border-tinta/15 bg-transparent px-3 text-sm font-semibold normal-case tracking-normal text-tinta">
+          <option value="">Todos</option>
+          {mesesFiltro.map((m) => (<option value={m} selected={selMes === m}>{m}</option>))}
+        </select>
+      </label>
+      <label class="flex flex-col gap-1 text-xs font-bold uppercase tracking-widest text-tinta/55">Gasera
+        <select name="distribuidora" class="h-11 rounded-xl border border-tinta/15 bg-transparent px-3 text-sm font-semibold normal-case tracking-normal text-tinta">
+          <option value="">Todas</option>
+          {gaseras.map((g) => (<option value={g} selected={selGas === g}>{g}</option>))}
+        </select>
+      </label>
+      <label class="flex flex-col gap-1 text-xs font-bold uppercase tracking-widest text-tinta/55">Aseguradora
+        <select name="aseguradora" class="h-11 rounded-xl border border-tinta/15 bg-transparent px-3 text-sm font-semibold normal-case tracking-normal text-tinta">
+          <option value="">Todas</option>
+          {asegs.map((a) => (<option value={a} selected={selAseg === a}>{a}</option>))}
+        </select>
+      </label>
+      <div class="flex items-end gap-2">
+        <button type="submit" class="h-11 rounded-xl bg-xuma-azul px-5 text-sm font-bold text-white transition hover:scale-105 dark:bg-xuma-verde-claro dark:text-[#0a1030]">Filtrar</button>
+        <a href="/dashboard" class="glass glass-hover inline-flex h-11 items-center rounded-xl px-4 text-sm font-semibold">Limpiar</a>
+      </div>
+    </div>
+  </form>
+
+  <!-- KPIs -->
+  <section class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+    {kpis.map((k, i) => (
+      <article class="glass glass-hover show fade-up rounded-3xl p-5" style={`animation-delay:${0.05 + i * 0.08}s`}>
+        <p class="text-xs font-bold uppercase tracking-widest text-tinta/55">{k.label}</p>
+        <p class={`mt-1 text-3xl font-extrabold ${k.color}`}>{typeof k.valor === 'number' ? fmt.format(k.valor) : k.valor}</p>
+        {k.nota && <p class="mt-1 text-[11px] text-tinta/60">{k.nota}</p>}
+      </article>
+    ))}
   </section>
 
+  <!-- Gráfico: columnas por mes + línea de % retención -->
   <section class="glass mt-4 rounded-3xl p-5">
-    <h2 class="text-base font-bold">Tendencia por mes</h2>
-    <div class="mt-4 flex h-44 items-end gap-2">
-      {tendencia.map((t: any) => (
-        <div class="flex flex-1 flex-col items-center gap-1">
-          <div class="w-full rounded-t-xl bg-gradient-to-t from-xuma-azul to-xuma-verde-oscuro" style={`height:${Math.round((Number(t.total ?? 0) / maxT) * 140)}px`} title={`${t.mes}: ${t.total}`}></div>
-          <span class="text-[10px] font-bold uppercase text-tinta/60">{String(t.mes ?? '').slice(0, 3)}</span>
-        </div>
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <h2 class="text-base font-bold">Gestión mensual: llamadas y retenciones</h2>
+      <p class="text-xs text-tinta/60">Columnas por mes · línea = % retención (Retenidos / Aptos × 100)</p>
+    </div>
+    <div class="mt-3 flex flex-wrap gap-2">
+      {SERIES.map((s) => (
+        <span class="inline-flex items-center gap-2 rounded-full bg-tinta/10 px-3 py-1 text-xs font-bold">
+          <span class="inline-block h-3 w-3 rounded" style={`background:${s.dot}`}></span>{s.label}
+        </span>
       ))}
+      <span class="inline-flex items-center gap-2 rounded-full bg-tinta/10 px-3 py-1 text-xs font-bold">
+        <span class="inline-block h-0.5 w-5 rounded bg-rose-500"></span>% Retención
+      </span>
     </div>
-    <div class="mt-3 flex flex-wrap gap-2 text-xs text-tinta/65">
-      {tendencia.map((t: any) => (<span class="rounded-full bg-tinta/10 px-3 py-1"><strong>{t.mes}</strong>: {fmt.format(t.total)}</span>))}
-    </div>
+
+    {mensual.length === 0 ? (
+      <p class="mt-6 text-sm text-tinta/60">Sin datos para los filtros seleccionados.</p>
+    ) : (
+      <div class="chart-wrap mt-2 overflow-x-auto">
+        <div class="chart-inner">
+          <svg class="chart-line" viewBox={`0 0 100 ${H}`} preserveAspectRatio="none" aria-hidden="true">
+            <polyline points={linePts} fill="none" stroke="#f43f5e" stroke-width="0.7" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" class="pct-line" />
+          </svg>
+          <div class="chart-cols">
+            {mensual.map((r: any, i: number) => (
+              <div class="chart-month">
+                <div class="chart-bars">
+                  {SERIES.map((s, j) => (
+                    <div class="bar-col">
+                      <span class="bar-val">{fmt.format(r[s.key] ?? 0)}</span>
+                      <div class="bar" style={`height:${Math.max(4, Math.round((Number(r[s.key] ?? 0) / maxBar) * (H - 60)))}px;background:${s.color};animation-delay:${0.1 + i * 0.12 + j * 0.06}s`} title={`${r.mes} · ${s.label}: ${fmt.format(r[s.key] ?? 0)}`}></div>
+                    </div>
+                  ))}
+                  <span class="pct-dot" style={`left:50%;bottom:${py(Number(r.pct ?? 0))}px`} title={`${r.mes} · % Retención: ${r.pct}%`}>
+                    <span class="pct-tag">{r.pct}%</span>
+                  </span>
+                </div>
+                <span class="chart-mes">{String(r.mes ?? '').slice(0, 3)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )}
+    <p class="mt-3 text-[11px] leading-relaxed text-tinta/55">
+      Fórmula: <strong>% Retención = Retenidos / Aptos × 100</strong> · Aptos = gestiones contactadas y evaluables
+      (excluye No contacto, No apto, No aplica y sin estado).
+    </p>
   </section>
 
-  <section class="glass mt-4 rounded-3xl p-5">
-    <h2 class="text-base font-bold">Filtros disponibles</h2>
-    <div class="mt-2 flex flex-wrap gap-2 text-xs">
-      <span class="rounded-full bg-tinta/10 px-3 py-1">Distribuidoras: {metadatos.distribuidoras.join(', ')}</span>
-      <span class="rounded-full bg-tinta/10 px-3 py-1">Cabinas: {metadatos.cabinas.join(', ')}</span>
-    </div>
-    <p class="mt-3 text-xs text-tinta/60">El dashboard completo con gráficos y filtros avanzados lo definimos en el siguiente paso.</p>
+  <!-- Tabla mensual -->
+  <section class="glass mt-4 overflow-x-auto rounded-3xl p-3">
+    <table class="w-full min-w-[760px] text-left text-xs">
+      <thead><tr class="uppercase tracking-wider text-tinta/55">
+        <th class="p-3">Mes</th><th class="p-3 text-right">Total</th><th class="p-3 text-right">Inbound</th><th class="p-3 text-right">Outbound</th><th class="p-3 text-right">Retenidos</th><th class="p-3 text-right">Aptos</th><th class="p-3 text-right">% Retención</th>
+      </tr></thead>
+      <tbody>
+        {mensual.map((r: any) => (
+          <tr class="border-t border-tinta/10 hover:bg-tinta/5">
+            <td class="p-3 font-extrabold">{r.mes}</td>
+            <td class="p-3 text-right">{fmt.format(r.total)}</td>
+            <td class="p-3 text-right">{fmt.format(r.inbound)}</td>
+            <td class="p-3 text-right">{fmt.format(r.outbound)}</td>
+            <td class="p-3 text-right font-bold text-amber-600">{fmt.format(r.retenidos)}</td>
+            <td class="p-3 text-right">{fmt.format(r.aptos)}</td>
+            <td class="p-3 text-right font-extrabold text-xuma-verde-oscuro">{r.pct}%</td>
+          </tr>
+        ))}
+        <tr class="border-t-2 border-tinta/20 font-extrabold">
+          <td class="p-3">TOTAL</td>
+          <td class="p-3 text-right">{fmt.format(T)}</td>
+          <td class="p-3 text-right">{fmt.format(INB)}</td>
+          <td class="p-3 text-right">{fmt.format(OUT)}</td>
+          <td class="p-3 text-right">{fmt.format(RET)}</td>
+          <td class="p-3 text-right">{fmt.format(APT)}</td>
+          <td class="p-3 text-right">{PCT}%</td>
+        </tr>
+      </tbody>
+    </table>
   </section>
+
+  <style>
+    .show { opacity: 0; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: none; } }
+    @keyframes growBar { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+    @keyframes drawLine { from { stroke-dashoffset: 320; } to { stroke-dashoffset: 0; } }
+    @keyframes popDot { from { opacity: 0; transform: scale(0); } to { opacity: 1; transform: scale(1); } }
+    @media (prefers-reduced-motion: reduce) { .show { opacity: 1; } .bar, .pct-line, .pct-dot { animation: none !important; } }
+    .fade-up { animation: fadeUp 0.9s cubic-bezier(0.22, 1, 0.36, 1) both; }
+    .chart-wrap { position: relative; }
+    .chart-inner { position: relative; min-width: 640px; }
+    .chart-line { position: absolute; inset: 0 0 26px 0; width: 100%; height: calc(100% - 26px); overflow: visible; }
+    .pct-line { stroke-dasharray: 320; stroke-dashoffset: 320; animation: drawLine 1.6s ease-out 0.7s forwards; }
+    .chart-cols { position: relative; display: flex; gap: .6rem; padding-top: .5rem; }
+    .chart-month { flex: 1; display: flex; flex-direction: column; }
+    .chart-bars { position: relative; display: flex; align-items: flex-end; justify-content: center; gap: .3rem; height: 190px; border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent); padding-bottom: 2px; }
+    .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 3px; height: 100%; }
+    .bar-val { font-size: 9px; font-weight: 800; color: color-mix(in srgb, currentColor 65%, transparent); }
+    .bar { width: 100%; max-width: 26px; border-radius: 6px 6px 2px 2px; transform-origin: bottom; transform: scaleY(0); animation: growBar 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+    .chart-mes { margin-top: .4rem; text-align: center; font-size: 10px; font-weight: 800; text-transform: uppercase; opacity: .6; }
+    .pct-dot { position: absolute; width: 10px; height: 10px; margin-left: -5px; border-radius: 999px; background: #f43f5e; border: 2px solid #fff; box-shadow: 0 2px 8px rgba(244,63,94,.6); opacity: 0; animation: popDot .5s ease-out 1.5s forwards; }
+    .pct-tag { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 9px; font-weight: 800; color: #f43f5e; background: color-mix(in srgb, #f43f5e 10%, transparent); border-radius: 999px; padding: 1px 6px; }
+  </style>
 </SidebarLayout>

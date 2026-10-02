@@ -178,6 +178,48 @@ export async function getMensualPorAseguradora(f: Filtros): Promise<FilaMensualA
   ).catch(() => []);
 }
 
+// Aptos = gestiones contactadas y evaluables: se excluyen No contacto, No apto,
+// No aplica y sin estado. % Retención = Retenidos / Aptos × 100.
+const APTOS_SQL = `(estado_norm IS NOT NULL AND estado_norm NOT ILIKE 'NO CONTACTO%' AND estado_norm NOT ILIKE 'NO APTO%' AND estado_norm NOT ILIKE 'NO APLICA%')`;
+const RETENIDOS_SQL = `(estado_norm ILIKE 'RETENID%')`;
+
+export interface FilaDashboardMensual {
+  mes: string;
+  total: number;
+  inbound: number;
+  outbound: number;
+  retenidos: number;
+  aptos: number;
+  pct: number;
+}
+
+export async function getDashboardMensual(f: Filtros): Promise<FilaDashboardMensual[]> {
+  const params: unknown[] = [];
+  const w = whereGestion(f, params);
+  const rows = await query<any>(
+    `SELECT mes_norm AS mes, COUNT(*)::int AS total,
+      COUNT(*) FILTER (WHERE cabina_norm = 'INBOUND')::int AS inbound,
+      COUNT(*) FILTER (WHERE cabina_norm = 'OUTBOUND')::int AS outbound,
+      COUNT(*) FILTER (WHERE ${RETENIDOS_SQL})::int AS retenidos,
+      COUNT(*) FILTER (WHERE ${APTOS_SQL})::int AS aptos
+     FROM ${VISTA} WHERE ${w} AND mes_norm IS NOT NULL GROUP BY mes_norm
+     ORDER BY CASE mes_norm WHEN 'ENERO' THEN 1 WHEN 'FEBRERO' THEN 2 WHEN 'MARZO' THEN 3 WHEN 'ABRIL' THEN 4 WHEN 'MAYO' THEN 5 WHEN 'JUNIO' THEN 6 WHEN 'JULIO' THEN 7 WHEN 'AGOSTO' THEN 8 WHEN 'SEPTIEMBRE' THEN 9 WHEN 'OCTUBRE' THEN 10 WHEN 'NOVIEMBRE' THEN 11 WHEN 'DICIEMBRE' THEN 12 ELSE 99 END`,
+    params,
+  ).catch(() => []);
+  return rows.map((r: any) => {
+    const aptos = Number(r.aptos ?? 0);
+    const retenidos = Number(r.retenidos ?? 0);
+    return {
+      mes: r.mes,
+      total: Number(r.total ?? 0),
+      inbound: Number(r.inbound ?? 0),
+      outbound: Number(r.outbound ?? 0),
+      retenidos,
+      aptos,
+      pct: aptos > 0 ? Math.round((retenidos / aptos) * 1000) / 10 : 0,
+    };
+  });
+}
 export async function getTabla(f: Filtros, page = 1, pageSize = 50) {
   const params: unknown[] = [];
   const w = whereGestion(f, params);
