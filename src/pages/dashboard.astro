@@ -1,4 +1,5 @@
 ---
+import { ruta } from '../lib/base';
 import SidebarLayout from '../layouts/SidebarLayout.astro';
 import FiltrosPanel from '../components/filtros/FiltrosPanel.astro';
 import { cargaSSR, filtrosPorDefecto, getDashboardMensual, getMetadatos, METADATOS_VACIOS, parseFiltros } from '../lib/query';
@@ -87,7 +88,7 @@ const kpis: KpiCard[] = [
   </div>
 
   <FiltrosPanel
-    action="/dashboard"
+    action={ruta('/dashboard')}
     opciones={{ mes: mesesFiltro, gasera: gaseras, cabina: cabinas, estado: estados }}
     actual={{ mes: selMes, gasera: selGas, cabina: selCabina, estado: selEstado }}
     totalFiltrado={T}

@@ -24,6 +24,7 @@ import { crearDrenaje } from './drenaje.mjs';
 
 const PORT = Number(process.env.PORT || 4321);
 const HOST = process.env.HOST || '0.0.0.0';
+const BASE = '/reporte-promigas'; // igual que `base` en astro.config.mjs
 const GRACIA_MS = Number(process.env.SHUTDOWN_GRACE_MS || 10_000);
 
 let server = null;
@@ -55,10 +56,10 @@ server.listen(PORT, HOST, () => {
     try {
       const base = `http://127.0.0.1:${PORT}`;
       await Promise.allSettled([
-        fetch(`${base}/`).then((r) => r.text()),
-        fetch(`${base}/dashboard`).then((r) => r.text()),
-        fetch(`${base}/por-gasera`).then((r) => r.text()),
-        fetch(`${base}/detalle`).then((r) => r.text()),
+        fetch(`${base}${BASE}/`).then((r) => r.text()),
+        fetch(`${base}${BASE}/dashboard`).then((r) => r.text()),
+        fetch(`${base}${BASE}/por-gasera`).then((r) => r.text()),
+        fetch(`${base}${BASE}/detalle`).then((r) => r.text()),
       ]);
       console.log('[serve.mjs] 🔥 Rutas y datos precalentados en RAM: respuestas instantáneas (<20ms)');
     } catch {

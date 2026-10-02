@@ -20,6 +20,8 @@ const hostsPermitidos = ALLOWED_HOSTS.length > 0 ? ALLOWED_HOSTS : undefined;
 
 // https://astro.build/config
   export default defineConfig({
+    // Publicada bajo https://xuma.jpasdata.com/reporte-promigas/ (mismo origen que el Hub).
+    base: '/reporte-promigas',
     output: 'server',
     adapter: node({ mode: 'standalone' }),
     integrations: [react()],

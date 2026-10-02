@@ -20,6 +20,7 @@
 import { defineMiddleware } from 'astro:middleware';
 import { rateLimit } from './lib/ratelimit';
 import { ENV } from './lib/env';
+import { ruta, sinBase } from './lib/base';
 
 const esRutaApi = (p: string) => p === '/api' || p.startsWith('/api/');
 
@@ -38,10 +39,11 @@ const esPaginaDinamica = (p: string) => !esRutaApi(p) && !esEstatico(p);
 
 export const onRequest = defineMiddleware(async (context, next) => {
   const { url, redirect, clientAddress } = context;
-  const path = url.pathname;
+  // `url.pathname` trae el prefijo de despliegue; las reglas de abajo van sin él.
+  const path = sinBase(url.pathname);
   // --- Acceso sin login (login deshabilitado/oculto) -----------------------
   if (path === '/login' || path === '/login/') {
-    return redirect('/dashboard');
+    return redirect(ruta('/dashboard'));
   }
 
   // --- Ratelimit sobre /api/* (solo si algún día vuelve a haber rutas) -------
@@ -64,7 +66,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   // --- Endurecimiento de respuesta --------------------------------------------
   const headers = new Headers(response.headers);
-  headers.set('X-Frame-Options', 'DENY');
+  headers.set('X-Frame-Options', 'SAMEORIGIN');
   headers.set('X-Content-Type-Options', 'nosniff');
   headers.set('Referrer-Policy', 'no-referrer');
   headers.set('X-Permitted-Cross-Domain-Policies', 'none');
@@ -78,7 +80,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
       "img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://*.google.com https://*.googleapis.com https://*.gstatic.com",
       "font-src 'self'",
       "connect-src 'self' ws: https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://*.google.com https://*.googleapis.com https://*.gstatic.com",
-      "frame-ancestors 'none'",
+      "frame-ancestors 'self'",
       "base-uri 'self'",
       "object-src 'none'",
       "form-action 'self'",

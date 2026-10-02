@@ -1,4 +1,5 @@
 ---
+import { ruta } from '../lib/base';
 import SidebarLayout from '../layouts/SidebarLayout.astro';
 
 /*
@@ -90,7 +91,7 @@ const limites = [
   <div class="mx-auto flex w-full max-w-4xl flex-col gap-4 pb-4">
     <header class="show fade-up">
       <a
-        href="/"
+        href={ruta('/')}
         class="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-tinta/55 transition-colors hover:text-tinta"
       >
         <span aria-hidden="true">&larr;</span> Volver al inicio

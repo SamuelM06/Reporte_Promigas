@@ -1,4 +1,5 @@
 ---
+import { ruta } from '../lib/base';
 import SidebarLayout from '../layouts/SidebarLayout.astro';
 import FiltrosPanel from '../components/filtros/FiltrosPanel.astro';
 import MensualChart from '../components/charts/MensualChart.astro';
@@ -42,7 +43,7 @@ const qs = (p: number) => {
   if (selCabina) q.set('cabina', selCabina);
   if (p === 2) q.set('page', '2');
   const s = q.toString();
-  return s ? `/por-gasera?${s}` : '/por-gasera';
+  return s ? ruta(`/por-gasera?${s}`) : ruta('/por-gasera');
 };
 
 const resumen = (datos: any[]) => {
@@ -59,7 +60,7 @@ const resumen = (datos: any[]) => {
   </div>
 
   <FiltrosPanel
-    action="/por-gasera"
+    action={ruta('/por-gasera')}
     defs={defsPanel}
     opciones={{ mes: mesesFiltro, cabina: cabinas }}
     actual={{ mes: selMes, cabina: selCabina }}

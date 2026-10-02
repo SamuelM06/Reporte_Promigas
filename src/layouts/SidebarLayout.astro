@@ -1,4 +1,5 @@
 ---
+import { ruta } from '../lib/base';
 import MainLayout from './MainLayout.astro';
 import ThemeToggle from '../components/ui/ThemeToggle.tsx';
 import Footer from '../components/ui/Footer.astro';
@@ -10,10 +11,10 @@ const { title = 'Gestión Diaria Promigas 2026' } = Astro.props;
 const actual = Astro.url.pathname;
 
 const nav = [
-  { href: '/', label: 'Inicio', desc: 'Portada del reporte', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>' },
-  { href: '/dashboard', label: 'Dashboard', desc: 'KPIs y tendencias', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg>' },
-  { href: '/por-gasera', label: 'Por Gasera', desc: 'Mensual por gasera', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M8 10h.01"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 14h.01"/><path d="M16 14h.01"/><path d="M12 14h.01"/></svg>' },
-  { href: '/detalle', label: 'Detalle', desc: 'Tabla de gestión', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>' },
+  { href: ruta('/'), label: 'Inicio', desc: 'Portada del reporte', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>' },
+  { href: ruta('/dashboard'), label: 'Dashboard', desc: 'KPIs y tendencias', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg>' },
+  { href: ruta('/por-gasera'), label: 'Por Gasera', desc: 'Mensual por gasera', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M8 10h.01"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 14h.01"/><path d="M16 14h.01"/><path d="M12 14h.01"/></svg>' },
+  { href: ruta('/detalle'), label: 'Detalle', desc: 'Tabla de gestión', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>' },
 ];
 ---
 
@@ -31,9 +32,9 @@ const nav = [
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"><line x1="3" x2="21" y1="6" y2="6"/><line x1="3" x2="21" y1="12" y2="12"/><line x1="3" x2="21" y1="18" y2="18"/></svg>
         </button>
 
-        <a href="/" class="flex min-w-0 items-center gap-2.5" aria-label="Inicio">
-          <img src="/logos/Transparente_Logo_azul_letra_azul.svg" alt="Xuma" class="h-8 w-auto shrink-0 dark:hidden" />
-          <img src="/logos/Transparente_Logo_blanco_letra_blanca.svg" alt="Xuma" class="hidden h-8 w-auto shrink-0 dark:block" />
+        <a href={ruta('/')} class="flex min-w-0 items-center gap-2.5" aria-label="Inicio">
+          <img src={ruta('/logos/Transparente_Logo_azul_letra_azul.svg')} alt="Xuma" class="h-8 w-auto shrink-0 dark:hidden" />
+          <img src={ruta('/logos/Transparente_Logo_blanco_letra_blanca.svg')} alt="Xuma" class="hidden h-8 w-auto shrink-0 dark:block" />
           <span class="hidden min-w-0 sm:block">
             <span class="block truncate text-[10px] font-extrabold uppercase tracking-widest text-tinta/50 leading-tight">Gestión Diaria</span>
             <span class="block truncate text-sm font-extrabold text-tinta leading-tight">Promigas <span class="text-xuma-verde-oscuro dark:text-xuma-verde-claro">· 2026</span></span>
@@ -59,9 +60,9 @@ const nav = [
        drawer sigue estando siempre disponible. -->
   <aside id="sidebar" aria-label="Menú lateral" aria-hidden="true">
     <div class="side-brand">
-      <a href="/" class="side-logo" aria-label="Inicio Gestión Diaria Promigas">
-        <img src="/logos/Transparente_Logo_azul_letra_azul.svg" alt="Xuma" class="h-7 w-auto dark:hidden" />
-        <img src="/logos/Transparente_Logo_blanco_letra_blanca.svg" alt="Xuma" class="hidden h-7 w-auto dark:block" />
+      <a href={ruta('/')} class="side-logo" aria-label="Inicio Gestión Diaria Promigas">
+        <img src={ruta('/logos/Transparente_Logo_azul_letra_azul.svg')} alt="Xuma" class="h-7 w-auto dark:hidden" />
+        <img src={ruta('/logos/Transparente_Logo_blanco_letra_blanca.svg')} alt="Xuma" class="hidden h-7 w-auto dark:block" />
       </a>
       <div class="side-title flex-1">
         <p class="side-kicker">Gestión Diaria</p>
