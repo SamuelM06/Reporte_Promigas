@@ -102,7 +102,7 @@ async function main() {
 
   await pool.query('TRUNCATE TABLE reportes.reporte_promi');
 
-  const cols = ['distribuidora','aseguradora','medio_recepcion','contrato','localidad','operador','canal','producto','tipo_contacto','estado','subtipificacion','motivo','fecha_ejecucion','base_raw','fecha_venta','fecha_venta_raw','asesor_venta','mes','cabina','anio','distribuidora_norm','aseguradora_norm','canal_norm','cabina_norm','estado_norm','mes_norm'];
+  const cols = ['gasera','aseguradora','medio_recepcion','contrato','localidad','operador','canal','producto','tipo_contacto','estado','subtipificacion','motivo','fecha_ejecucion','base_raw','fecha_venta','fecha_venta_raw','asesor_venta','mes','cabina','anio','gasera_norm','aseguradora_norm','canal_norm','cabina_norm','estado_norm','mes_norm'];
   const BATCH = 1000;
   let ok = 0;
   for (let i = 0; i < data.length; i += BATCH) {

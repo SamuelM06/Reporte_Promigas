@@ -17,7 +17,7 @@ CREATE SCHEMA IF NOT EXISTS reportes;
 
 CREATE TABLE IF NOT EXISTS reportes.reporte_promi (
   id SERIAL PRIMARY KEY,
-  distribuidora TEXT,
+  gasera TEXT,
   aseguradora TEXT,
   medio_recepcion TEXT,
   contrato TEXT,
@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS reportes.reporte_promi (
   mes TEXT,
   cabina TEXT,
   anio INTEGER NULL,
-  distribuidora_norm TEXT,
+  gasera_norm TEXT,
   aseguradora_norm TEXT,
   canal_norm TEXT,
   cabina_norm TEXT,
@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS reportes.reporte_promi (
 CREATE INDEX IF NOT EXISTS idx_reporte_promi_fecha ON reportes.reporte_promi (fecha_ejecucion);
 CREATE INDEX IF NOT EXISTS idx_reporte_promi_mes ON reportes.reporte_promi (mes_norm);
 CREATE INDEX IF NOT EXISTS idx_reporte_promi_estado ON reportes.reporte_promi (estado_norm);
-CREATE INDEX IF NOT EXISTS idx_reporte_promi_dist ON reportes.reporte_promi (distribuidora_norm);
+CREATE INDEX IF NOT EXISTS idx_reporte_promi_dist ON reportes.reporte_promi (gasera_norm);
 CREATE INDEX IF NOT EXISTS idx_reporte_promi_cabina ON reportes.reporte_promi (cabina_norm);
 `;
 

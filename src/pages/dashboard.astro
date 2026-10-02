@@ -13,9 +13,9 @@ const T = tot('total'), INB = tot('inbound'), OUT = tot('outbound'), RET = tot('
 const PCT = APT > 0 ? Math.round((RET / APT) * 1000) / 10 : 0;
 
 const selMes = f.mes ?? '';
-const selGas = (f.distribuidora ?? [])[0] ?? '';
+const selGas = (f.gasera ?? [])[0] ?? '';
 const selAseg = (f.aseguradora ?? [])[0] ?? '';
-const gaseras = metadatos.distribuidoras ?? [];
+const gaseras = metadatos.gaseras ?? [];
 const asegs = metadatos.aseguradoras ?? [];
 const mesesFiltro = (metadatos.meses ?? []).filter((m) => m !== 'SIN DATO');
 
@@ -77,7 +77,7 @@ const kpis = [
         </select>
       </label>
       <label class="flex flex-col gap-1 text-xs font-bold uppercase tracking-widest text-tinta/55">Gasera
-        <select name="distribuidora" class="h-11 rounded-xl border border-tinta/15 bg-transparent px-3 text-sm font-semibold normal-case tracking-normal text-tinta">
+        <select name="gasera" class="h-11 rounded-xl border border-tinta/15 bg-transparent px-3 text-sm font-semibold normal-case tracking-normal text-tinta">
           <option value="">Todas</option>
           {gaseras.map((g) => (<option value={g} selected={selGas === g}>{g}</option>))}
         </select>

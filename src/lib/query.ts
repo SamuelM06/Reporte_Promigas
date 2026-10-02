@@ -6,7 +6,7 @@ export interface Filtros {
   desde?: string;
   hasta?: string;
   mes?: string;
-  distribuidora?: string[];
+  gasera?: string[];
   aseguradora?: string[];
   canal?: string[];
   cabina?: string[];
@@ -18,7 +18,7 @@ export interface Metadatos {
   total: number;
   rangoFechas: { min: string; max: string };
   meses: string[];
-  distribuidoras: string[];
+  gaseras: string[];
   aseguradoras: string[];
   canales: string[];
   cabinas: string[];
@@ -29,7 +29,7 @@ export interface Metadatos {
 export const METADATOS_VACIOS: Metadatos = {
   total: 0,
   rangoFechas: { min: '2026-01-01', max: '2026-12-31' },
-  meses: [], distribuidoras: [], aseguradoras: [], canales: [], cabinas: [], estados: [], porMes: [],
+  meses: [], gaseras: [], aseguradoras: [], canales: [], cabinas: [], estados: [], porMes: [],
 };
 
 export function filtrosPorDefecto(): Filtros {
@@ -46,7 +46,7 @@ export function parseFiltros(url: URL): Filtros {
     desde: g('desde') ?? '2026-01-01',
     hasta: g('hasta') ?? '2026-12-31',
     mes: g('mes') ?? undefined,
-    distribuidora: gl('distribuidora'),
+    gasera: gl('gasera'),
     aseguradora: gl('aseguradora'),
     canal: gl('canal'),
     cabina: gl('cabina'),
@@ -72,7 +72,7 @@ function whereGestion(f: Filtros, params: unknown[]): string {
     params.push(l);
     cond.push(`${col} = ANY($${params.length})`);
   };
-  lista('distribuidora_norm', f.distribuidora);
+  lista('gasera_norm', f.gasera);
   lista('aseguradora_norm', f.aseguradora);
   lista('canal_norm', f.canal);
   lista('cabina_norm', f.cabina);
@@ -95,7 +95,7 @@ export async function getMetadatos(_f: Filtros): Promise<Metadatos> {
     const meses = await query<{ mes: string }>(
       `SELECT DISTINCT mes_norm AS mes FROM ${VISTA} WHERE mes_norm IS NOT NULL ORDER BY ${ORDEN_MES_SQL}`,
     );
-    const dist = await query<{ v: string }>(`SELECT DISTINCT distribuidora_norm AS v FROM ${VISTA} WHERE distribuidora_norm IS NOT NULL ORDER BY 1`);
+    const dist = await query<{ v: string }>(`SELECT DISTINCT gasera_norm AS v FROM ${VISTA} WHERE gasera_norm IS NOT NULL ORDER BY 1`);
     const aseg = await query<{ v: string }>(`SELECT DISTINCT aseguradora_norm AS v FROM ${VISTA} WHERE aseguradora_norm IS NOT NULL ORDER BY 1`);
     const canales = await query<{ v: string }>(`SELECT DISTINCT canal_norm AS v FROM ${VISTA} WHERE canal_norm IS NOT NULL ORDER BY 1`);
     const cabinas = await query<{ v: string }>(`SELECT DISTINCT cabina_norm AS v FROM ${VISTA} WHERE cabina_norm IS NOT NULL ORDER BY 1`);
@@ -107,7 +107,7 @@ export async function getMetadatos(_f: Filtros): Promise<Metadatos> {
       total: Number(total?.n ?? 0),
       rangoFechas: { min: rango?.min ?? '2026-01-01', max: rango?.max ?? '2026-12-31' },
       meses: meses.map((r) => r.mes),
-      distribuidoras: dist.map((r) => r.v),
+      gaseras: dist.map((r) => r.v),
       aseguradoras: aseg.map((r) => r.v),
       canales: canales.map((r) => r.v),
       cabinas: cabinas.map((r) => r.v),
@@ -233,7 +233,7 @@ export async function getTabla(f: Filtros, page = 1, pageSize = 50) {
   const offset = (Math.max(1, page) - 1) * pageSize;
   params.push(pageSize, offset);
   const rows = await query(
-    `SELECT id, distribuidora, aseguradora, contrato, localidad, operador, canal, producto, tipo_contacto, estado, motivo, fecha_ejecucion::text AS fecha_ejecucion, mes, cabina, asesor_venta
+    `SELECT id, gasera, aseguradora, contrato, localidad, operador, canal, producto, tipo_contacto, estado, motivo, fecha_ejecucion::text AS fecha_ejecucion, mes, cabina, asesor_venta
      FROM ${VISTA} WHERE ${w} ORDER BY fecha_ejecucion DESC NULLS LAST, id DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
     params,
   ).catch(() => []);
