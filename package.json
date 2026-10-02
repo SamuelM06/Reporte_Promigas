@@ -1,7 +1,7 @@
 {
   "name": "reporte-promigas",
   "version": "0.1.0",
-  "description": "Gestión Diaria Promigas 2026 (Enero a Diciembre): portal de consulta del acumulado de gestión con identidad Xuma, sidebar auto-hide y API sobre DataCenter_Promigas.gestion.reporte_promi.",
+  "description": "Gestión Diaria Promigas 2026 (Enero a Diciembre): portal de consulta del acumulado de gestión con identidad Xuma, sidebar auto-hide y API sobre DataCenter_Promigas.reportes.reporte_promi.",
   "type": "commonjs",
   "scripts": {
     "dev": "astro dev",

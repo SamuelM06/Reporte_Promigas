@@ -1,4 +1,4 @@
-// Carga hoja Base del Excel a gestion.reporte_promi.
+// Carga hoja Base del Excel a reportes.reporte_promi.
 // Uso: npm run db:load
 // - Lee data/ACUMULADO_ENERO_DICIEMBRE_2026_PROMI.xlsx, hoja Base, primeras 19 columnas.
 // - Omite filas totalmente vacías (751 al final son artefacto de Excel).
@@ -100,7 +100,7 @@ async function main() {
   }
   console.log('Filas con datos:', data.length);
 
-  await pool.query('TRUNCATE TABLE gestion.reporte_promi');
+  await pool.query('TRUNCATE TABLE reportes.reporte_promi');
 
   const cols = ['distribuidora','aseguradora','medio_recepcion','contrato','localidad','operador','canal','producto','tipo_contacto','estado','subtipificacion','motivo','fecha_ejecucion','base_raw','fecha_venta','fecha_venta_raw','asesor_venta','mes','cabina','anio','distribuidora_norm','aseguradora_norm','canal_norm','cabina_norm','estado_norm','mes_norm'];
   const BATCH = 1000;
@@ -124,11 +124,11 @@ async function main() {
       ph.push(`(${row.map((_, k) => `$${base_idx + k + 1}`).join(',')})`);
       values.push(...row);
     });
-    await pool.query(`INSERT INTO gestion.reporte_promi (${cols.join(',')}) VALUES ${ph.join(',')}`, values);
+    await pool.query(`INSERT INTO reportes.reporte_promi (${cols.join(',')}) VALUES ${ph.join(',')}`, values);
     ok += chunk.length;
     console.log(`  ${ok}/${data.length}`);
   }
-  const c = await pool.query('SELECT COUNT(*)::int AS n FROM gestion.reporte_promi');
+  const c = await pool.query('SELECT COUNT(*)::int AS n FROM reportes.reporte_promi');
   console.log('TOTAL EN TABLA:', c.rows[0].n);
   await pool.end();
 }

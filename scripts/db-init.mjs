@@ -1,4 +1,4 @@
-// Crea esquema gestion + tabla gestion.reporte_promi en DataCenter_Promigas.
+// Crea esquema reportes + tabla reportes.reporte_promi en DataCenter_Promigas.
 // Uso: npm run db:init
 import 'dotenv/config';
 import { Pool } from 'pg';
@@ -13,9 +13,9 @@ const pool = new Pool({
 });
 
 const DDL = `
-CREATE SCHEMA IF NOT EXISTS gestion;
+CREATE SCHEMA IF NOT EXISTS reportes;
 
-CREATE TABLE IF NOT EXISTS gestion.reporte_promi (
+CREATE TABLE IF NOT EXISTS reportes.reporte_promi (
   id SERIAL PRIMARY KEY,
   distribuidora TEXT,
   aseguradora TEXT,
@@ -46,17 +46,17 @@ CREATE TABLE IF NOT EXISTS gestion.reporte_promi (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_reporte_promi_fecha ON gestion.reporte_promi (fecha_ejecucion);
-CREATE INDEX IF NOT EXISTS idx_reporte_promi_mes ON gestion.reporte_promi (mes_norm);
-CREATE INDEX IF NOT EXISTS idx_reporte_promi_estado ON gestion.reporte_promi (estado_norm);
-CREATE INDEX IF NOT EXISTS idx_reporte_promi_dist ON gestion.reporte_promi (distribuidora_norm);
-CREATE INDEX IF NOT EXISTS idx_reporte_promi_cabina ON gestion.reporte_promi (cabina_norm);
+CREATE INDEX IF NOT EXISTS idx_reporte_promi_fecha ON reportes.reporte_promi (fecha_ejecucion);
+CREATE INDEX IF NOT EXISTS idx_reporte_promi_mes ON reportes.reporte_promi (mes_norm);
+CREATE INDEX IF NOT EXISTS idx_reporte_promi_estado ON reportes.reporte_promi (estado_norm);
+CREATE INDEX IF NOT EXISTS idx_reporte_promi_dist ON reportes.reporte_promi (distribuidora_norm);
+CREATE INDEX IF NOT EXISTS idx_reporte_promi_cabina ON reportes.reporte_promi (cabina_norm);
 `;
 
 async function main() {
   console.log('Conectando a', process.env.DB_NAME);
   await pool.query(DDL);
-  const c = await pool.query('SELECT COUNT(*)::int AS n FROM gestion.reporte_promi');
+  const c = await pool.query('SELECT COUNT(*)::int AS n FROM reportes.reporte_promi');
   console.log('OK esquema+tabla. Filas actuales:', c.rows[0].n);
   await pool.end();
 }

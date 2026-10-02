@@ -1,5 +1,5 @@
 // Query layer para Gestión Diaria Promigas 2026.
-// Tabla: gestion.reporte_promi (en DataCenter_Promigas).
+// Tabla: reportes.reporte_promi (en DataCenter_Promigas).
 import { query, queryOne } from './db';
 
 export interface Filtros {
@@ -78,7 +78,7 @@ function whereGestion(f: Filtros, params: unknown[]): string {
   return cond.join(' AND ');
 }
 
-const VISTA = `gestion.reporte_promi`;
+const VISTA = `reportes.reporte_promi`;
 
 export async function getMetadatos(_f: Filtros): Promise<Metadatos> {
   try {
