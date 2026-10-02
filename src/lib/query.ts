@@ -122,6 +122,7 @@ export async function getMetadatos(_f: Filtros): Promise<Metadatos> {
 export interface Kpis {
   total: number;
   retenidos: number;
+  aptos: number;
   cancelados: number;
   noContacto: number;
   pctRetencion: number;
@@ -132,20 +133,22 @@ export async function getKpis(f: Filtros): Promise<Kpis> {
   const w = whereGestion(f, params);
   const row = await queryOne<any>(
     `SELECT COUNT(*)::int AS total,
-      COUNT(*) FILTER (WHERE estado_norm ILIKE 'RETENID%')::int AS retenidos,
+      COUNT(*) FILTER (WHERE ${RETENIDOS_SQL})::int AS retenidos,
+      COUNT(*) FILTER (WHERE ${APTOS_SQL})::int AS aptos,
       COUNT(*) FILTER (WHERE estado_norm ILIKE 'CANCELAD%')::int AS cancelados,
       COUNT(*) FILTER (WHERE estado_norm ILIKE 'NO CONTACTO%')::int AS nocon
      FROM ${VISTA} WHERE ${w}`,
     params,
   ).catch(() => undefined);
-  const total = row?.total ?? 0;
   const retenidos = row?.retenidos ?? 0;
+  const aptos = row?.aptos ?? 0;
   return {
-    total,
+    total: row?.total ?? 0,
     retenidos,
+    aptos,
     cancelados: row?.cancelados ?? 0,
     noContacto: row?.nocon ?? 0,
-    pctRetencion: total ? Math.round((retenidos / total) * 1000) / 10 : 0,
+    pctRetencion: aptos ? Math.round((retenidos / aptos) * 1000) / 10 : 0,
   };
 }
 
