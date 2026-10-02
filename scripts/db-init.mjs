@@ -37,12 +37,14 @@ CREATE TABLE IF NOT EXISTS reportes.reporte_promi (
   mes TEXT,
   cabina TEXT,
   anio INTEGER NULL,
+  clasificacion TEXT,
   gasera_norm TEXT,
   aseguradora_norm TEXT,
   canal_norm TEXT,
   cabina_norm TEXT,
   estado_norm TEXT,
   mes_norm TEXT,
+  clasificacion_norm TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

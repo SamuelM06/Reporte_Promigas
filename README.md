@@ -4,7 +4,7 @@ Portal de consulta del acumulado de gestión diaria **Promigas 2026** (corte ene
 con identidad visual Xuma y navegación lateral auto-hide.
 
 - **DB:** `DataCenter_Promigas` · esquema `reportes` · tabla `reportes.reporte_promi`
-- **Fuente:** `data/ACUMULADO_ENERO_DICIEMBRE_2026_PROMI.xlsx` (hoja `Base`, 29.222 registros)
+- **Fuente:** `data/ACUMULADO_ENERO_DICIEMBRE_2026_PROMI.xlsx` (hoja `Base`, 29.222 registros, 20 columnas con `CLASIFICACION`)
 - **Stack:** Astro + Node + PostgreSQL (`pg`), misma estructura de carpetas que `03_Siniestros`
 
 ## Desarrollo
@@ -21,6 +21,7 @@ npm run dev
 
 - La hoja `Base` trae **29.222 filas con datos** (ENE 2917, FEB 3783, MAR 3494, ABR 3089, MAY 2271, JUN 2349, JUL 4108, AGO 3044, SEP 4167).
 - La columna `mes` (Q) es el grano mensual de todos los totales y gráficos.
+- Aptos/No Aptos salen de `CLASIFICACION` (APTO 24152 · NO APTO 5020 · sin dato 50); % Retención = Retenidos/Aptos × 100.
 - La columna 1 en DB se llama `gasera` (viene de DISTRIBUIDORA del Excel) + `gasera_norm` normalizada.
 - Fechas mixtas (serial Excel + texto `DD/MM/YYYY` + `N/A`): se guardan `*_raw` y se parsea a `DATE` cuando es posible.
 - Columnas normalizadas `*_norm` (upper + trim) para filtros y KPIs.

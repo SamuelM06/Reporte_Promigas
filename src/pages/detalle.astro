@@ -71,7 +71,7 @@ const TPCT = TAPT > 0 ? Math.round((TRET / TAPT) * 1000) / 10 : 0;
     <h2 class="p-2 text-base font-bold">Tabla de gestión por mes</h2>
     <table class="w-full min-w-[760px] text-left text-xs">
       <thead><tr class="uppercase tracking-wider text-tinta/55">
-        <th class="p-3">Mes</th><th class="p-3 text-right">Total llamadas</th><th class="p-3 text-right">Inbound</th><th class="p-3 text-right">Outbound</th><th class="p-3 text-right">Retenciones</th><th class="p-3 text-right">Aptos</th><th class="p-3 text-right">% Retención</th>
+        <th class="p-3">Mes</th><th class="p-3 text-right">Total llamadas</th><th class="p-3 text-right">Inbound</th><th class="p-3 text-right">Outbound</th><th class="p-3 text-right">Retenciones</th><th class="p-3 text-right">Aptos</th><th class="p-3 text-right">No Aptos</th><th class="p-3 text-right">% Retención</th>
       </tr></thead>
       <tbody>
         {tablaMes.map((r: any) => (
@@ -82,6 +82,7 @@ const TPCT = TAPT > 0 ? Math.round((TRET / TAPT) * 1000) / 10 : 0;
             <td class="p-3 text-right">{fmt.format(r.outbound)}</td>
             <td class="p-3 text-right font-bold text-amber-600">{fmt.format(r.retenidos)}</td>
             <td class="p-3 text-right">{fmt.format(r.aptos)}</td>
+            <td class="p-3 text-right">{fmt.format(r.noAptos)}</td>
             <td class="p-3 text-right font-extrabold text-xuma-verde-oscuro">{r.pct}%</td>
           </tr>
         ))}
@@ -92,11 +93,12 @@ const TPCT = TAPT > 0 ? Math.round((TRET / TAPT) * 1000) / 10 : 0;
           <td class="p-3 text-right">{fmt.format(tTot('outbound'))}</td>
           <td class="p-3 text-right">{fmt.format(TRET)}</td>
           <td class="p-3 text-right">{fmt.format(TAPT)}</td>
+          <td class="p-3 text-right">{fmt.format(tTot('noAptos'))}</td>
           <td class="p-3 text-right">{TPCT}%</td>
         </tr>
       </tbody>
     </table>
-    <p class="p-2 text-[11px] text-tinta/55">% Retención = Retenidos / Aptos × 100 · Mes = columna Mes de la base.</p>
+    <p class="p-2 text-[11px] text-tinta/55">% Retención = Retenidos / Aptos × 100 · Aptos/No Aptos de la columna Clasificación · Mes = columna Mes de la base.</p>
   </section>
 
   <section class="glass mt-4 rounded-3xl p-5">
@@ -156,12 +158,12 @@ const TPCT = TAPT > 0 ? Math.round((TRET / TAPT) * 1000) / 10 : 0;
   <section class="glass mt-4 overflow-x-auto rounded-3xl p-3">
     <table class="w-full min-w-[900px] text-left text-xs">
       <thead><tr class="uppercase tracking-wider text-tinta/55">
-        <th class="p-3">Contrato</th><th class="p-3">Gasera</th><th class="p-3">Aseguradora</th><th class="p-3">Canal</th><th class="p-3">Producto</th><th class="p-3">Estado</th><th class="p-3">Fecha</th><th class="p-3">Mes</th><th class="p-3">Cabina</th>
+        <th class="p-3">Contrato</th><th class="p-3">Gasera</th><th class="p-3">Aseguradora</th><th class="p-3">Canal</th><th class="p-3">Producto</th><th class="p-3">Estado</th><th class="p-3">Clasificación</th><th class="p-3">Fecha</th><th class="p-3">Mes</th><th class="p-3">Cabina</th>
       </tr></thead>
       <tbody>
         {pagina.rows.map((r: any) => (
           <tr class="border-t border-tinta/10 hover:bg-tinta/5">
-            <td class="p-3 font-bold">{r.contrato ?? '—'}</td><td class="p-3">{r.gasera ?? '—'}</td><td class="p-3">{r.aseguradora ?? '—'}</td><td class="p-3">{r.canal ?? '—'}</td><td class="p-3">{r.producto ?? '—'}</td><td class="p-3">{r.estado ?? '—'}</td><td class="p-3">{r.fecha_ejecucion ?? '—'}</td><td class="p-3">{r.mes ?? '—'}</td><td class="p-3">{r.cabina ?? '—'}</td>
+            <td class="p-3 font-bold">{r.contrato ?? '—'}</td><td class="p-3">{r.gasera ?? '—'}</td><td class="p-3">{r.aseguradora ?? '—'}</td><td class="p-3">{r.canal ?? '—'}</td><td class="p-3">{r.producto ?? '—'}</td><td class="p-3">{r.estado ?? '—'}</td><td class="p-3 font-semibold">{r.clasificacion ?? '—'}</td><td class="p-3">{r.fecha_ejecucion ?? '—'}</td><td class="p-3">{r.mes ?? '—'}</td><td class="p-3">{r.cabina ?? '—'}</td>
           </tr>
         ))}
       </tbody>

@@ -10,7 +10,7 @@ const metadatos = await cargaSSR('dashboard/metadatos', getMetadatos(f), METADAT
 const fmt = new Intl.NumberFormat('es-CO');
 
 const tot = (k: string) => mensual.reduce((s: number, r: any) => s + Number(r[k] ?? 0), 0);
-const T = tot('total'), INB = tot('inbound'), OUT = tot('outbound'), RET = tot('retenidos'), APT = tot('aptos');
+const T = tot('total'), INB = tot('inbound'), OUT = tot('outbound'), RET = tot('retenidos'), APT = tot('aptos'), NOAP = tot('noAptos');
 const PCT = APT > 0 ? Math.round((RET / APT) * 1000) / 10 : 0;
 
 const selMes = f.mes ?? '';
@@ -52,6 +52,8 @@ const svgLlamadas = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" 
 const svgIn = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 2 16 6 20 6"/><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>';
 const svgOut = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 2 22 6 18 6"/><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>';
 const svgShield = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1 1 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>';
+const svgUserCheck = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>';
+const svgUserX = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="17" x2="22" y1="8" y2="13"/><line x1="22" x2="17" y1="8" y2="13"/></svg>';
 const svgPct = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" x2="5" y1="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>';
 const svgChart = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg>';
 
@@ -59,6 +61,8 @@ const kpis = [
   { label: 'Total llamadas', valor: T, texto: fmt.format(T), icon: svgLlamadas, chip: 'kpi-azul', num: 'text-tinta' },
   { label: 'Inbound', valor: INB, texto: fmt.format(INB), icon: svgIn, chip: 'kpi-verde', num: 'text-xuma-verde-oscuro' },
   { label: 'Outbound', valor: OUT, texto: fmt.format(OUT), icon: svgOut, chip: 'kpi-violeta', num: 'text-[#5b3df0]' },
+  { label: 'Total Aptos', valor: APT, texto: fmt.format(APT), icon: svgUserCheck, chip: 'kpi-teal', num: 'text-teal-600', nota: 'Clasificación = APTO' },
+  { label: 'Total No Aptos', valor: NOAP, texto: fmt.format(NOAP), icon: svgUserX, chip: 'kpi-gris', num: 'text-slate-500', nota: 'Clasificación = NO APTO' },
   { label: 'Retenciones', valor: RET, texto: fmt.format(RET), icon: svgShield, chip: 'kpi-ambar', num: 'text-amber-600' },
   { label: '% Retención', valor: PCT, texto: `${PCT}%`, icon: svgPct, chip: 'kpi-rosa', num: 'text-rose-500', nota: 'Retenidos / Aptos × 100' },
 ];
@@ -83,7 +87,7 @@ const kpis = [
   />
 
   <!-- KPIs con diseño, sombra y animación -->
-  <section class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+  <section class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7">
     {kpis.map((k, i) => (
       <article class={`kpi-card show fade-up ${k.chip}`} style={`animation-delay:${0.05 + i * 0.09}s`}>
         <span class="kpi-glow" aria-hidden="true"></span>
@@ -148,8 +152,8 @@ const kpis = [
       </div>
     )}
     <p class="mt-3 text-[11px] leading-relaxed text-tinta/55">
-      Fórmula: <strong>% Retención = Retenidos / Aptos × 100</strong> · Aptos = gestiones contactadas y evaluables
-      (excluye No contacto, No apto, No aplica y sin estado) · Mes = columna Mes de la base.
+      Fórmula: <strong>% Retención = Retenidos / Aptos × 100</strong> · Aptos y No Aptos salen de la
+      columna <strong>Clasificación</strong> de la base · Mes = columna Mes de la base.
     </p>
   </section>
 
@@ -181,6 +185,7 @@ const kpis = [
     .kpi-glow { position: absolute; top: -34px; right: -34px; width: 110px; height: 110px; border-radius: 999px; filter: blur(30px); opacity: .55; animation: floatGlow 6s ease-in-out infinite; pointer-events: none; }
     .kpi-azul .kpi-glow { background: rgba(18,1,128,.35); } .kpi-verde .kpi-glow { background: rgba(0,205,147,.4); }
     .kpi-violeta .kpi-glow { background: rgba(139,123,255,.45); } .kpi-ambar .kpi-glow { background: rgba(245,158,11,.4); }
+    .kpi-teal .kpi-glow { background: rgba(45,212,191,.4); } .kpi-gris .kpi-glow { background: rgba(148,163,184,.4); }
     .kpi-rosa .kpi-glow { background: rgba(244,63,94,.4); }
     .kpi-ico { display: inline-flex; align-items: center; justify-content: center; width: 2.9rem; height: 2.9rem; border-radius: 1rem; flex-shrink: 0; color: #fff; box-shadow: 0 12px 24px -12px rgba(0,0,0,.5); }
     .kpi-ico :global(svg) { width: 1.35rem; height: 1.35rem; }
@@ -190,6 +195,8 @@ const kpis = [
     .kpi-verde .kpi-ico { background: linear-gradient(135deg,#00cd93,#5ae280); }
     .kpi-violeta .kpi-ico { background: linear-gradient(135deg,#8b7bff,#5b3df0); }
     .kpi-ambar .kpi-ico { background: linear-gradient(135deg,#f59e0b,#fbbf24); }
+    .kpi-teal .kpi-ico { background: linear-gradient(135deg,#0d9488,#2dd4bf); }
+    .kpi-gris .kpi-ico { background: linear-gradient(135deg,#475569,#94a3b8); }
     .kpi-rosa .kpi-ico { background: linear-gradient(135deg,#f43f5e,#fb7185); }
     h1 .kpi-ico, h2 .kpi-ico { background: linear-gradient(135deg,var(--color-xuma-azul),var(--color-xuma-verde-oscuro)); }
     .kpi-body { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }

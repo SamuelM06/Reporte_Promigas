@@ -93,16 +93,16 @@ async function main() {
   console.log('Filas inc header:', rows.length);
   const data = [];
   for (const r of rows.slice(1)) {
-    const first19 = r.slice(0, 19);
-    const has = first19.some((v) => v !== null && String(v).trim() !== '');
+    const first20 = r.slice(0, 20);
+    const has = first20.some((v) => v !== null && String(v).trim() !== '');
     if (!has) continue;
-    data.push(first19);
+    data.push(first20);
   }
   console.log('Filas con datos:', data.length);
 
   await pool.query('TRUNCATE TABLE reportes.reporte_promi');
 
-  const cols = ['gasera','aseguradora','medio_recepcion','contrato','localidad','operador','canal','producto','tipo_contacto','estado','subtipificacion','motivo','fecha_ejecucion','base_raw','fecha_venta','fecha_venta_raw','asesor_venta','mes','cabina','anio','gasera_norm','aseguradora_norm','canal_norm','cabina_norm','estado_norm','mes_norm'];
+  const cols = ['gasera','aseguradora','medio_recepcion','contrato','localidad','operador','canal','producto','tipo_contacto','estado','subtipificacion','motivo','fecha_ejecucion','base_raw','fecha_venta','fecha_venta_raw','asesor_venta','mes','cabina','anio','clasificacion','gasera_norm','aseguradora_norm','canal_norm','cabina_norm','estado_norm','mes_norm','clasificacion_norm'];
   const BATCH = 1000;
   let ok = 0;
   for (let i = 0; i < data.length; i += BATCH) {
@@ -110,15 +110,15 @@ async function main() {
     const values = [];
     const ph = [];
     chunk.forEach((r, bi) => {
-      const [dist, aseg, medio, contrato, localidad, operador, canal, producto, tipo, estado, subt, motivo, fEjec, base, fVenta, asesor, mes, cabina, anio] = r;
+      const [dist, aseg, medio, contrato, localidad, operador, canal, producto, tipo, estado, subt, motivo, fEjec, base, fVenta, asesor, mes, cabina, anio, clasif] = r;
       const fe = parseFecha(fEjec);
       const fv = parseFecha(fVenta);
       const row = [
         clean(dist), clean(aseg), clean(medio), clean(contrato), clean(localidad), clean(operador), clean(canal), clean(producto), clean(tipo), clean(estado), clean(subt), clean(motivo),
         fe.date, clean(base) ?? (fEjec != null ? String(fEjec) : null),
         fv.date, fv.raw,
-        clean(asesor), clean(mes), clean(cabina), parseAnio(anio),
-        normUpper(dist), normUpper(aseg), normUpper(canal), normUpper(cabina), normUpper(estado), normUpper(mes),
+        clean(asesor), clean(mes), clean(cabina), parseAnio(anio), clean(clasif),
+        normUpper(dist), normUpper(aseg), normUpper(canal), normUpper(cabina), normUpper(estado), normUpper(mes), normUpper(clasif),
       ];
       const base_idx = bi * row.length;
       ph.push(`(${row.map((_, k) => `$${base_idx + k + 1}`).join(',')})`);

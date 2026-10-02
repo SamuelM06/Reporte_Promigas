@@ -123,6 +123,7 @@ export interface Kpis {
   total: number;
   retenidos: number;
   aptos: number;
+  noAptos: number;
   cancelados: number;
   noContacto: number;
   pctRetencion: number;
@@ -135,6 +136,7 @@ export async function getKpis(f: Filtros): Promise<Kpis> {
     `SELECT COUNT(*)::int AS total,
       COUNT(*) FILTER (WHERE ${RETENIDOS_SQL})::int AS retenidos,
       COUNT(*) FILTER (WHERE ${APTOS_SQL})::int AS aptos,
+      COUNT(*) FILTER (WHERE ${NO_APTOS_SQL})::int AS noaptos,
       COUNT(*) FILTER (WHERE estado_norm ILIKE 'CANCELAD%')::int AS cancelados,
       COUNT(*) FILTER (WHERE estado_norm ILIKE 'NO CONTACTO%')::int AS nocon
      FROM ${VISTA} WHERE ${w}`,
@@ -146,6 +148,7 @@ export async function getKpis(f: Filtros): Promise<Kpis> {
     total: row?.total ?? 0,
     retenidos,
     aptos,
+    noAptos: row?.noaptos ?? 0,
     cancelados: row?.cancelados ?? 0,
     noContacto: row?.nocon ?? 0,
     pctRetencion: aptos ? Math.round((retenidos / aptos) * 1000) / 10 : 0,
@@ -189,9 +192,10 @@ export async function getMensualPorAseguradora(f: Filtros): Promise<FilaMensualA
   ).catch(() => []);
 }
 
-// Aptos = gestiones contactadas y evaluables: se excluyen No contacto, No apto,
-// No aplica y sin estado. % Retención = Retenidos / Aptos × 100.
-const APTOS_SQL = `(estado_norm IS NOT NULL AND estado_norm NOT ILIKE 'NO CONTACTO%' AND estado_norm NOT ILIKE 'NO APTO%' AND estado_norm NOT ILIKE 'NO APLICA%')`;
+// Aptos / No aptos salen de la columna CLASIFICACION de la base (índice 19 del Excel).
+// % Retención = Retenidos / Aptos × 100.
+const APTOS_SQL = `(clasificacion_norm = 'APTO')`;
+const NO_APTOS_SQL = `(clasificacion_norm = 'NO APTO')`;
 const RETENIDOS_SQL = `(estado_norm ILIKE 'RETENID%')`;
 
 export interface FilaDashboardMensual {
@@ -201,6 +205,7 @@ export interface FilaDashboardMensual {
   outbound: number;
   retenidos: number;
   aptos: number;
+  noAptos: number;
   pct: number;
 }
 
@@ -212,7 +217,8 @@ export async function getDashboardMensual(f: Filtros): Promise<FilaDashboardMens
       COUNT(*) FILTER (WHERE cabina_norm = 'INBOUND')::int AS inbound,
       COUNT(*) FILTER (WHERE cabina_norm = 'OUTBOUND')::int AS outbound,
       COUNT(*) FILTER (WHERE ${RETENIDOS_SQL})::int AS retenidos,
-      COUNT(*) FILTER (WHERE ${APTOS_SQL})::int AS aptos
+      COUNT(*) FILTER (WHERE ${APTOS_SQL})::int AS aptos,
+      COUNT(*) FILTER (WHERE ${NO_APTOS_SQL})::int AS no_aptos
      FROM ${VISTA} WHERE ${w} AND mes_norm IS NOT NULL GROUP BY mes_norm ORDER BY ${ORDEN_MES_SQL}`,
     params,
   ).catch(() => []);
@@ -226,6 +232,7 @@ export async function getDashboardMensual(f: Filtros): Promise<FilaDashboardMens
       outbound: Number(r.outbound ?? 0),
       retenidos,
       aptos,
+      noAptos: Number(r.no_aptos ?? 0),
       pct: aptos > 0 ? Math.round((retenidos / aptos) * 1000) / 10 : 0,
     };
   });
@@ -236,7 +243,7 @@ export async function getTabla(f: Filtros, page = 1, pageSize = 50) {
   const offset = (Math.max(1, page) - 1) * pageSize;
   params.push(pageSize, offset);
   const rows = await query(
-    `SELECT id, gasera, aseguradora, contrato, localidad, operador, canal, producto, tipo_contacto, estado, motivo, fecha_ejecucion::text AS fecha_ejecucion, mes, cabina, asesor_venta
+    `SELECT id, gasera, aseguradora, contrato, localidad, operador, canal, producto, tipo_contacto, estado, motivo, fecha_ejecucion::text AS fecha_ejecucion, mes, cabina, asesor_venta, clasificacion
      FROM ${VISTA} WHERE ${w} ORDER BY fecha_ejecucion DESC NULLS LAST, id DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
     params,
   ).catch(() => []);
