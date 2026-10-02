@@ -24,24 +24,12 @@ const nav = [
        El estado activo se re-sincroniza en el script de abajo. -->
   <header transition:persist="topbar" class="topbar sticky top-0 z-40 backdrop-blur-xl border-b border-tinta/10 bg-canvas/85">
     <div class="mx-auto flex w-full max-w-[1720px] items-center justify-between gap-3 px-3 py-2 sm:px-6">
-      <div class="flex items-center gap-3">
-        <!-- Botón del menú lateral. SIN `md:hidden` a propósito: el menú lateral
-             debe poder abrirse en cualquier ancho, no solo en móvil. (Además
-             `md:hidden` nunca ganaba aquí: la regla scoped de abajo está sin
-             capa de Tailwind y las utilidades en capa no la pueden superar.) -->
-        <button id="sidebar-toggle" type="button" class="btn-menu" aria-label="Abrir navegación" title="Menú" aria-expanded="false" aria-controls="sidebar">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"><line x1="3" x2="21" y1="6" y2="6"/><line x1="3" x2="21" y1="12" y2="12"/><line x1="3" x2="21" y1="18" y2="18"/></svg>
-        </button>
-
-        <a href="/" class="flex items-center gap-2.5" aria-label="Inicio">
-          <img src="/logos/Transparente_Logo_azul_letra_azul.svg" alt="Xuma" class="h-8 w-auto dark:hidden" />
-          <img src="/logos/Transparente_Logo_blanco_letra_blanca.svg" alt="Xuma" class="hidden h-8 w-auto dark:block" />
-          <div class="hidden sm:block">
-            <span class="block text-[10px] font-extrabold uppercase tracking-widest text-tinta/50 leading-tight">Gestión Diaria</span>
-            <span class="block text-sm font-extrabold text-tinta leading-tight">Promigas <span class="text-xuma-verde-oscuro dark:text-xuma-verde-claro">· 2026</span></span>
-          </div>
-        </a>
-      </div>
+      <!-- Solo el icono del menú. El logo y el rótulo "Gestión Diaria · Promigas
+           2026" viven en el menú lateral, no aquí: en la barra superior solo
+           el acceso al menú y la navegación. -->
+      <button id="sidebar-toggle" type="button" class="btn-menu shrink-0" aria-label="Abrir navegación" title="Menú" aria-expanded="false" aria-controls="sidebar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"><line x1="3" x2="21" y1="6" y2="6"/><line x1="3" x2="21" y1="12" y2="12"/><line x1="3" x2="21" y1="18" y2="18"/></svg>
+      </button>
 
       <!-- Navegación central siempre visible en desktop (Navbar) -->
       <nav class="hidden md:flex items-center gap-1 rounded-2xl glass p-1" aria-label="Navegación principal">
@@ -74,12 +62,9 @@ const nav = [
   <!-- Telón de fondo móvil -->
   <div id="sidebar-scrim" aria-hidden="true"></div>
 
-  <!-- Drawer lateral para móvil o acceso directo.
-       SIN transition:persist a diferencia del header: el drawer lleva el slot
-       `paginacion`, que cambia por vista (Por Gasera tiene páginas 1 y 2).
-       Un elemento persistido conserva el DOM de la primera página, así que el
-       paginador se quedaría con los enlaces de la vista anterior. El drawer se
-       re-crea idéntico en cada navegación, así que nunca deja de estar. -->
+  <!-- Drawer lateral. SIN transition:persist a diferencia del header: se
+       re-crea en cada navegación y así su contenido nunca queda obsoleto. El
+       drawer sigue estando siempre disponible. -->
   <aside id="sidebar" aria-label="Menú lateral" aria-hidden="true">
     <div class="side-brand">
       <a href="/" class="side-logo" aria-label="Inicio Gestión Diaria Promigas">
@@ -112,11 +97,6 @@ const nav = [
         );
       })}
     </nav>
-
-    <!-- Paginación de la vista (solo /por-gasera). Los botones viven en el menú
-         lateral, no en el header de la página: el header queda solo con el
-         título. -->
-    <slot name="paginacion" />
 
     <div class="side-foot">
       <div class="side-user">
@@ -208,24 +188,6 @@ const nav = [
     .side-arrow { opacity: 0; transform: translateX(-6px); transition: all .25s ease; }
     .side-link:hover .side-arrow, .side-link[aria-current="page"] .side-arrow { opacity: 1; transform: none; }
     .side-foot { margin-top: auto; display: flex; flex-direction: column; gap: .8rem; border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent); padding-top: 1rem; }
-    /* Paginador dentro del drawer.
-       :global() es obligatorio: el marcado del slot lo escribe la PÁGINA
-       (por-gasera.astro), no este layout, y Astro scopea los estilos por
-       componente. Sin :global() las reglas no casarían con esos elementos. */
-    :global(.side-pager) { display: flex; flex-direction: column; gap: .5rem; border: 1px dashed color-mix(in srgb, currentColor 20%, transparent); border-radius: .9rem; padding: .7rem .75rem; }
-    :global(.side-pager-label) { font-size: .68rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; opacity: .6; }
-    :global(.side-pager-detalle) { font-size: .68rem; font-weight: 700; opacity: .55; }
-    :global(.side-pager-botones) { display: flex; gap: .4rem; }
-    :global(.side-pager-btn) {
-      flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: .25rem;
-      border-radius: .7rem; padding: .45rem .5rem; font-size: .72rem; font-weight: 800;
-      border: 1px solid color-mix(in srgb, currentColor 16%, transparent);
-      background: color-mix(in srgb, currentColor 6%, transparent);
-      color: inherit; text-align: center; white-space: nowrap;
-      transition: background-color .25s ease, transform .2s ease;
-    }
-    :global(.side-pager-btn:hover) { background: color-mix(in srgb, currentColor 14%, transparent); transform: translateY(-1px); }
-    :global(.side-pager-btn[aria-disabled="true"]) { opacity: .35; pointer-events: none; }
     .side-user { display: flex; align-items: center; gap: .7rem; }
     .side-avatar { width: 2.4rem; height: 2.4rem; border-radius: 1rem; display: grid; place-items: center; font-weight: 800; background: linear-gradient(135deg, var(--color-xuma-azul), var(--color-xuma-verde-oscuro)); color: #fff; }
     @media (prefers-reduced-motion: reduce) { #sidebar, .side-link { transition: none; } }
