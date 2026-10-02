@@ -5,7 +5,7 @@ import AnimatedBackground from '../components/ui/AnimatedBackground.astro';
 interface Props {
   title?: string;
 }
-const { title = 'Gestión de Siniestros | Promigas' } = Astro.props;
+const { title = 'Gestión Diaria Promigas 2026' } = Astro.props;
 ---
 <!doctype html>
 <html lang="es" class="dark">
@@ -15,6 +15,7 @@ const { title = 'Gestión de Siniestros | Promigas' } = Astro.props;
     <meta name="robots" content="noindex, nofollow" />
     <meta name="referrer" content="no-referrer" />
     <meta name="color-scheme" content="dark light" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>{title}</title>
     <script is:inline>
       // Tema persistente sin parpadeo: aplica la clase .dark antes del primer paint.

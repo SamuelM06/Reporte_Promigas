@@ -17,17 +17,17 @@ const selGas = (f.distribuidora ?? [])[0] ?? '';
 const selAseg = (f.aseguradora ?? [])[0] ?? '';
 const gaseras = metadatos.distribuidoras ?? [];
 const asegs = metadatos.aseguradoras ?? [];
-const mesesFiltro = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'].filter((m) => (metadatos.meses ?? []).includes(m));
+const mesesFiltro = (metadatos.meses ?? []).filter((m) => m !== 'SIN DATO');
 
 const maxBar = Math.max(1, ...mensual.map((r: any) => Math.max(Number(r.total ?? 0), Number(r.inbound ?? 0), Number(r.outbound ?? 0), Number(r.retenidos ?? 0))));
 const maxPct = Math.max(10, ...mensual.map((r: any) => Number(r.pct ?? 0)));
-const H = 190;
+const H = 300;
 
 // Geometría de la línea de % (SVG sobre las columnas)
 const n = Math.max(1, mensual.length);
 const stepX = 100 / n;
 const px = (i: number) => (stepX * i + stepX / 2).toFixed(2);
-const py = (pct: number) => (H - 18 - (Number(pct) / maxPct) * (H - 46)).toFixed(1);
+const py = (pct: number) => (H - 24 - (Number(pct) / maxPct) * (H - 70)).toFixed(1);
 const linePts = mensual.map((r: any, i: number) => `${px(i)},${py(Number(r.pct ?? 0))}`).join(' ');
 
 const SERIES = [
@@ -37,23 +37,38 @@ const SERIES = [
   { key: 'retenidos', label: 'Retenciones', color: 'linear-gradient(180deg,#f59e0b,#fcd34d)', dot: '#f59e0b' },
 ];
 
+const svgLlamadas = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>';
+const svgIn = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>';
+const svgOut = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 14 20 9 15 4"/><path d="M4 20v-7a4 4 0 0 1 4-4h12"/></svg>';
+const svgShield = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>';
+const svgPct = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" x2="5" y1="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>';
+const svgChart = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg>';
+const svgFilter = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>';
+
 const kpis = [
-  { label: 'Total llamadas', valor: T, color: 'text-tinta' },
-  { label: 'Inbound', valor: INB, color: 'text-xuma-verde-oscuro' },
-  { label: 'Outbound', valor: OUT, color: 'text-[#5b3df0]' },
-  { label: 'Retenciones', valor: RET, color: 'text-amber-600' },
-  { label: '% Retención', valor: `${PCT}%`, color: 'text-xuma-verde-oscuro', nota: 'Retenidos / Aptos × 100' },
+  { label: 'Total llamadas', valor: T, texto: fmt.format(T), icon: svgLlamadas, chip: 'kpi-azul', num: 'text-tinta' },
+  { label: 'Inbound', valor: INB, texto: fmt.format(INB), icon: svgIn, chip: 'kpi-verde', num: 'text-xuma-verde-oscuro' },
+  { label: 'Outbound', valor: OUT, texto: fmt.format(OUT), icon: svgOut, chip: 'kpi-violeta', num: 'text-[#5b3df0]' },
+  { label: 'Retenciones', valor: RET, texto: fmt.format(RET), icon: svgShield, chip: 'kpi-ambar', num: 'text-amber-600' },
+  { label: '% Retención', valor: PCT, texto: `${PCT}%`, icon: svgPct, chip: 'kpi-rosa', num: 'text-rose-500', nota: 'Retenidos / Aptos × 100' },
 ];
 ---
 
 <SidebarLayout title="Dashboard · Gestión Diaria Promigas 2026">
-  <div class="mb-4">
-    <p class="text-xs font-bold uppercase tracking-widest text-tinta/55">Corte · Enero a Septiembre 2026</p>
-    <h1 class="text-2xl font-extrabold md:text-3xl">Dashboard de <span class="texto-brillo">Gestión Diaria</span></h1>
+  <div class="mb-4 flex flex-wrap items-end justify-between gap-2">
+    <div>
+      <p class="text-xs font-bold uppercase tracking-widest text-tinta/55">Corte · Enero a Septiembre 2026 · Página 1</p>
+      <h1 class="flex items-center gap-2 text-2xl font-extrabold md:text-3xl">
+        <span class="kpi-ico" set:html={svgChart} /> Dashboard de <span class="texto-brillo">Gestión Diaria</span>
+      </h1>
+    </div>
   </div>
 
   <!-- Filtros: Mes · Gasera · Aseguradora -->
   <form method="get" action="/dashboard" class="glass rounded-3xl p-4 md:p-5">
+    <p class="mb-3 flex items-center gap-2 text-xs font-extrabold uppercase tracking-widest text-tinta/55">
+      <span class="kpi-ico kpi-ico-sm" set:html={svgFilter} /> Filtros del reporte
+    </p>
     <div class="grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto]">
       <label class="flex flex-col gap-1 text-xs font-bold uppercase tracking-widest text-tinta/55">Mes
         <select name="mes" class="h-11 rounded-xl border border-tinta/15 bg-transparent px-3 text-sm font-semibold normal-case tracking-normal text-tinta">
@@ -74,28 +89,34 @@ const kpis = [
         </select>
       </label>
       <div class="flex items-end gap-2">
-        <button type="submit" class="h-11 rounded-xl bg-xuma-azul px-5 text-sm font-bold text-white transition hover:scale-105 dark:bg-xuma-verde-claro dark:text-[#0a1030]">Filtrar</button>
+        <button type="submit" class="h-11 rounded-xl bg-xuma-azul px-5 text-sm font-bold text-white shadow-lg shadow-xuma-azul/25 transition hover:scale-105 dark:bg-xuma-verde-claro dark:text-[#0a1030]">Filtrar</button>
         <a href="/dashboard" class="glass glass-hover inline-flex h-11 items-center rounded-xl px-4 text-sm font-semibold">Limpiar</a>
       </div>
     </div>
   </form>
 
-  <!-- KPIs -->
+  <!-- KPIs con diseño, sombra y animación -->
   <section class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
     {kpis.map((k, i) => (
-      <article class="glass glass-hover show fade-up rounded-3xl p-5" style={`animation-delay:${0.05 + i * 0.08}s`}>
-        <p class="text-xs font-bold uppercase tracking-widest text-tinta/55">{k.label}</p>
-        <p class={`mt-1 text-3xl font-extrabold ${k.color}`}>{typeof k.valor === 'number' ? fmt.format(k.valor) : k.valor}</p>
-        {k.nota && <p class="mt-1 text-[11px] text-tinta/60">{k.nota}</p>}
+      <article class={`kpi-card show fade-up ${k.chip}`} style={`animation-delay:${0.05 + i * 0.09}s`}>
+        <span class="kpi-glow" aria-hidden="true"></span>
+        <span class="kpi-ico" set:html={k.icon} />
+        <span class="kpi-body">
+          <span class="kpi-label">{k.label}</span>
+          <span class={`kpi-num ${k.num}`} data-count={k.valor} data-pct={k.label === '% Retención' ? '1' : '0'}>{k.texto}</span>
+          {k.nota ? <span class="kpi-nota">{k.nota}</span> : <span class="kpi-nota">&nbsp;</span>}
+        </span>
       </article>
     ))}
   </section>
 
-  <!-- Gráfico: columnas por mes + línea de % retención -->
-  <section class="glass mt-4 rounded-3xl p-5">
+  <!-- Página 1: solo el gráfico grande, todos los meses en el eje X -->
+  <section class="glass mt-4 rounded-3xl p-5 md:p-6">
     <div class="flex flex-wrap items-center justify-between gap-2">
-      <h2 class="text-base font-bold">Gestión mensual: llamadas y retenciones</h2>
-      <p class="text-xs text-tinta/60">Columnas por mes · línea = % retención (Retenidos / Aptos × 100)</p>
+      <h2 class="flex items-center gap-2 text-base font-bold md:text-lg">
+        <span class="kpi-ico kpi-ico-sm" set:html={svgChart} /> Gestión mensual: llamadas y retenciones
+      </h2>
+      <p class="text-xs text-tinta/60">Columnas por mes · línea = % retención</p>
     </div>
     <div class="mt-3 flex flex-wrap gap-2">
       {SERIES.map((s) => (
@@ -119,11 +140,11 @@ const kpis = [
           <div class="chart-cols">
             {mensual.map((r: any, i: number) => (
               <div class="chart-month">
-                <div class="chart-bars">
+                <div class="chart-bars" style={`height:${H}px`}>
                   {SERIES.map((s, j) => (
                     <div class="bar-col">
                       <span class="bar-val">{fmt.format(r[s.key] ?? 0)}</span>
-                      <div class="bar" style={`height:${Math.max(4, Math.round((Number(r[s.key] ?? 0) / maxBar) * (H - 60)))}px;background:${s.color};animation-delay:${0.1 + i * 0.12 + j * 0.06}s`} title={`${r.mes} · ${s.label}: ${fmt.format(r[s.key] ?? 0)}`}></div>
+                      <div class="bar" style={`height:${Math.max(4, Math.round((Number(r[s.key] ?? 0) / maxBar) * (H - 90)))}px;background:${s.color};animation-delay:${0.15 + i * 0.09 + j * 0.05}s`} title={`${r.mes} · ${s.label}: ${fmt.format(r[s.key] ?? 0)}`}></div>
                     </div>
                   ))}
                   <span class="pct-dot" style={`left:50%;bottom:${py(Number(r.pct ?? 0))}px`} title={`${r.mes} · % Retención: ${r.pct}%`}>
@@ -139,61 +160,90 @@ const kpis = [
     )}
     <p class="mt-3 text-[11px] leading-relaxed text-tinta/55">
       Fórmula: <strong>% Retención = Retenidos / Aptos × 100</strong> · Aptos = gestiones contactadas y evaluables
-      (excluye No contacto, No apto, No aplica y sin estado).
+      (excluye No contacto, No apto, No aplica y sin estado) · Mes = mes de ejecución 2026.
     </p>
-  </section>
-
-  <!-- Tabla mensual -->
-  <section class="glass mt-4 overflow-x-auto rounded-3xl p-3">
-    <table class="w-full min-w-[760px] text-left text-xs">
-      <thead><tr class="uppercase tracking-wider text-tinta/55">
-        <th class="p-3">Mes</th><th class="p-3 text-right">Total</th><th class="p-3 text-right">Inbound</th><th class="p-3 text-right">Outbound</th><th class="p-3 text-right">Retenidos</th><th class="p-3 text-right">Aptos</th><th class="p-3 text-right">% Retención</th>
-      </tr></thead>
-      <tbody>
-        {mensual.map((r: any) => (
-          <tr class="border-t border-tinta/10 hover:bg-tinta/5">
-            <td class="p-3 font-extrabold">{r.mes}</td>
-            <td class="p-3 text-right">{fmt.format(r.total)}</td>
-            <td class="p-3 text-right">{fmt.format(r.inbound)}</td>
-            <td class="p-3 text-right">{fmt.format(r.outbound)}</td>
-            <td class="p-3 text-right font-bold text-amber-600">{fmt.format(r.retenidos)}</td>
-            <td class="p-3 text-right">{fmt.format(r.aptos)}</td>
-            <td class="p-3 text-right font-extrabold text-xuma-verde-oscuro">{r.pct}%</td>
-          </tr>
-        ))}
-        <tr class="border-t-2 border-tinta/20 font-extrabold">
-          <td class="p-3">TOTAL</td>
-          <td class="p-3 text-right">{fmt.format(T)}</td>
-          <td class="p-3 text-right">{fmt.format(INB)}</td>
-          <td class="p-3 text-right">{fmt.format(OUT)}</td>
-          <td class="p-3 text-right">{fmt.format(RET)}</td>
-          <td class="p-3 text-right">{fmt.format(APT)}</td>
-          <td class="p-3 text-right">{PCT}%</td>
-        </tr>
-      </tbody>
-    </table>
   </section>
 
   <style>
     .show { opacity: 0; }
     @keyframes fadeUp { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: none; } }
     @keyframes growBar { from { transform: scaleY(0); } to { transform: scaleY(1); } }
-    @keyframes drawLine { from { stroke-dashoffset: 320; } to { stroke-dashoffset: 0; } }
+    @keyframes drawLine { from { stroke-dashoffset: 340; } to { stroke-dashoffset: 0; } }
     @keyframes popDot { from { opacity: 0; transform: scale(0); } to { opacity: 1; transform: scale(1); } }
-    @media (prefers-reduced-motion: reduce) { .show { opacity: 1; } .bar, .pct-line, .pct-dot { animation: none !important; } }
+    @keyframes floatGlow { 0%,100% { transform: translate(0,0); opacity: .55; } 50% { transform: translate(10px,-12px); opacity: .9; } }
+    @media (prefers-reduced-motion: reduce) { .show { opacity: 1; } .bar, .pct-line, .pct-dot, .kpi-card { animation: none !important; } }
     .fade-up { animation: fadeUp 0.9s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+    /* KPIs con diseño: icono, sombra, brillo y conteo */
+    .kpi-card {
+      position: relative; overflow: hidden;
+      display: flex; align-items: flex-start; gap: .85rem;
+      border-radius: 1.5rem; padding: 1.15rem 1.1rem;
+      border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+      background: color-mix(in srgb, Canvas 82%, transparent);
+      backdrop-filter: blur(18px);
+      box-shadow: 0 24px 50px -28px rgba(18,1,128,.45);
+      transition: transform .35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow .3s ease;
+    }
+    .kpi-card:hover { transform: translateY(-6px) scale(1.015); box-shadow: 0 32px 60px -24px rgba(18,1,128,.55); }
+    .kpi-glow { position: absolute; top: -34px; right: -34px; width: 110px; height: 110px; border-radius: 999px; filter: blur(30px); opacity: .55; animation: floatGlow 6s ease-in-out infinite; pointer-events: none; }
+    .kpi-azul .kpi-glow { background: rgba(18,1,128,.35); } .kpi-verde .kpi-glow { background: rgba(0,205,147,.4); }
+    .kpi-violeta .kpi-glow { background: rgba(139,123,255,.45); } .kpi-ambar .kpi-glow { background: rgba(245,158,11,.4); }
+    .kpi-rosa .kpi-glow { background: rgba(244,63,94,.4); }
+    .kpi-ico { display: inline-flex; align-items: center; justify-content: center; width: 2.9rem; height: 2.9rem; border-radius: 1rem; flex-shrink: 0; color: #fff; box-shadow: 0 12px 24px -12px rgba(0,0,0,.5); }
+    .kpi-ico :global(svg) { width: 1.35rem; height: 1.35rem; }
+    .kpi-ico-sm { width: 2rem; height: 2rem; border-radius: .7rem; }
+    .kpi-ico-sm :global(svg) { width: 1rem; height: 1rem; }
+    .kpi-azul .kpi-ico { background: linear-gradient(135deg,#120180,#3d22c8); }
+    .kpi-verde .kpi-ico { background: linear-gradient(135deg,#00cd93,#5ae280); }
+    .kpi-violeta .kpi-ico { background: linear-gradient(135deg,#8b7bff,#5b3df0); }
+    .kpi-ambar .kpi-ico { background: linear-gradient(135deg,#f59e0b,#fbbf24); }
+    .kpi-rosa .kpi-ico { background: linear-gradient(135deg,#f43f5e,#fb7185); }
+    h1 .kpi-ico, h2 .kpi-ico { background: linear-gradient(135deg,var(--color-xuma-azul),var(--color-xuma-verde-oscuro)); }
+    .kpi-body { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
+    .kpi-label { font-size: .68rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; opacity: .55; }
+    .kpi-num { font-size: 1.9rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .kpi-nota { font-size: 10px; opacity: .6; }
+
+    /* Gráfico grande */
     .chart-wrap { position: relative; }
-    .chart-inner { position: relative; min-width: 640px; }
+    .chart-inner { position: relative; min-width: 860px; }
     .chart-line { position: absolute; inset: 0 0 26px 0; width: 100%; height: calc(100% - 26px); overflow: visible; }
-    .pct-line { stroke-dasharray: 320; stroke-dashoffset: 320; animation: drawLine 1.6s ease-out 0.7s forwards; }
-    .chart-cols { position: relative; display: flex; gap: .6rem; padding-top: .5rem; }
-    .chart-month { flex: 1; display: flex; flex-direction: column; }
-    .chart-bars { position: relative; display: flex; align-items: flex-end; justify-content: center; gap: .3rem; height: 190px; border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent); padding-bottom: 2px; }
-    .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 3px; height: 100%; }
-    .bar-val { font-size: 9px; font-weight: 800; color: color-mix(in srgb, currentColor 65%, transparent); }
-    .bar { width: 100%; max-width: 26px; border-radius: 6px 6px 2px 2px; transform-origin: bottom; transform: scaleY(0); animation: growBar 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
-    .chart-mes { margin-top: .4rem; text-align: center; font-size: 10px; font-weight: 800; text-transform: uppercase; opacity: .6; }
-    .pct-dot { position: absolute; width: 10px; height: 10px; margin-left: -5px; border-radius: 999px; background: #f43f5e; border: 2px solid #fff; box-shadow: 0 2px 8px rgba(244,63,94,.6); opacity: 0; animation: popDot .5s ease-out 1.5s forwards; }
-    .pct-tag { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 9px; font-weight: 800; color: #f43f5e; background: color-mix(in srgb, #f43f5e 10%, transparent); border-radius: 999px; padding: 1px 6px; }
+    .pct-line { stroke-dasharray: 340; stroke-dashoffset: 340; animation: drawLine 1.8s ease-out 0.8s forwards; }
+    .chart-cols { position: relative; display: flex; gap: .5rem; padding-top: .5rem; }
+    .chart-month { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+    .chart-bars { position: relative; display: flex; align-items: flex-end; justify-content: center; gap: .3rem; border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent); padding-bottom: 2px; }
+    .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 3px; height: 100%; min-width: 0; }
+    .bar-val { font-size: 9px; font-weight: 800; color: color-mix(in srgb, currentColor 65%, transparent); font-variant-numeric: tabular-nums; }
+    .bar { width: 100%; max-width: 30px; border-radius: 7px 7px 3px 3px; transform-origin: bottom; transform: scaleY(0); animation: growBar 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards; box-shadow: 0 8px 18px -10px rgba(18,1,128,.5); }
+    .chart-mes { margin-top: .45rem; text-align: center; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; opacity: .65; }
+    .pct-dot { position: absolute; width: 11px; height: 11px; margin-left: -5.5px; border-radius: 999px; background: #f43f5e; border: 2px solid #fff; box-shadow: 0 2px 10px rgba(244,63,94,.65); opacity: 0; animation: popDot .5s ease-out 1.7s forwards; }
+    .pct-tag { position: absolute; bottom: 13px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 9px; font-weight: 800; color: #f43f5e; background: color-mix(in srgb, #f43f5e 10%, transparent); border-radius: 999px; padding: 1px 6px; }
   </style>
+
+  <script is:inline>
+    // Conteo animado de los KPIs al cargar.
+    (function () {
+      try {
+        var els = document.querySelectorAll('.kpi-num[data-count]');
+        if (!els.length) return;
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        var fmt = new Intl.NumberFormat('es-CO');
+        els.forEach(function (el) {
+          var target = parseFloat(el.getAttribute('data-count') || '0');
+          var isPct = el.getAttribute('data-pct') === '1';
+          var t0 = null, dur = 1100;
+          function tick(t) {
+            if (!t0) t0 = t;
+            var p = Math.min(1, (t - t0) / dur);
+            var e = 1 - Math.pow(1 - p, 3);
+            var v = target * e;
+            el.textContent = isPct ? (Math.round(v * 10) / 10) + '%' : fmt.format(Math.round(v));
+            if (p < 1) requestAnimationFrame(tick);
+          }
+          requestAnimationFrame(tick);
+        });
+      } catch (e) {}
+    })();
+  </script>
 </SidebarLayout>

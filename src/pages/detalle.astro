@@ -1,15 +1,16 @@
 ---
 import SidebarLayout from '../layouts/SidebarLayout.astro';
-import { cargaSSR, filtrosPorDefecto, getTabla, getMetadatos, getMensualPorAseguradora, METADATOS_VACIOS } from '../lib/query';
+import { cargaSSR, filtrosPorDefecto, getTabla, getMetadatos, getMensualPorAseguradora, getDashboardMensual, METADATOS_VACIOS } from '../lib/query';
 
 const f = filtrosPorDefecto();
 const pageParam = Number(Astro.url.searchParams.get('page') ?? 1);
 const page = Number.isFinite(pageParam) && pageParam > 0 ? Math.floor(pageParam) : 1;
 const pageSize = 50;
 
-const [pagina, mensual]: [any, any[]] = await Promise.all([
+const [pagina, mensual, tablaMes]: [any, any[], any[]] = await Promise.all([
   cargaSSR(`detalle/tabla/${page}`, getTabla(f, page, pageSize), { rows: [], total: 0, page, pageSize }, 15_000),
   cargaSSR('detalle/mensual-aseguradora', getMensualPorAseguradora(f), []),
+  cargaSSR('detalle/tabla-mes', getDashboardMensual(f), []),
 ]);
 const metadatos = await cargaSSR('detalle/metadatos', getMetadatos(f), METADATOS_VACIOS);
 const fmt = new Intl.NumberFormat('es-CO');
@@ -42,16 +43,53 @@ const totalesAseg = ASEGS.map((a) => ({ a, total: mensual.filter((r: any) => r.a
 
 const prevHref = pageSafe > 1 ? `/detalle?page=${pageSafe - 1}` : null;
 const nextHref = pageSafe < totalPages ? `/detalle?page=${pageSafe + 1}` : null;
+
+const tTot = (k: string) => tablaMes.reduce((s: number, r: any) => s + Number(r[k] ?? 0), 0);
+const TT = tTot('total'), TRET = tTot('retenidos'), TAPT = tTot('aptos');
+const TPCT = TAPT > 0 ? Math.round((TRET / TAPT) * 1000) / 10 : 0;
 ---
 
 <SidebarLayout title="Detalle · Gestión Diaria Promigas 2026">
   <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
     <div>
-      <p class="text-xs font-bold uppercase tracking-widest text-tinta/55">Corte · Enero a Diciembre 2026 · Página {pageSafe} de {fmt.format(totalPages)}</p>
+      <p class="text-xs font-bold uppercase tracking-widest text-tinta/55">Corte · Enero a Septiembre 2026 · Página 2 · {pageSafe} de {fmt.format(totalPages)}</p>
       <h1 class="text-2xl font-extrabold md:text-3xl">Detalle de gestión</h1>
     </div>
     <p class="rounded-full bg-tinta/10 px-4 py-1.5 text-xs font-bold">{fmt.format(pagina.total)} registros</p>
   </div>
+
+  <!-- Página 2: tabla de gestión por mes -->
+  <section class="glass overflow-x-auto rounded-3xl p-3">
+    <h2 class="p-2 text-base font-bold">Tabla de gestión por mes</h2>
+    <table class="w-full min-w-[760px] text-left text-xs">
+      <thead><tr class="uppercase tracking-wider text-tinta/55">
+        <th class="p-3">Mes</th><th class="p-3 text-right">Total llamadas</th><th class="p-3 text-right">Inbound</th><th class="p-3 text-right">Outbound</th><th class="p-3 text-right">Retenciones</th><th class="p-3 text-right">Aptos</th><th class="p-3 text-right">% Retención</th>
+      </tr></thead>
+      <tbody>
+        {tablaMes.map((r: any) => (
+          <tr class="border-t border-tinta/10 hover:bg-tinta/5">
+            <td class="p-3 font-extrabold">{r.mes}</td>
+            <td class="p-3 text-right">{fmt.format(r.total)}</td>
+            <td class="p-3 text-right">{fmt.format(r.inbound)}</td>
+            <td class="p-3 text-right">{fmt.format(r.outbound)}</td>
+            <td class="p-3 text-right font-bold text-amber-600">{fmt.format(r.retenidos)}</td>
+            <td class="p-3 text-right">{fmt.format(r.aptos)}</td>
+            <td class="p-3 text-right font-extrabold text-xuma-verde-oscuro">{r.pct}%</td>
+          </tr>
+        ))}
+        <tr class="border-t-2 border-tinta/20 font-extrabold">
+          <td class="p-3">TOTAL</td>
+          <td class="p-3 text-right">{fmt.format(TT)}</td>
+          <td class="p-3 text-right">{fmt.format(tTot('inbound'))}</td>
+          <td class="p-3 text-right">{fmt.format(tTot('outbound'))}</td>
+          <td class="p-3 text-right">{fmt.format(TRET)}</td>
+          <td class="p-3 text-right">{fmt.format(TAPT)}</td>
+          <td class="p-3 text-right">{TPCT}%</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="p-2 text-[11px] text-tinta/55">% Retención = Retenidos / Aptos × 100 · Mes = mes de ejecución 2026.</p>
+  </section>
 
   <section class="glass rounded-3xl p-5">
     <div class="flex flex-wrap items-center justify-between gap-2">

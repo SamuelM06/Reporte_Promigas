@@ -55,11 +55,25 @@ export function parseFiltros(url: URL): Filtros {
   };
 }
 
+// El grano mensual del reporte es el MES DE EJECUCIÓN (fecha_ejecucion, año 2026):
+// así septiembre (139 ejecuciones) y el resto de meses aparecen aunque la columna
+// "Mes" de la base traiga otra etiqueta de campaña.
+export const MESES_ORDEN = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+const MES_A_NUM: Record<string, number> = Object.fromEntries(MESES_ORDEN.map((m, i) => [m, i + 1]));
+
+const MES_EJEC_SQL = `CASE EXTRACT(MONTH FROM fecha_ejecucion)
+  WHEN 1 THEN 'ENERO' WHEN 2 THEN 'FEBRERO' WHEN 3 THEN 'MARZO' WHEN 4 THEN 'ABRIL'
+  WHEN 5 THEN 'MAYO' WHEN 6 THEN 'JUNIO' WHEN 7 THEN 'JULIO' WHEN 8 THEN 'AGOSTO'
+  WHEN 9 THEN 'SEPTIEMBRE' WHEN 10 THEN 'OCTUBRE' WHEN 11 THEN 'NOVIEMBRE' ELSE 'DICIEMBRE' END`;
+
 function whereGestion(f: Filtros, params: unknown[]): string {
   const cond: string[] = ['1=1'];
   if (f.desde) { params.push(f.desde); cond.push(`(fecha_ejecucion IS NULL OR fecha_ejecucion >= $${params.length}::date)`); }
   if (f.hasta) { params.push(f.hasta); cond.push(`(fecha_ejecucion IS NULL OR fecha_ejecucion <= $${params.length}::date)`); }
-  if (f.mes) { params.push(f.mes.trim().toUpperCase()); cond.push(`UPPER(btrim(mes)) = $${params.length}`); }
+  if (f.mes) {
+    const num = MES_A_NUM[f.mes.trim().toUpperCase()];
+    if (num) { params.push(num); cond.push(`(EXTRACT(MONTH FROM fecha_ejecucion) = $${params.length})`); }
+  }
   const lista = (col: string, vals?: string[]) => {
     const l = (vals ?? []).map((v) => v.trim()).filter(Boolean);
     if (!l.length) return;
@@ -86,14 +100,16 @@ export async function getMetadatos(_f: Filtros): Promise<Metadatos> {
     const rango = await queryOne<{ min: string; max: string }>(
       `SELECT COALESCE(MIN(fecha_ejecucion)::text,'2026-01-01') AS min, COALESCE(MAX(fecha_ejecucion)::text,'2026-12-31') AS max FROM ${VISTA}`,
     );
-    const meses = await query<{ mes: string }>(`SELECT DISTINCT mes_norm AS mes FROM ${VISTA} WHERE mes_norm IS NOT NULL ORDER BY 1`);
+    const meses = await query<{ mes: string }>(
+      `SELECT DISTINCT ${MES_EJEC_SQL} AS mes FROM ${VISTA} WHERE fecha_ejecucion IS NOT NULL AND EXTRACT(YEAR FROM fecha_ejecucion) = 2026 ORDER BY EXTRACT(MONTH FROM fecha_ejecucion)`,
+    );
     const dist = await query<{ v: string }>(`SELECT DISTINCT distribuidora_norm AS v FROM ${VISTA} WHERE distribuidora_norm IS NOT NULL ORDER BY 1`);
     const aseg = await query<{ v: string }>(`SELECT DISTINCT aseguradora_norm AS v FROM ${VISTA} WHERE aseguradora_norm IS NOT NULL ORDER BY 1`);
     const canales = await query<{ v: string }>(`SELECT DISTINCT canal_norm AS v FROM ${VISTA} WHERE canal_norm IS NOT NULL ORDER BY 1`);
     const cabinas = await query<{ v: string }>(`SELECT DISTINCT cabina_norm AS v FROM ${VISTA} WHERE cabina_norm IS NOT NULL ORDER BY 1`);
     const estados = await query<{ v: string }>(`SELECT DISTINCT estado_norm AS v FROM ${VISTA} WHERE estado_norm IS NOT NULL ORDER BY 1`);
     const porMes = await query<{ mes: string; total: string }>(
-      `SELECT mes_norm AS mes, COUNT(*)::text AS total FROM ${VISTA} GROUP BY mes_norm ORDER BY CASE mes_norm WHEN 'ENERO' THEN 1 WHEN 'FEBRERO' THEN 2 WHEN 'MARZO' THEN 3 WHEN 'ABRIL' THEN 4 WHEN 'MAYO' THEN 5 WHEN 'JUNIO' THEN 6 WHEN 'JULIO' THEN 7 WHEN 'AGOSTO' THEN 8 WHEN 'SEPTIEMBRE' THEN 9 WHEN 'OCTUBRE' THEN 10 WHEN 'NOVIEMBRE' THEN 11 WHEN 'DICIEMBRE' THEN 12 ELSE 99 END`,
+      `SELECT ${MES_EJEC_SQL} AS mes, COUNT(*)::text AS total FROM ${VISTA} WHERE fecha_ejecucion IS NOT NULL AND EXTRACT(YEAR FROM fecha_ejecucion) = 2026 GROUP BY 1, EXTRACT(MONTH FROM fecha_ejecucion) ORDER BY EXTRACT(MONTH FROM fecha_ejecucion)`,
     );
     return {
       total: Number(total?.n ?? 0),
@@ -145,11 +161,11 @@ export async function getTendencia(f: Filtros) {
   const params: unknown[] = [];
   const w = whereGestion(f, params);
   return query(
-    `SELECT mes_norm AS mes, COUNT(*)::int AS total,
+    `SELECT ${MES_EJEC_SQL} AS mes, EXTRACT(MONTH FROM fecha_ejecucion)::int AS nmes, COUNT(*)::int AS total,
       COUNT(*) FILTER (WHERE estado_norm ILIKE 'RETENID%')::int AS retenidos,
       COUNT(*) FILTER (WHERE estado_norm ILIKE 'CANCELAD%')::int AS cancelados
-     FROM ${VISTA} WHERE ${w} GROUP BY mes_norm
-     ORDER BY CASE mes_norm WHEN 'ENERO' THEN 1 WHEN 'FEBRERO' THEN 2 WHEN 'MARZO' THEN 3 WHEN 'ABRIL' THEN 4 WHEN 'MAYO' THEN 5 WHEN 'JUNIO' THEN 6 WHEN 'JULIO' THEN 7 WHEN 'AGOSTO' THEN 8 WHEN 'SEPTIEMBRE' THEN 9 WHEN 'OCTUBRE' THEN 10 WHEN 'NOVIEMBRE' THEN 11 WHEN 'DICIEMBRE' THEN 12 ELSE 99 END`,
+     FROM ${VISTA} WHERE ${w} AND fecha_ejecucion IS NOT NULL AND EXTRACT(YEAR FROM fecha_ejecucion) = 2026
+     GROUP BY 1, 2 ORDER BY 2`,
     params,
   ).catch(() => []);
 }
@@ -170,10 +186,11 @@ export async function getMensualPorAseguradora(f: Filtros): Promise<FilaMensualA
   const params: unknown[] = [];
   const w = whereGestion(f, params);
   return query(
-    `SELECT mes_norm AS mes, ${ASEG_CANON} AS aseguradora, COUNT(*)::int AS total
-     FROM ${VISTA} WHERE ${w} AND mes_norm IS NOT NULL
-     GROUP BY mes_norm, ${ASEG_CANON}
-     ORDER BY CASE mes_norm WHEN 'ENERO' THEN 1 WHEN 'FEBRERO' THEN 2 WHEN 'MARZO' THEN 3 WHEN 'ABRIL' THEN 4 WHEN 'MAYO' THEN 5 WHEN 'JUNIO' THEN 6 WHEN 'JULIO' THEN 7 WHEN 'AGOSTO' THEN 8 WHEN 'SEPTIEMBRE' THEN 9 WHEN 'OCTUBRE' THEN 10 WHEN 'NOVIEMBRE' THEN 11 WHEN 'DICIEMBRE' THEN 12 ELSE 99 END, 2`,
+    `SELECT ${MES_EJEC_SQL} AS mes, EXTRACT(MONTH FROM fecha_ejecucion)::int AS nmes, ${ASEG_CANON} AS aseguradora, COUNT(*)::int AS total
+     FROM ${VISTA} WHERE ${w} AND fecha_ejecucion IS NOT NULL AND EXTRACT(YEAR FROM fecha_ejecucion) = 2026
+     GROUP BY 1, 2, 3
+     HAVING COUNT(*) > 0
+     ORDER BY 2, 3`,
     params,
   ).catch(() => []);
 }
@@ -196,14 +213,22 @@ export interface FilaDashboardMensual {
 export async function getDashboardMensual(f: Filtros): Promise<FilaDashboardMensual[]> {
   const params: unknown[] = [];
   const w = whereGestion(f, params);
+  // Eje X completo: los 12 meses siempre (generate_series), con ceros donde no hay gestión.
   const rows = await query<any>(
-    `SELECT mes_norm AS mes, COUNT(*)::int AS total,
-      COUNT(*) FILTER (WHERE cabina_norm = 'INBOUND')::int AS inbound,
-      COUNT(*) FILTER (WHERE cabina_norm = 'OUTBOUND')::int AS outbound,
-      COUNT(*) FILTER (WHERE ${RETENIDOS_SQL})::int AS retenidos,
-      COUNT(*) FILTER (WHERE ${APTOS_SQL})::int AS aptos
-     FROM ${VISTA} WHERE ${w} AND mes_norm IS NOT NULL GROUP BY mes_norm
-     ORDER BY CASE mes_norm WHEN 'ENERO' THEN 1 WHEN 'FEBRERO' THEN 2 WHEN 'MARZO' THEN 3 WHEN 'ABRIL' THEN 4 WHEN 'MAYO' THEN 5 WHEN 'JUNIO' THEN 6 WHEN 'JULIO' THEN 7 WHEN 'AGOSTO' THEN 8 WHEN 'SEPTIEMBRE' THEN 9 WHEN 'OCTUBRE' THEN 10 WHEN 'NOVIEMBRE' THEN 11 WHEN 'DICIEMBRE' THEN 12 ELSE 99 END`,
+    `SELECT m.mes, COALESCE(d.total,0)::int AS total, COALESCE(d.inbound,0)::int AS inbound,
+      COALESCE(d.outbound,0)::int AS outbound, COALESCE(d.retenidos,0)::int AS retenidos, COALESCE(d.aptos,0)::int AS aptos
+     FROM (SELECT generate_series(1,12) AS n) g
+     JOIN (SELECT unnest(ARRAY['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE']) AS mes, generate_series(1,12) AS n) m USING (n)
+     LEFT JOIN (
+       SELECT EXTRACT(MONTH FROM fecha_ejecucion)::int AS nmes, COUNT(*)::int AS total,
+         COUNT(*) FILTER (WHERE cabina_norm = 'INBOUND')::int AS inbound,
+         COUNT(*) FILTER (WHERE cabina_norm = 'OUTBOUND')::int AS outbound,
+         COUNT(*) FILTER (WHERE ${RETENIDOS_SQL})::int AS retenidos,
+         COUNT(*) FILTER (WHERE ${APTOS_SQL})::int AS aptos
+       FROM ${VISTA} WHERE ${w} AND fecha_ejecucion IS NOT NULL AND EXTRACT(YEAR FROM fecha_ejecucion) = 2026
+       GROUP BY 1
+     ) d ON d.nmes = g.n
+     ORDER BY g.n`,
     params,
   ).catch(() => []);
   return rows.map((r: any) => {
