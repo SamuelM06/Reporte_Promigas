@@ -1,0 +1,123 @@
+---
+import SidebarLayout from '../layouts/SidebarLayout.astro';
+import FiltrosPanel from '../components/filtros/FiltrosPanel.astro';
+import MensualChart from '../components/charts/MensualChart.astro';
+import { FILTROS } from '../components/filtros/filtros';
+import { cargaSSR, filtrosPorDefecto, getDashboardMensual, getMetadatos, METADATOS_VACIOS, parseFiltros } from '../lib/query';
+
+const f = { ...filtrosPorDefecto(), ...parseFiltros(Astro.url) };
+const pageParam = Number(Astro.url.searchParams.get('page') ?? 1);
+const page = pageParam === 2 ? 2 : 1;
+
+const GASERAS_P1 = ['GDO', 'SURTIGAS', 'CEO', 'CARIBE'];
+const GASERAS_P2 = ['EFIGAS'];
+const gaseras = page === 2 ? GASERAS_P2 : GASERAS_P1;
+
+const clave = JSON.stringify({ ...f, gaseras });
+const datosPorGasera: Record<string, any[]> = {};
+await Promise.all(
+  gaseras.map(async (g) => {
+    datosPorGasera[g] = await cargaSSR(
+      `por-gasera/${clave}/${g}`,
+      getDashboardMensual({ ...f, gasera: [g] }),
+      [],
+    );
+  }),
+);
+
+const metadatos = await cargaSSR('por-gasera/metadatos', getMetadatos(f), METADATOS_VACIOS);
+const fmt = new Intl.NumberFormat('es-CO');
+const selMes = f.mes ?? '';
+const selCabina = (f.cabina ?? [])[0] ?? '';
+const mesesFiltro = (metadatos.meses ?? []).filter((m) => m !== 'SIN DATO');
+const cabinas = metadatos.cabinas ?? [];
+const defsPanel = FILTROS.filter((d) => d.key === 'mes' || d.key === 'cabina');
+
+const qs = (p: number) => {
+  const q = new URLSearchParams();
+  if (selMes) q.set('mes', selMes);
+  if (selCabina) q.set('cabina', selCabina);
+  if (p === 2) q.set('page', '2');
+  const s = q.toString();
+  return s ? `/por-gasera?${s}` : '/por-gasera';
+};
+
+const resumen = (datos: any[]) => {
+  const s = (k: string) => datos.reduce((a: number, r: any) => a + Number(r[k] ?? 0), 0);
+  const ret = s('retenidos'), apt = s('aptos');
+  return { total: s('total'), ret, pct: apt > 0 ? Math.round((ret / apt) * 1000) / 10 : 0 };
+};
+---
+
+<SidebarLayout title="Gestión por Gasera · Promigas 2026">
+  <div class="mb-4">
+    <p class="text-xs font-bold uppercase tracking-widest text-tinta/55">Corte · Enero a Septiembre 2026 · Página {page} de 2</p>
+    <h1 class="text-2xl font-extrabold md:text-3xl">Gestión por <span class="texto-brillo">Gasera</span></h1>
+  </div>
+
+  <FiltrosPanel
+    action="/por-gasera"
+    defs={defsPanel}
+    opciones={{ mes: mesesFiltro, cabina: cabinas }}
+    actual={{ mes: selMes, cabina: selCabina }}
+    totalFiltrado={gaseras.reduce((a, g) => a + resumen(datosPorGasera[g] ?? []).total, 0)}
+    totalBase={metadatos.total ?? 0}
+    extras={page === 2 ? { page: '2' } : {}}
+  />
+
+  {gaseras.map((g, i) => {
+    const datos = datosPorGasera[g] ?? [];
+    const r = resumen(datos);
+    return (
+      <section class="glass mt-4 rounded-3xl p-5 md:p-6 show fade-up" style={`animation-delay:${0.05 + i * 0.1}s`}>
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h2 class="flex items-center gap-3 text-lg font-extrabold md:text-xl">
+            <span class="gas-num">{page === 2 ? '★' : String(i + 1).padStart(2, '0')}</span> {g}
+          </h2>
+          <div class="flex flex-wrap gap-2 text-xs font-bold">
+            <span class="rounded-full bg-tinta/10 px-3 py-1">{fmt.format(r.total)} llamadas</span>
+            <span class="rounded-full bg-tinta/10 px-3 py-1 text-amber-600">{fmt.format(r.ret)} retenciones</span>
+            <span class="rounded-full bg-tinta/10 px-3 py-1 text-xuma-verde-oscuro">{r.pct}% retención</span>
+          </div>
+        </div>
+        {g === 'EFIGAS' && (
+          <p class="mt-1 text-xs text-tinta/60">Efigas opera solo outbound: su inbound siempre es 0.</p>
+        )}
+        <MensualChart datos={datos} alto={260} />
+      </section>
+    );
+  })}
+
+  <nav class="mt-4 grid gap-3 sm:grid-cols-2" aria-label="Paginación por gasera">
+    <a href={qs(1)} class={`page-nav ${page === 1 ? 'page-nav-active' : 'glass glass-hover'}`}>
+      <span class="page-nav-num">01</span>
+      <span><strong>Página 1 · GDO · Surtigas · CEO · Caribe</strong><br /><span class="text-xs opacity-60">Las 4 gaseras principales</span></span>
+    </a>
+    <a href={qs(2)} class={`page-nav ${page === 2 ? 'page-nav-active' : 'glass glass-hover'}`}>
+      <span class="page-nav-num">02</span>
+      <span><strong>Página 2 · Efigas</strong><br /><span class="text-xs opacity-60">Solo outbound</span></span>
+    </a>
+  </nav>
+
+  <p class="mt-3 text-[11px] leading-relaxed text-tinta/55">
+    Fórmula: <strong>% Retención = Retenidos / Aptos × 100</strong> (columna Clasificación) · Mes = columna Mes de la base.
+  </p>
+
+  <style>
+    .show { opacity: 0; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: none; } }
+    @media (prefers-reduced-motion: reduce) { .show { opacity: 1; } }
+    .fade-up { animation: fadeUp 0.9s cubic-bezier(0.22, 1, 0.36, 1) both; }
+    .gas-num {
+      display: inline-grid; place-items: center; width: 2.6rem; height: 2.6rem; border-radius: 1rem;
+      font-size: .95rem; color: #fff;
+      background: linear-gradient(135deg, var(--color-xuma-azul), var(--color-xuma-verde-oscuro));
+      box-shadow: 0 12px 24px -12px rgba(18,1,128,.6);
+    }
+    .page-nav { display: flex; align-items: center; gap: .9rem; border-radius: 1.25rem; padding: 1rem 1.1rem; transition: transform .35s cubic-bezier(0.22, 1, 0.36, 1); }
+    .page-nav:hover { transform: translateX(6px); }
+    .page-nav-num { display: grid; place-items: center; width: 2.6rem; height: 2.6rem; border-radius: 1rem; font-weight: 800; background: color-mix(in srgb, currentColor 10%, transparent); flex-shrink: 0; }
+    .page-nav-active { background: var(--color-xuma-azul); color: #fff; box-shadow: 0 18px 40px -20px rgba(18,1,128,.6); }
+    :global(.dark) .page-nav-active { background: color-mix(in srgb, var(--color-xuma-verde-claro) 90%, transparent); color: #0a1030; }
+  </style>
+</SidebarLayout>

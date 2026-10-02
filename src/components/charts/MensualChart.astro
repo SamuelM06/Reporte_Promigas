@@ -1,0 +1,100 @@
+---
+// Gráfico combinado mensual reutilizable: columnas (Total/Inbound/Outbound/Retenciones)
+// + línea de % retención con flujo continuo. Sin IDs: se puede instanciar N veces.
+interface Props {
+  datos: any[];
+  alto?: number;
+}
+
+const { datos = [], alto = 300 } = Astro.props;
+const H = alto;
+const fmt = new Intl.NumberFormat('es-CO');
+
+const maxBar = Math.max(1, ...datos.map((r: any) => Math.max(Number(r.total ?? 0), Number(r.inbound ?? 0), Number(r.outbound ?? 0), Number(r.retenidos ?? 0))));
+const maxPct = Math.max(10, ...datos.map((r: any) => Number(r.pct ?? 0)));
+
+const n = Math.max(1, datos.length);
+const stepX = 100 / n;
+const px = (i: number) => (stepX * i + stepX / 2).toFixed(2);
+const pyNum = (pct: number) => H - 24 - (Number(pct) / maxPct) * (H - 70);
+const py = (pct: number) => pyNum(pct).toFixed(1);
+const dotTop = (pct: number) => ((pyNum(pct) / H) * (H + 8) - 8 - 7.5).toFixed(1);
+const linePts = datos.map((r: any, i: number) => `${px(i)},${py(Number(r.pct ?? 0))}`).join(' ');
+
+const SERIES = [
+  { key: 'total', label: 'Total llamadas', color: 'linear-gradient(180deg,#120180,#3d22c8)', dot: '#3d22c8' },
+  { key: 'inbound', label: 'Inbound', color: 'linear-gradient(180deg,#00cd93,#5ae280)', dot: '#00cd93' },
+  { key: 'outbound', label: 'Outbound', color: 'linear-gradient(180deg,#8b7bff,#c4b5fd)', dot: '#8b7bff' },
+  { key: 'retenidos', label: 'Retenciones', color: 'linear-gradient(180deg,#f59e0b,#fcd34d)', dot: '#f59e0b' },
+];
+---
+
+<div class="mc-legend">
+  {SERIES.map((s) => (
+    <span class="mc-chip">
+      <span class="mc-dot" style={`background:${s.dot}`}></span>{s.label}
+    </span>
+  ))}
+  <span class="mc-chip"><span class="pct-legend-line"></span>% Retención</span>
+</div>
+
+{datos.length === 0 || datos.every((r: any) => Number(r.total ?? 0) === 0) ? (
+  <p class="mc-vacio">Sin datos para los filtros seleccionados.</p>
+) : (
+  <div class="chart-wrap mt-2 overflow-x-auto">
+    <div class="chart-inner">
+      <svg class="chart-line pct-ink" viewBox={`0 0 100 ${H}`} preserveAspectRatio="none" aria-hidden="true">
+        <polygon points={`${linePts} 100,${H} 0,${H}`} class="pct-area" />
+        <polyline points={linePts} fill="none" class="pct-line" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
+        <polyline points={linePts} fill="none" class="pct-flow" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
+      </svg>
+      <div class="chart-cols">
+        {datos.map((r: any) => (
+          <div class="chart-month">
+            <div class="chart-bars" style={`height:${H}px`}>
+              {SERIES.map((s) => (
+                <div class="bar-col">
+                  <span class="bar-val">{fmt.format(r[s.key] ?? 0)}</span>
+                  <div class="bar" style={`height:${Math.max(4, Math.round((Number(r[s.key] ?? 0) / maxBar) * (H - 90)))}px;background:${s.color}`} title={`${r.mes} · ${s.label}: ${fmt.format(r[s.key] ?? 0)}`}></div>
+                </div>
+              ))}
+              <span class="pct-dot pct-ink" style={`left:50%;top:${dotTop(Number(r.pct ?? 0))}px`} title={`${r.mes} · % Retención: ${r.pct}%`}>
+                <span class="pct-tag pct-ink">{r.pct}%</span>
+              </span>
+            </div>
+            <span class="chart-mes">{String(r.mes ?? '').slice(0, 3)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+)}
+
+<style>
+  .mc-legend { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .75rem; }
+  .mc-chip { display: inline-flex; align-items: center; gap: .5rem; border-radius: 999px; background: color-mix(in srgb, currentColor 8%, transparent); padding: .3rem .75rem; font-size: .72rem; font-weight: 700; }
+  .mc-dot { display: inline-block; height: .75rem; width: .75rem; border-radius: 999px; }
+  .mc-vacio { margin-top: 1.5rem; font-size: .85rem; opacity: .6; }
+  .chart-wrap { position: relative; }
+  .chart-inner { position: relative; min-width: 860px; }
+  .chart-line { position: absolute; inset: 0 0 26px 0; width: 100%; height: calc(100% - 26px); overflow: visible; }
+  .pct-ink { color: #1e293b; }
+  :global(.dark) .pct-ink { color: #f8fafc; }
+  .pct-area { fill: currentColor; fill-opacity: 0.09; }
+  .pct-line { stroke: currentColor; stroke-width: 3; filter: drop-shadow(0 3px 7px rgba(0,0,0,.4)); stroke-dasharray: 340; stroke-dashoffset: 340; animation: mcDraw 1.8s ease-out 0.8s forwards; }
+  .pct-flow { stroke: currentColor; stroke-width: 3; opacity: .85; stroke-dasharray: 2 14; animation: mcFlow 1.1s linear infinite; }
+  .pct-legend-line { display: inline-block; height: 4px; width: 1.4rem; border-radius: 999px; background: #1e293b; }
+  :global(.dark) .pct-legend-line { background: #f8fafc; }
+  @keyframes mcDraw { from { stroke-dashoffset: 340; } to { stroke-dashoffset: 0; } }
+  @keyframes mcFlow { to { stroke-dashoffset: -32; } }
+  @media (prefers-reduced-motion: reduce) { .pct-line, .pct-flow { animation: none !important; } .pct-line { stroke-dashoffset: 0; } }
+  .chart-cols { position: relative; display: flex; gap: .5rem; padding-top: .5rem; }
+  .chart-month { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .chart-bars { position: relative; display: flex; align-items: flex-end; justify-content: center; gap: .3rem; border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent); padding-bottom: 2px; }
+  .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 3px; height: 100%; min-width: 0; }
+  .bar-val { font-size: 12px; font-weight: 800; color: color-mix(in srgb, currentColor 75%, transparent); font-variant-numeric: tabular-nums; }
+  .bar { width: 100%; max-width: 30px; border-radius: 7px 7px 3px 3px; box-shadow: 0 8px 18px -10px rgba(18,1,128,.5); }
+  .chart-mes { margin-top: .45rem; text-align: center; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; opacity: .7; }
+  .pct-dot { position: absolute; width: 15px; height: 15px; margin-left: -7.5px; border-radius: 999px; background: #fff; border: 3.5px solid currentColor; box-shadow: 0 3px 10px rgba(0,0,0,.4); }
+  .pct-tag { position: absolute; bottom: 17px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums; color: currentColor; background: color-mix(in srgb, currentColor 12%, Canvas 88%); border: 1px solid currentColor; border-radius: 999px; padding: 2px 8px; }
+</style>

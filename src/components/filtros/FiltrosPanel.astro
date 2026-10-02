@@ -8,6 +8,7 @@ interface Props {
   actual: Record<string, string>;
   totalFiltrado: number;
   totalBase: number;
+  extras?: Record<string, string>;
 }
 
 const {
@@ -17,6 +18,7 @@ const {
   actual,
   totalFiltrado,
   totalBase,
+  extras = {},
 } = Astro.props;
 
 const fmt = new Intl.NumberFormat('es-CO');
@@ -48,6 +50,7 @@ const chips = defs
       </label>
     ))}
     <div class="flex items-end gap-2">
+      {Object.entries(extras).map(([k, v]) => (<input type="hidden" name={k} value={v} />))}
       <button type="submit" class="btn-filtrar" data-btn-filtrar>Filtrar</button>
       <a href={action} class="glass glass-hover inline-flex h-11 items-center rounded-xl px-4 text-sm font-semibold">Limpiar</a>
     </div>
