@@ -4,9 +4,11 @@
 interface Props {
   datos: any[];
   alto?: number;
+  /** Claves de serie a no dibujar (p. ej. ['inbound'] para Efigas, que solo opera outbound). */
+  ocultar?: string[];
 }
 
-const { datos = [], alto = 300 } = Astro.props;
+const { datos = [], alto = 300, ocultar = [] } = Astro.props;
 const H = alto;
 const fmt = new Intl.NumberFormat('es-CO');
 
@@ -26,7 +28,7 @@ const SERIES = [
   { key: 'inbound', label: 'Inbound', color: 'linear-gradient(180deg,#00cd93,#5ae280)', dot: '#00cd93' },
   { key: 'outbound', label: 'Outbound', color: 'linear-gradient(180deg,#8b7bff,#c4b5fd)', dot: '#8b7bff' },
   { key: 'retenidos', label: 'Retenciones', color: 'linear-gradient(180deg,#f59e0b,#fcd34d)', dot: '#f59e0b' },
-];
+].filter((s) => !ocultar.includes(s.key));
 ---
 
 <div class="mc-legend">

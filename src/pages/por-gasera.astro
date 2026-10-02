@@ -6,16 +6,19 @@ import { FILTROS } from '../components/filtros/filtros';
 import { cargaSSR, filtrosPorDefecto, getDashboardMensual, getMetadatos, METADATOS_VACIOS, parseFiltros } from '../lib/query';
 
 const f = { ...filtrosPorDefecto(), ...parseFiltros(Astro.url) };
+const pageParam = Number(Astro.url.searchParams.get('page') ?? 1);
+const page = pageParam === 2 ? 2 : 1;
 
-// Solo las gaseras principales. Efigas queda fuera de la vista: no tiene la
-// columna inbound (opera solo outbound) y ya no se pagina, así que la vista
-// es una sola sin paginación.
-const GASERAS = ['GDO', 'SURTIGAS', 'CEO', 'CARIBE'];
+// Página 1: las cuatro gaseras principales. Página 2: solo Efigas, que opera
+// únicamente outbound, así que su gráfico va sin la columna inbound.
+const GASERAS_P1 = ['GDO', 'SURTIGAS', 'CEO', 'CARIBE'];
+const GASERAS_P2 = ['EFIGAS'];
+const gaseras = page === 2 ? GASERAS_P2 : GASERAS_P1;
 
-const clave = JSON.stringify({ ...f, gaseras: GASERAS });
+const clave = JSON.stringify({ ...f, gaseras });
 const datosPorGasera: Record<string, any[]> = {};
 await Promise.all(
-  GASERAS.map(async (g) => {
+  gaseras.map(async (g) => {
     datosPorGasera[g] = await cargaSSR(
       `por-gasera/${clave}/${g}`,
       getDashboardMensual({ ...f, gasera: [g] }),
@@ -32,6 +35,16 @@ const mesesFiltro = (metadatos.meses ?? []).filter((m) => m !== 'SIN DATO');
 const cabinas = metadatos.cabinas ?? [];
 const defsPanel = FILTROS.filter((d) => d.key === 'mes' || d.key === 'cabina');
 
+// Conserva los filtros al cambiar de página.
+const qs = (p: number) => {
+  const q = new URLSearchParams();
+  if (selMes) q.set('mes', selMes);
+  if (selCabina) q.set('cabina', selCabina);
+  if (p === 2) q.set('page', '2');
+  const s = q.toString();
+  return s ? `/por-gasera?${s}` : '/por-gasera';
+};
+
 const resumen = (datos: any[]) => {
   const s = (k: string) => datos.reduce((a: number, r: any) => a + Number(r[k] ?? 0), 0);
   const ret = s('retenidos'), apt = s('aptos');
@@ -41,7 +54,7 @@ const resumen = (datos: any[]) => {
 
 <SidebarLayout title="Gestión por Gasera · Promigas 2026">
   <div class="mb-4">
-    <p class="text-xs font-bold uppercase tracking-widest text-tinta/55">Corte · Enero a Septiembre 2026</p>
+    <p class="text-xs font-bold uppercase tracking-widest text-tinta/55">Corte · Enero a Septiembre 2026 · Página {page} de 2</p>
     <h1 class="text-2xl font-extrabold md:text-3xl">Gestión por <span class="texto-brillo">Gasera</span></h1>
   </div>
 
@@ -50,18 +63,20 @@ const resumen = (datos: any[]) => {
     defs={defsPanel}
     opciones={{ mes: mesesFiltro, cabina: cabinas }}
     actual={{ mes: selMes, cabina: selCabina }}
-    totalFiltrado={GASERAS.reduce((a, g) => a + resumen(datosPorGasera[g] ?? []).total, 0)}
+    totalFiltrado={gaseras.reduce((a, g) => a + resumen(datosPorGasera[g] ?? []).total, 0)}
     totalBase={metadatos.total ?? 0}
+    extras={page === 2 ? { page: '2' } : {}}
   />
 
-  {GASERAS.map((g, i) => {
+  {gaseras.map((g, i) => {
     const datos = datosPorGasera[g] ?? [];
     const r = resumen(datos);
+    const esEfigas = g === 'EFIGAS';
     return (
-      <section class="glass mt-4 rounded-3xl p-5 md:p-6 show fade-up" style={`animation-delay:${0.05 + i * 0.1}s`}>
+      <section class="glass mt-3 rounded-3xl p-5 md:p-6 show fade-up" style={`animation-delay:${0.05 + i * 0.1}s`}>
         <div class="flex flex-wrap items-center justify-between gap-2">
           <h2 class="flex items-center gap-3 text-lg font-extrabold md:text-xl">
-            <span class="gas-num">{String(i + 1).padStart(2, '0')}</span> {g}
+            <span class="gas-num">{esEfigas ? '★' : String(i + 1).padStart(2, '0')}</span> {g}
           </h2>
           <div class="flex flex-wrap gap-2 text-xs font-bold">
             <span class="rounded-full bg-tinta/10 px-3 py-1">{fmt.format(r.total)} llamadas</span>
@@ -69,16 +84,44 @@ const resumen = (datos: any[]) => {
             <span class="rounded-full bg-tinta/10 px-3 py-1 text-xuma-verde-oscuro">{r.pct}% retención</span>
           </div>
         </div>
-        <MensualChart datos={datos} alto={260} />
+        {esEfigas && (
+          <p class="mt-1 text-xs text-tinta/60">Efigas opera solo outbound: no se muestra la columna inbound.</p>
+        )}
+        <MensualChart datos={datos} alto={260} ocultar={esEfigas ? ['inbound'] : []} />
       </section>
     );
   })}
+
+  <!-- Paginación interna de la vista: los filtros se conservan al cambiar. -->
+  <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+    <p class="font-bold text-tinta/60">Página {page} de 2 · {page === 1 ? 'GDO · Surtigas · CEO · Caribe' : 'Efigas'}</p>
+    <div class="flex gap-2">
+      {page === 2 ? (
+        <a href={qs(1)} class="mini-pager">← Anterior</a>
+      ) : (
+        <span class="mini-pager mini-pager-off" aria-disabled="true">← Anterior</span>
+      )}
+      {page === 1 ? (
+        <a href={qs(2)} class="mini-pager">Siguiente página →</a>
+      ) : (
+        <span class="mini-pager mini-pager-off" aria-disabled="true">Siguiente página →</span>
+      )}
+    </div>
+  </div>
 
   <p class="mt-3 text-[11px] leading-relaxed text-tinta/55">
     Fórmula: <strong>% Retención = Retenidos / Aptos × 100</strong> (columna Clasificación) · Mes = columna Mes de la base.
   </p>
 
   <style>
+    .mini-pager {
+      display: inline-flex; align-items: center; border-radius: .8rem; padding: .45rem .8rem;
+      font-weight: 800; border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+      background: color-mix(in srgb, currentColor 5%, transparent);
+      transition: transform .3s cubic-bezier(0.22, 1, 0.36, 1), box-shadow .3s ease;
+    }
+    .mini-pager:hover { transform: translateY(-2px); box-shadow: 0 12px 24px -14px rgba(18,1,128,.5); }
+    .mini-pager-off { opacity: .4; pointer-events: none; }
     .show { opacity: 0; }
     @keyframes fadeUp { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: none; } }
     @media (prefers-reduced-motion: reduce) { .show { opacity: 1; } }

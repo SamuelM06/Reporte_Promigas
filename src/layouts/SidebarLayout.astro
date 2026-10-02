@@ -24,32 +24,24 @@ const nav = [
        El estado activo se re-sincroniza en el script de abajo. -->
   <header transition:persist="topbar" class="topbar sticky top-0 z-40 backdrop-blur-xl border-b border-tinta/10 bg-canvas/85">
     <div class="mx-auto flex w-full max-w-[1720px] items-center justify-between gap-3 px-3 py-2 sm:px-6">
-      <!-- Solo el icono del menú. El logo y el rótulo "Gestión Diaria · Promigas
-           2026" viven en el menú lateral, no aquí: en la barra superior solo
-           el acceso al menú y la navegación. -->
-      <button id="sidebar-toggle" type="button" class="btn-menu shrink-0" aria-label="Abrir navegación" title="Menú" aria-expanded="false" aria-controls="sidebar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"><line x1="3" x2="21" y1="6" y2="6"/><line x1="3" x2="21" y1="12" y2="12"/><line x1="3" x2="21" y1="18" y2="18"/></svg>
-      </button>
+      <!-- La navegación vive SOLO en el menú lateral (botón ☰). Aquí en el
+           header solo van la marca y los controles (corte + tema). -->
+      <div class="flex min-w-0 items-center gap-3">
+        <button id="sidebar-toggle" type="button" class="btn-menu shrink-0" aria-label="Abrir navegación" title="Menú" aria-expanded="false" aria-controls="sidebar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"><line x1="3" x2="21" y1="6" y2="6"/><line x1="3" x2="21" y1="12" y2="12"/><line x1="3" x2="21" y1="18" y2="18"/></svg>
+        </button>
 
-      <!-- Navegación central siempre visible en desktop (Navbar) -->
-      <nav class="hidden md:flex items-center gap-1 rounded-2xl glass p-1" aria-label="Navegación principal">
-        {nav.map((item) => {
-          const activo = actual === item.href || actual === `${item.href}/`;
-          return (
-            <a
-              href={item.href}
-              data-astro-prefetch="hover"
-              class="nav-pill"
-              aria-current={activo ? 'page' : undefined}
-            >
-              <span class="h-4 w-4 shrink-0 inline-flex items-center" set:html={item.svg} />
-              <span>{item.label}</span>
-            </a>
-          );
-        })}
-      </nav>
+        <a href="/" class="flex min-w-0 items-center gap-2.5" aria-label="Inicio">
+          <img src="/logos/Transparente_Logo_azul_letra_azul.svg" alt="Xuma" class="h-8 w-auto shrink-0 dark:hidden" />
+          <img src="/logos/Transparente_Logo_blanco_letra_blanca.svg" alt="Xuma" class="hidden h-8 w-auto shrink-0 dark:block" />
+          <span class="hidden min-w-0 sm:block">
+            <span class="block truncate text-[10px] font-extrabold uppercase tracking-widest text-tinta/50 leading-tight">Gestión Diaria</span>
+            <span class="block truncate text-sm font-extrabold text-tinta leading-tight">Promigas <span class="text-xuma-verde-oscuro dark:text-xuma-verde-claro">· 2026</span></span>
+          </span>
+        </a>
+      </div>
 
-      <div class="flex items-center gap-2">
+      <div class="flex shrink-0 items-center gap-2">
         <span class="hidden lg:inline-flex items-center gap-1.5 rounded-full bg-tinta/10 px-3 py-1 text-[11px] font-bold text-tinta/70">
           <span class="h-1.5 w-1.5 rounded-full bg-xuma-verde-claro animate-pulse"></span>
           Corte Ene-Sep 2026
@@ -110,7 +102,7 @@ const nav = [
   </aside>
 
   <div class="side-page">
-    <main class="mx-auto w-full max-w-[1720px] px-3 py-3 sm:px-6">
+    <main class="mx-auto w-full max-w-[1720px] px-3 py-2 sm:px-6">
       <slot />
     </main>
     <Footer />
@@ -126,22 +118,6 @@ const nav = [
       color: inherit; cursor: pointer; transition: background .2s ease;
     }
     .btn-menu:hover { background: color-mix(in srgb, currentColor 12%, transparent); }
-    /* Estado activo por CSS (no por clases sueltas): el header es persistido y
-       el script solo re-sincroniza `aria-current`, sin reescribir classNames. */
-    .nav-pill {
-      display: inline-flex; align-items: center; gap: .5rem;
-      border-radius: .75rem; padding: .375rem .875rem;
-      font-size: .75rem; font-weight: 700;
-      color: color-mix(in srgb, var(--color-tinta) 70%, transparent);
-      transition: background-color .3s ease, color .3s ease, box-shadow .3s ease;
-    }
-    .nav-pill:hover { background: color-mix(in srgb, var(--color-tinta) 10%, transparent); color: var(--color-tinta); }
-    .nav-pill[aria-current="page"] {
-      background: var(--color-xuma-azul); color: #fff;
-      box-shadow: 0 6px 16px -8px rgba(18, 1, 128, .55);
-    }
-    :global(.dark) .nav-pill[aria-current="page"] { background: var(--color-xuma-verde-claro); color: #0a1030; }
-    .nav-pill :global(svg) { width: 1.05rem; height: 1.05rem; }
 
     #sidebar-scrim {
       position: fixed; inset: 0; z-index: 55;
@@ -232,7 +208,7 @@ const nav = [
       // marcado viejo: sin esto la "página actual" se queda congelada).
       function marcarActivo() {
         var ruta = location.pathname.replace(/\/+$/, '') || '/';
-        document.querySelectorAll('#sidebar a[href], nav[aria-label="Navegación principal"] a[href]').forEach(function (a) {
+        document.querySelectorAll('#sidebar a[href]').forEach(function (a) {
           var href = a.getAttribute('href') || '';
           var destino = href.replace(/\/+$/, '') || '/';
           if (destino === ruta) a.setAttribute('aria-current', 'page');

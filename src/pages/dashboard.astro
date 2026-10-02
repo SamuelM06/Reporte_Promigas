@@ -25,7 +25,9 @@ const totalBase = metadatos.total ?? 0;
 
 const maxBar = Math.max(1, ...mensual.map((r: any) => Math.max(Number(r.total ?? 0), Number(r.inbound ?? 0), Number(r.outbound ?? 0), Number(r.retenidos ?? 0))));
 const maxPct = Math.max(10, ...mensual.map((r: any) => Number(r.pct ?? 0)));
-const H = 300;
+// Alto del gráfico. Ajustado para que el tablero completo quepa en una
+// pantalla de 900 px de alto, sin scroll vertical.
+const H = 175;
 
 // Geometría de la línea de % (SVG sobre las columnas)
 const n = Math.max(1, mensual.length);
@@ -75,7 +77,7 @@ const kpis: KpiCard[] = [
 ---
 
 <SidebarLayout title="Dashboard · Gestión Diaria Promigas 2026">
-  <div class="mb-4 flex flex-wrap items-end justify-between gap-2">
+  <div class="mb-3 flex flex-wrap items-end justify-between gap-2">
     <div>
       <p class="text-xs font-bold uppercase tracking-widest text-tinta/55">Corte · Enero a Septiembre 2026</p>
       <h1 class="flex items-center gap-2 text-2xl font-extrabold md:text-3xl">
@@ -93,7 +95,7 @@ const kpis: KpiCard[] = [
   />
 
   <!-- KPIs con diseño, sombra y animación -->
-  <section class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7">
+  <section class="mt-3 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
     {kpis.map((k, i) => (
       <article class={`kpi-card show fade-up ${k.chip}`} style={`animation-delay:${0.05 + i * 0.09}s`}>
         <span class="kpi-glow" aria-hidden="true"></span>
@@ -108,7 +110,7 @@ const kpis: KpiCard[] = [
   </section>
 
   <!-- Gráfico grande: todos los meses en el eje X -->
-  <section class="glass mt-4 rounded-3xl p-5 md:p-6">
+  <section class="glass mt-3 rounded-3xl p-4 md:p-5">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <h2 class="flex items-center gap-2 text-base font-bold md:text-lg">
         <span class="kpi-ico kpi-ico-sm" set:html={svgChart} /> Gestión mensual: llamadas y retenciones
@@ -129,7 +131,7 @@ const kpis: KpiCard[] = [
     {mensual.length === 0 ? (
       <p class="mt-6 text-sm text-tinta/60">Sin datos para los filtros seleccionados.</p>
     ) : (
-      <div class="chart-wrap mt-2 overflow-x-auto">
+      <div class="chart-wrap mt-2">
         <div class="chart-inner">
           <svg class="chart-line pct-ink" viewBox={`0 0 100 ${H}`} preserveAspectRatio="none" aria-hidden="true">
             <polygon points={`${linePts} 100,${H} 0,${H}`} class="pct-area" />
@@ -157,7 +159,7 @@ const kpis: KpiCard[] = [
         </div>
       </div>
     )}
-    <p class="mt-3 text-[11px] leading-relaxed text-tinta/55">
+    <p class="mt-2 text-[11px] leading-relaxed text-tinta/55">
       Fórmula: <strong>% Retención = Retenidos / Aptos × 100</strong> · Aptos y No Aptos salen de la
       columna <strong>Clasificación</strong> de la base · Mes = columna Mes de la base.
     </p>
@@ -176,7 +178,7 @@ const kpis: KpiCard[] = [
     .kpi-card {
       position: relative; overflow: hidden;
       display: flex; align-items: flex-start; gap: .85rem;
-      border-radius: 1.5rem; padding: 1.15rem 1.1rem;
+      border-radius: 1.25rem; padding: .75rem .9rem;
       border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
       background: color-mix(in srgb, Canvas 82%, transparent);
       backdrop-filter: blur(18px);
@@ -189,7 +191,7 @@ const kpis: KpiCard[] = [
     .kpi-violeta .kpi-glow { background: rgba(139,123,255,.45); } .kpi-ambar .kpi-glow { background: rgba(245,158,11,.4); }
     .kpi-teal .kpi-glow { background: rgba(45,212,191,.4); } .kpi-gris .kpi-glow { background: rgba(148,163,184,.4); }
     .kpi-rosa .kpi-glow { background: rgba(244,63,94,.4); }
-    .kpi-ico { display: inline-flex; align-items: center; justify-content: center; width: 2.9rem; height: 2.9rem; border-radius: 1rem; flex-shrink: 0; color: #fff; box-shadow: 0 12px 24px -12px rgba(0,0,0,.5); }
+    .kpi-ico { display: inline-flex; align-items: center; justify-content: center; width: 2.4rem; height: 2.4rem; border-radius: 1rem; flex-shrink: 0; color: #fff; box-shadow: 0 12px 24px -12px rgba(0,0,0,.5); }
     .kpi-ico :global(svg) { width: 1.35rem; height: 1.35rem; }
     .kpi-ico-sm { width: 2rem; height: 2rem; border-radius: .7rem; }
     .kpi-ico-sm :global(svg) { width: 1rem; height: 1rem; }
@@ -203,12 +205,16 @@ const kpis: KpiCard[] = [
     h1 .kpi-ico, h2 .kpi-ico { background: linear-gradient(135deg,var(--color-xuma-azul),var(--color-xuma-verde-oscuro)); }
     .kpi-body { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
     .kpi-label { font-size: .68rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; opacity: .55; }
-    .kpi-num { font-size: 1.9rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .kpi-num { font-size: 1.6rem; font-weight: 800; font-variant-numeric: tabular-nums; }
     .kpi-nota { font-size: 10px; opacity: .6; }
 
     /* Gráfico grande */
     .chart-wrap { position: relative; }
-    .chart-inner { position: relative; min-width: 860px; }
+    /* Sin min-width: el gráfico se ajusta al ancho disponible y la vista no
+       necesita desplazarse a los lados. En pantallas estrechas se ocultan los
+       valores sobre las barras, que se solaparían. */
+    .chart-inner { position: relative; width: 100%; }
+    @media (max-width: 1100px) { .bar-val { display: none; } }
     .chart-line { position: absolute; inset: 0 0 26px 0; width: 100%; height: calc(100% - 26px); overflow: visible; }
     /* Línea de %: gris oscuro en claro / blanca en oscuro, gruesa y con área para ver subidas y bajadas */
     .pct-ink { color: #1e293b; }
