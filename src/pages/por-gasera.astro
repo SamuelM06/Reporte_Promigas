@@ -50,8 +50,28 @@ const resumen = (datos: any[]) => {
 ---
 
 <SidebarLayout title="Gestión por Gasera · Promigas 2026">
+  <!-- Paginación de la vista: vive en el menú lateral (slot), no aquí. -->
+  <Fragment slot="paginacion">
+    <div class="side-pager">
+      <p class="side-pager-label">Página {page} de 2</p>
+      <div class="side-pager-botones">
+        {page === 2 ? (
+          <a href={qs(1)} class="side-pager-btn">← Anterior</a>
+        ) : (
+          <span class="side-pager-btn" aria-disabled="true">← Anterior</span>
+        )}
+        {page === 1 ? (
+          <a href={qs(2)} class="side-pager-btn">Siguiente →</a>
+        ) : (
+          <span class="side-pager-btn" aria-disabled="true">Siguiente →</span>
+        )}
+      </div>
+      <p class="side-pager-detalle">{page === 1 ? 'GDO · Surtigas · CEO · Caribe' : 'Efigas'}</p>
+    </div>
+  </Fragment>
+
   <div class="mb-4">
-    <p class="text-xs font-bold uppercase tracking-widest text-tinta/55">Corte · Enero a Septiembre 2026 · Página {page} de 2</p>
+    <p class="text-xs font-bold uppercase tracking-widest text-tinta/55">Corte · Enero a Septiembre 2026</p>
     <h1 class="text-2xl font-extrabold md:text-3xl">Gestión por <span class="texto-brillo">Gasera</span></h1>
   </div>
 
@@ -64,22 +84,6 @@ const resumen = (datos: any[]) => {
     totalBase={metadatos.total ?? 0}
     extras={page === 2 ? { page: '2' } : {}}
   />
-
-  <div class="mt-3 flex items-center justify-between gap-2 text-xs">
-    <p class="font-bold text-tinta/60">Página {page} de 2 · {page === 1 ? 'GDO · Surtigas · CEO · Caribe' : 'Efigas'}</p>
-    <div class="flex gap-2">
-      {page === 2 ? (
-        <a href={qs(1)} class="mini-pager">← Anterior</a>
-      ) : (
-        <span class="mini-pager mini-pager-off">← Anterior</span>
-      )}
-      {page === 1 ? (
-        <a href={qs(2)} class="mini-pager">Siguiente página →</a>
-      ) : (
-        <span class="mini-pager mini-pager-off">Siguiente página →</span>
-      )}
-    </div>
-  </div>
 
   {gaseras.map((g, i) => {
     const datos = datosPorGasera[g] ?? [];

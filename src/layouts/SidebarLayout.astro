@@ -72,11 +72,15 @@ const nav = [
   </header>
 
   <!-- Telón de fondo móvil -->
-  <div id="sidebar-scrim" transition:persist="scrim" aria-hidden="true"></div>
+  <div id="sidebar-scrim" aria-hidden="true"></div>
 
-  <!-- Drawer lateral para móvil o acceso directo. Persistido: el menú lateral
-       está siempre en el DOM y nunca desaparece al cambiar de página. -->
-  <aside id="sidebar" transition:persist="sidebar" aria-label="Menú lateral" aria-hidden="true">
+  <!-- Drawer lateral para móvil o acceso directo.
+       SIN transition:persist a diferencia del header: el drawer lleva el slot
+       `paginacion`, que cambia por vista (Por Gasera tiene páginas 1 y 2).
+       Un elemento persistido conserva el DOM de la primera página, así que el
+       paginador se quedaría con los enlaces de la vista anterior. El drawer se
+       re-crea idéntico en cada navegación, así que nunca deja de estar. -->
+  <aside id="sidebar" aria-label="Menú lateral" aria-hidden="true">
     <div class="side-brand">
       <a href="/" class="side-logo" aria-label="Inicio Gestión Diaria Promigas">
         <img src="/logos/Transparente_Logo_azul_letra_azul.svg" alt="Xuma" class="h-7 w-auto dark:hidden" />
@@ -108,6 +112,11 @@ const nav = [
         );
       })}
     </nav>
+
+    <!-- Paginación de la vista (solo /por-gasera). Los botones viven en el menú
+         lateral, no en el header de la página: el header queda solo con el
+         título. -->
+    <slot name="paginacion" />
 
     <div class="side-foot">
       <div class="side-user">
@@ -199,6 +208,24 @@ const nav = [
     .side-arrow { opacity: 0; transform: translateX(-6px); transition: all .25s ease; }
     .side-link:hover .side-arrow, .side-link[aria-current="page"] .side-arrow { opacity: 1; transform: none; }
     .side-foot { margin-top: auto; display: flex; flex-direction: column; gap: .8rem; border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent); padding-top: 1rem; }
+    /* Paginador dentro del drawer.
+       :global() es obligatorio: el marcado del slot lo escribe la PÁGINA
+       (por-gasera.astro), no este layout, y Astro scopea los estilos por
+       componente. Sin :global() las reglas no casarían con esos elementos. */
+    :global(.side-pager) { display: flex; flex-direction: column; gap: .5rem; border: 1px dashed color-mix(in srgb, currentColor 20%, transparent); border-radius: .9rem; padding: .7rem .75rem; }
+    :global(.side-pager-label) { font-size: .68rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; opacity: .6; }
+    :global(.side-pager-detalle) { font-size: .68rem; font-weight: 700; opacity: .55; }
+    :global(.side-pager-botones) { display: flex; gap: .4rem; }
+    :global(.side-pager-btn) {
+      flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: .25rem;
+      border-radius: .7rem; padding: .45rem .5rem; font-size: .72rem; font-weight: 800;
+      border: 1px solid color-mix(in srgb, currentColor 16%, transparent);
+      background: color-mix(in srgb, currentColor 6%, transparent);
+      color: inherit; text-align: center; white-space: nowrap;
+      transition: background-color .25s ease, transform .2s ease;
+    }
+    :global(.side-pager-btn:hover) { background: color-mix(in srgb, currentColor 14%, transparent); transform: translateY(-1px); }
+    :global(.side-pager-btn[aria-disabled="true"]) { opacity: .35; pointer-events: none; }
     .side-user { display: flex; align-items: center; gap: .7rem; }
     .side-avatar { width: 2.4rem; height: 2.4rem; border-radius: 1rem; display: grid; place-items: center; font-weight: 800; background: linear-gradient(135deg, var(--color-xuma-azul), var(--color-xuma-verde-oscuro)); color: #fff; }
     @media (prefers-reduced-motion: reduce) { #sidebar, .side-link { transition: none; } }
