@@ -93,7 +93,7 @@ export async function getMetadatos(_f: Filtros): Promise<Metadatos> {
       `SELECT COALESCE(MIN(fecha_ejecucion)::text,'2026-01-01') AS min, COALESCE(MAX(fecha_ejecucion)::text,'2026-12-31') AS max FROM ${VISTA}`,
     );
     const meses = await query<{ mes: string }>(
-      `SELECT DISTINCT mes_norm AS mes FROM ${VISTA} WHERE mes_norm IS NOT NULL ORDER BY ${ORDEN_MES_SQL}`,
+      `SELECT mes_norm AS mes FROM ${VISTA} WHERE mes_norm IS NOT NULL GROUP BY mes_norm ORDER BY ${ORDEN_MES_SQL}`,
     );
     const dist = await query<{ v: string }>(`SELECT DISTINCT gasera_norm AS v FROM ${VISTA} WHERE gasera_norm IS NOT NULL ORDER BY 1`);
     const aseg = await query<{ v: string }>(`SELECT DISTINCT aseguradora_norm AS v FROM ${VISTA} WHERE aseguradora_norm IS NOT NULL ORDER BY 1`);

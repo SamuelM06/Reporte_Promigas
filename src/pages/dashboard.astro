@@ -1,5 +1,6 @@
 ---
 import SidebarLayout from '../layouts/SidebarLayout.astro';
+import FiltrosPanel from '../components/filtros/FiltrosPanel.astro';
 import { cargaSSR, filtrosPorDefecto, getDashboardMensual, getMetadatos, METADATOS_VACIOS, parseFiltros } from '../lib/query';
 
 const f = { ...filtrosPorDefecto(), ...parseFiltros(Astro.url) };
@@ -26,15 +27,6 @@ const estados = metadatos.estados ?? [];
 const mesesFiltro = (metadatos.meses ?? []).filter((m) => m !== 'SIN DATO');
 const totalBase = metadatos.total ?? 0;
 
-const chipsActivos = [
-  selMes && { label: 'Mes', valor: selMes },
-  selGas && { label: 'Gasera', valor: selGas },
-  selAseg && { label: 'Aseguradora', valor: selAseg },
-  selCanal && { label: 'Canal', valor: selCanal },
-  selCabina && { label: 'Cabina', valor: selCabina },
-  selEstado && { label: 'Estado', valor: selEstado },
-].filter(Boolean) as { label: string; valor: string }[];
-
 const maxBar = Math.max(1, ...mensual.map((r: any) => Math.max(Number(r.total ?? 0), Number(r.inbound ?? 0), Number(r.outbound ?? 0), Number(r.retenidos ?? 0))));
 const maxPct = Math.max(10, ...mensual.map((r: any) => Number(r.pct ?? 0)));
 const H = 300;
@@ -43,7 +35,10 @@ const H = 300;
 const n = Math.max(1, mensual.length);
 const stepX = 100 / n;
 const px = (i: number) => (stepX * i + stepX / 2).toFixed(2);
-const py = (pct: number) => (H - 24 - (Number(pct) / maxPct) * (H - 70)).toFixed(1);
+// Puntos sobre la línea: misma geometría que el SVG (top desde la caja de barras)
+const pyNum = (pct: number) => H - 24 - (Number(pct) / maxPct) * (H - 70);
+const py = (pct: number) => pyNum(pct).toFixed(1);
+const dotTop = (pct: number) => ((pyNum(pct) / H) * (H + 8) - 8 - 7.5).toFixed(1);
 const linePts = mensual.map((r: any, i: number) => `${px(i)},${py(Number(r.pct ?? 0))}`).join(' ');
 
 const SERIES = [
@@ -53,13 +48,12 @@ const SERIES = [
   { key: 'retenidos', label: 'Retenciones', color: 'linear-gradient(180deg,#f59e0b,#fcd34d)', dot: '#f59e0b' },
 ];
 
-const svgLlamadas = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>';
-const svgIn = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>';
-const svgOut = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 14 20 9 15 4"/><path d="M4 20v-7a4 4 0 0 1 4-4h12"/></svg>';
-const svgShield = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>';
+const svgLlamadas = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>';
+const svgIn = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 2 16 6 20 6"/><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>';
+const svgOut = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 2 22 6 18 6"/><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>';
+const svgShield = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1 1 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>';
 const svgPct = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" x2="5" y1="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>';
 const svgChart = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg>';
-const svgFilter = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>';
 
 const kpis = [
   { label: 'Total llamadas', valor: T, texto: fmt.format(T), icon: svgLlamadas, chip: 'kpi-azul', num: 'text-tinta' },
@@ -80,67 +74,13 @@ const kpis = [
     </div>
   </div>
 
-  <!-- Filtros: Mes · Gasera · Aseguradora · Canal · Cabina · Estado -->
-  <form method="get" action="/dashboard" class="glass rounded-3xl p-4 md:p-5">
-    <div class="flex flex-wrap items-center justify-between gap-2">
-      <p class="flex items-center gap-2 text-xs font-extrabold uppercase tracking-widest text-tinta/55">
-        <span class="kpi-ico kpi-ico-sm" set:html={svgFilter} /> Filtros del reporte
-      </p>
-      <p class="text-xs font-bold text-tinta/60">{fmt.format(T)} registros con estos filtros · {fmt.format(totalBase)} en base</p>
-    </div>
-    <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_auto]">
-      <label class="filtro">Mes
-        <select name="mes" class="filtro-sel">
-          <option value="">Todos</option>
-          {mesesFiltro.map((m) => (<option value={m} selected={selMes === m}>{m}</option>))}
-        </select>
-      </label>
-      <label class="filtro">Gasera
-        <select name="gasera" class="filtro-sel">
-          <option value="">Todas</option>
-          {gaseras.map((g) => (<option value={g} selected={selGas === g}>{g}</option>))}
-        </select>
-      </label>
-      <label class="filtro">Aseguradora
-        <select name="aseguradora" class="filtro-sel">
-          <option value="">Todas</option>
-          {asegs.map((a) => (<option value={a} selected={selAseg === a}>{a}</option>))}
-        </select>
-      </label>
-      <label class="filtro">Canal
-        <select name="canal" class="filtro-sel">
-          <option value="">Todos</option>
-          {canales.map((c) => (<option value={c} selected={selCanal === c}>{c}</option>))}
-        </select>
-      </label>
-      <label class="filtro">Cabina
-        <select name="cabina" class="filtro-sel">
-          <option value="">Todas</option>
-          {cabinas.map((c) => (<option value={c} selected={selCabina === c}>{c}</option>))}
-        </select>
-      </label>
-      <label class="filtro">Estado
-        <select name="estado" class="filtro-sel">
-          <option value="">Todos</option>
-          {estados.map((e) => (<option value={e} selected={selEstado === e}>{e}</option>))}
-        </select>
-      </label>
-      <div class="flex items-end gap-2">
-        <button type="submit" class="h-11 rounded-xl bg-xuma-azul px-5 text-sm font-bold text-white shadow-lg shadow-xuma-azul/25 transition hover:scale-105 dark:bg-xuma-verde-claro dark:text-[#0a1030]">Filtrar</button>
-        <a href="/dashboard" class="glass glass-hover inline-flex h-11 items-center rounded-xl px-4 text-sm font-semibold">Limpiar</a>
-      </div>
-    </div>
-    {chipsActivos.length > 0 ? (
-      <div class="mt-3 flex flex-wrap items-center gap-2">
-        <span class="text-[11px] font-extrabold uppercase tracking-widest text-tinta/50">Activos:</span>
-        {chipsActivos.map((c) => (
-          <span class="chip-filtro"><strong>{c.label}:</strong> {c.valor}</span>
-        ))}
-      </div>
-    ) : (
-      <p class="mt-3 text-[11px] text-tinta/50">Sin filtros activos · mostrando todo el corte.</p>
-    )}
-  </form>
+  <FiltrosPanel
+    action="/dashboard"
+    opciones={{ mes: mesesFiltro, gasera: gaseras, aseguradora: asegs, canal: canales, cabina: cabinas, estado: estados }}
+    actual={{ mes: selMes, gasera: selGas, aseguradora: selAseg, canal: selCanal, cabina: selCabina, estado: selEstado }}
+    totalFiltrado={T}
+    totalBase={totalBase}
+  />
 
   <!-- KPIs con diseño, sombra y animación -->
   <section class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -195,7 +135,7 @@ const kpis = [
                       <div class="bar" style={`height:${Math.max(4, Math.round((Number(r[s.key] ?? 0) / maxBar) * (H - 90)))}px;background:${s.color};animation-delay:${0.15 + i * 0.09 + j * 0.05}s`} title={`${r.mes} · ${s.label}: ${fmt.format(r[s.key] ?? 0)}`}></div>
                     </div>
                   ))}
-                  <span class="pct-dot pct-ink" style={`left:50%;bottom:${py(Number(r.pct ?? 0))}px`} title={`${r.mes} · % Retención: ${r.pct}%`}>
+                  <span class="pct-dot pct-ink" style={`left:50%;top:${dotTop(Number(r.pct ?? 0))}px`} title={`${r.mes} · % Retención: ${r.pct}%`}>
                     <span class="pct-tag pct-ink">{r.pct}%</span>
                   </span>
                 </div>
@@ -252,27 +192,6 @@ const kpis = [
     .kpi-label { font-size: .68rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; opacity: .55; }
     .kpi-num { font-size: 1.9rem; font-weight: 800; font-variant-numeric: tabular-nums; }
     .kpi-nota { font-size: 10px; opacity: .6; }
-
-    /* Filtros: selects con fondo bonito también en sus ítems */
-    .filtro { display: flex; flex-direction: column; gap: .25rem; font-size: .68rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: color-mix(in srgb, currentColor 55%, transparent); }
-    .filtro-sel {
-      height: 2.75rem; border-radius: .9rem; padding: 0 .8rem;
-      border: 1px solid color-mix(in srgb, currentColor 15%, transparent);
-      background: color-mix(in srgb, currentColor 5%, transparent);
-      font-size: .85rem; font-weight: 700; text-transform: none; letter-spacing: normal; color: inherit;
-      transition: border-color .25s ease, box-shadow .25s ease, transform .25s ease;
-    }
-    .filtro-sel:hover { transform: translateY(-1px); }
-    .filtro-sel:focus { outline: none; border-color: var(--color-xuma-verde-oscuro); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-xuma-verde-oscuro) 25%, transparent); }
-    .filtro-sel option { background: #ffffff; color: #0a1030; font-weight: 600; }
-    :global(.dark) .filtro-sel option { background: #0a1030; color: #f4f6fb; }
-    .chip-filtro {
-      display: inline-flex; align-items: center; gap: .35rem;
-      border-radius: 999px; padding: .35rem .8rem; font-size: .72rem;
-      color: #fff; background: linear-gradient(135deg, var(--color-xuma-azul), var(--color-xuma-verde-oscuro));
-      box-shadow: 0 10px 22px -12px rgba(18,1,128,.6);
-      animation: fadeUp .5s cubic-bezier(0.22, 1, 0.36, 1) both;
-    }
 
     /* Gráfico grande */
     .chart-wrap { position: relative; }
