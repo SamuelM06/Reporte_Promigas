@@ -1,16 +1,12 @@
 ---
 import SidebarLayout from '../layouts/SidebarLayout.astro';
 import FiltrosPanel from '../components/filtros/FiltrosPanel.astro';
-import { cargaSSR, filtrosPorDefecto, getTabla, getMetadatos, getMensualPorAseguradora, getDashboardMensual, parseFiltros, METADATOS_VACIOS } from '../lib/query';
+import { cargaSSR, filtrosPorDefecto, getMetadatos, getMensualPorAseguradora, getDashboardMensual, parseFiltros, METADATOS_VACIOS } from '../lib/query';
 
 const f = { ...filtrosPorDefecto(), ...parseFiltros(Astro.url) };
 const claveFiltros = JSON.stringify(f);
-const pageParam = Number(Astro.url.searchParams.get('page') ?? 1);
-const page = Number.isFinite(pageParam) && pageParam > 0 ? Math.floor(pageParam) : 1;
-const pageSize = 50;
 
-const [pagina, mensual, tablaMes]: [any, any[], any[]] = await Promise.all([
-  cargaSSR(`detalle/tabla/${claveFiltros}/${page}`, getTabla(f, page, pageSize), { rows: [], total: 0, page, pageSize }, 15_000),
+const [mensual, tablaMes]: [any[], any[]] = await Promise.all([
   cargaSSR(`detalle/mensual-aseguradora/${claveFiltros}`, getMensualPorAseguradora(f), []),
   cargaSSR(`detalle/tabla-mes/${claveFiltros}`, getDashboardMensual(f), []),
 ]);
@@ -26,9 +22,6 @@ const cabinas = metadatos.cabinas ?? [];
 const estados = metadatos.estados ?? [];
 const mesesFiltro = (metadatos.meses ?? []).filter((m) => m !== 'SIN DATO');
 const totalBase = metadatos.total ?? 0;
-
-const totalPages = Math.max(1, Math.ceil((pagina.total ?? 0) / pageSize));
-const pageSafe = Math.min(page, totalPages);
 
 // --- Arma matriz mes x aseguradora para el gráfico (aseguradoras como columnas) ---
 const ORDEN_MES = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
@@ -57,16 +50,11 @@ const barrasPorMes: Record<string, { a: string; total: number; h: number; delay:
 mesesChart.forEach((mes, i) => {
   barrasPorMes[mes] = ASEGS.filter((a) => (mapaMensual[mes]?.[a] ?? 0) > 0).map((a, j) => {
     const total = mapaMensual[mes][a] ?? 0;
-    return { a, total, h: Math.max(5, Math.round((total / maxBar) * 170)), delay: `${(0.1 + i * 0.09 + j * 0.05).toFixed(2)}s` };
+    return { a, total, h: Math.max(6, Math.round((total / maxBar) * 250)), delay: `${(0.1 + i * 0.09 + j * 0.05).toFixed(2)}s` };
   });
 });
-
-const prevBase = new URLSearchParams(Astro.url.searchParams);
-prevBase.delete('page');
-const qsSinPage = prevBase.toString();
-const hrefPag = (p: number) => `/detalle?${qsSinPage ? qsSinPage + '&' : ''}page=${p}`;
-const prevHref = pageSafe > 1 ? hrefPag(pageSafe - 1) : null;
-const nextHref = pageSafe < totalPages ? hrefPag(pageSafe + 1) : null;
+const totalMes: Record<string, number> = {};
+mesesChart.forEach((mes) => { totalMes[mes] = ASEGS.reduce((s, a) => s + (mapaMensual[mes]?.[a] ?? 0), 0); });
 
 const tTot = (k: string) => tablaMes.reduce((s: number, r: any) => s + Number(r[k] ?? 0), 0);
 const TT = tTot('total'), TRET = tTot('retenidos'), TAPT = tTot('aptos');
@@ -87,17 +75,17 @@ const kpiMini = [
 <SidebarLayout title="Detalle · Gestión Diaria Promigas 2026">
   <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
     <div>
-      <p class="text-xs font-bold uppercase tracking-widest text-tinta/55">Corte · Enero a Septiembre 2026 · Página 2 · {pageSafe} de {fmt.format(totalPages)}</p>
+      <p class="text-xs font-bold uppercase tracking-widest text-tinta/55">Corte · Enero a Septiembre 2026 · Página 2</p>
       <h1 class="text-2xl font-extrabold md:text-3xl">Detalle de gestión</h1>
     </div>
-    <p class="rounded-full bg-tinta/10 px-4 py-1.5 text-xs font-bold">{fmt.format(pagina.total)} registros</p>
+    <p class="rounded-full bg-tinta/10 px-4 py-1.5 text-xs font-bold">{fmt.format(TT)} registros</p>
   </div>
 
   <FiltrosPanel
     action="/detalle"
     opciones={{ mes: mesesFiltro, gasera: gaseras, cabina: cabinas, estado: estados }}
     actual={{ mes: selMes, gasera: selGas, cabina: selCabina, estado: selEstado }}
-    totalFiltrado={pagina.total}
+    totalFiltrado={TT}
     totalBase={totalBase}
   />
 
@@ -114,24 +102,24 @@ const kpiMini = [
   <!-- Página 2: tabla de gestión por mes -->
   <section class="glass mt-4 overflow-x-auto rounded-3xl p-3">
     <h2 class="p-2 text-base font-bold">Tabla de gestión por mes</h2>
-    <table class="w-full min-w-[760px] text-left text-xs">
-      <thead><tr class="uppercase tracking-wider text-tinta/55">
-        <th class="p-3">Mes</th><th class="p-3 text-right">Total llamadas</th><th class="p-3 text-right">Inbound</th><th class="p-3 text-right">Outbound</th><th class="p-3 text-right">Retenciones</th><th class="p-3 text-right">Aptos</th><th class="p-3 text-right">No Aptos</th><th class="p-3 text-right">% Retención</th>
+    <table class="tbl-mes w-full min-w-[840px] text-left text-xs">
+      <thead><tr class="uppercase tracking-wider">
+        <th class="th-mes p-3">Mes</th><th class="th-tot p-3 text-right">Total llamadas</th><th class="th-in p-3 text-right">Inbound</th><th class="th-out p-3 text-right">Outbound</th><th class="th-ret p-3 text-right">Retenciones</th><th class="th-ap p-3 text-right">Aptos</th><th class="th-no p-3 text-right">No Aptos</th><th class="th-pct p-3 text-right">% Retención</th>
       </tr></thead>
       <tbody>
         {tablaMes.map((r: any) => (
-          <tr class="border-t border-tinta/10 hover:bg-tinta/5">
-            <td class="p-3 font-extrabold">{r.mes}</td>
-            <td class="p-3 text-right">{fmt.format(r.total)}</td>
-            <td class="p-3 text-right">{fmt.format(r.inbound)}</td>
-            <td class="p-3 text-right">{fmt.format(r.outbound)}</td>
-            <td class="p-3 text-right font-bold text-amber-600">{fmt.format(r.retenidos)}</td>
-            <td class="p-3 text-right">{fmt.format(r.aptos)}</td>
-            <td class="p-3 text-right">{fmt.format(r.noAptos)}</td>
-            <td class="p-3 text-right font-extrabold text-xuma-verde-oscuro">{r.pct}%</td>
+          <tr>
+            <td class="c-mes p-3">{r.mes}</td>
+            <td class="c-tot p-3 text-right">{fmt.format(r.total)}</td>
+            <td class="c-in p-3 text-right">{fmt.format(r.inbound)}</td>
+            <td class="c-out p-3 text-right">{fmt.format(r.outbound)}</td>
+            <td class="c-ret p-3 text-right">{fmt.format(r.retenidos)}</td>
+            <td class="c-ap p-3 text-right">{fmt.format(r.aptos)}</td>
+            <td class="c-no p-3 text-right">{fmt.format(r.noAptos)}</td>
+            <td class="c-pct p-3 text-right">{r.pct}%</td>
           </tr>
         ))}
-        <tr class="border-t-2 border-tinta/20 font-extrabold">
+        <tr class="total-row">
           <td class="p-3">TOTAL</td>
           <td class="p-3 text-right">{fmt.format(TT)}</td>
           <td class="p-3 text-right">{fmt.format(tTot('inbound'))}</td>
@@ -146,9 +134,12 @@ const kpiMini = [
     <p class="p-2 text-[11px] text-tinta/55">% Retención = Retenidos / Aptos × 100 · Aptos/No Aptos de la columna Clasificación · Mes = columna Mes de la base.</p>
   </section>
 
-  <section class="glass mt-4 rounded-3xl p-5">
-    <div class="flex flex-wrap items-center justify-between gap-2">
-      <h2 class="text-base font-bold">Gestión mensual por aseguradora</h2>
+  <section class="glass mt-4 rounded-3xl p-5 md:p-8">
+    <div class="flex flex-wrap items-end justify-between gap-2">
+      <div>
+        <p class="text-xs font-bold uppercase tracking-widest text-tinta/55">Tendencia · Enero a Septiembre 2026</p>
+        <h2 class="text-lg font-extrabold md:text-xl">Gestión mensual por aseguradora</h2>
+      </div>
       <p class="text-xs text-tinta/60">Un solo gráfico general · eje X todos los meses · aseguradoras como columnas</p>
     </div>
     <div class="mt-3 flex flex-wrap gap-2">
@@ -159,7 +150,7 @@ const kpiMini = [
         </span>
       ))}
     </div>
-    <div class="gen-chart mt-2 overflow-x-auto">
+    <div class="gen-chart mt-4 overflow-x-auto">
       <div class="gen-inner">
         <div class="gen-cols">
           {mesesChart.map((mes) => (
@@ -172,6 +163,7 @@ const kpiMini = [
                   </div>
                 ))}
               </div>
+              <span class="gen-total">{fmt.format(totalMes[mes] ?? 0)}</span>
               <span class="gen-mes">{mes.slice(0, 3)}</span>
             </div>
           ))}
@@ -197,36 +189,37 @@ const kpiMini = [
     .mk-teal { --mk: #0d9488; } .mk-gris { --mk: #64748b; } .mk-ambar { --mk: #f59e0b; } .mk-rosa { --mk: #f43f5e; }
     @keyframes growBar { from { transform: scaleY(0); } to { transform: scaleY(1); } }
     @media (prefers-reduced-motion: reduce) { .gen-bar { animation: none !important; transform: none !important; } }
-    .gen-inner { min-width: 720px; }
+    /* Tabla mensual: cada columna con su color para diferenciarlas */
+    .tbl-mes { border-collapse: separate; border-spacing: 0; font-variant-numeric: tabular-nums; }
+    .tbl-mes thead th { font-size: 10px; color: color-mix(in srgb, currentColor 62%, transparent); border-bottom: 2px solid color-mix(in srgb, currentColor 14%, transparent); white-space: nowrap; }
+    .tbl-mes thead th::before { content: ""; display: inline-block; width: .55rem; height: .55rem; border-radius: 999px; margin-right: .4rem; background: var(--thc, currentColor); box-shadow: 0 2px 8px -2px var(--thc, currentColor); }
+    .th-mes { --thc: #120180; } .th-tot { --thc: #3d22c8; } .th-in { --thc: #00cd93; } .th-out { --thc: #8b7bff; }
+    .th-ret { --thc: #f59e0b; } .th-ap { --thc: #0d9488; } .th-no { --thc: #64748b; } .th-pct { --thc: #f43f5e; }
+    .tbl-mes tbody td { border-bottom: 1px solid color-mix(in srgb, currentColor 8%, transparent); transition: background .25s ease; }
+    .tbl-mes tbody tr:hover td { background: color-mix(in srgb, currentColor 6%, transparent); }
+    .c-mes { font-weight: 800; background: color-mix(in srgb, #120180 7%, transparent); }
+    .c-tot { font-weight: 800; background: color-mix(in srgb, #3d22c8 7%, transparent); }
+    .c-in { background: color-mix(in srgb, #00cd93 8%, transparent); }
+    .c-out { background: color-mix(in srgb, #8b7bff 8%, transparent); }
+    .c-ret { font-weight: 700; color: #b45309; background: color-mix(in srgb, #f59e0b 10%, transparent); }
+    :global(.dark) .c-ret { color: #fcd34d; }
+    .c-ap { background: color-mix(in srgb, #0d9488 8%, transparent); }
+    .c-no { background: color-mix(in srgb, #64748b 8%, transparent); }
+    .c-pct { font-weight: 800; background: color-mix(in srgb, #f43f5e 9%, transparent); }
+    .total-row td { background: linear-gradient(135deg, var(--color-xuma-azul), var(--color-xuma-verde-oscuro)); color: #fff; font-weight: 800; border-bottom: none; }
+    .total-row td:first-child { border-radius: .9rem 0 0 .9rem; }
+    .total-row td:last-child { border-radius: 0 .9rem .9rem 0; }
+    /* Gráfico general: más grande y con presencia */
+    .gen-inner { min-width: 860px; }
     .gen-cols { display: flex; gap: .7rem; padding-top: .5rem; }
     .gen-month { flex: 1; display: flex; flex-direction: column; min-width: 0; }
     .gen-month + .gen-month { border-left: 1px dashed color-mix(in srgb, currentColor 18%, transparent); padding-left: .7rem; }
-    .gen-bars { display: flex; align-items: flex-end; justify-content: center; gap: .3rem; height: 210px; border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent); padding-bottom: 2px; }
+    .gen-bars { display: flex; align-items: flex-end; justify-content: center; gap: .3rem; height: 300px; border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent); padding-bottom: 2px; background-image: linear-gradient(color-mix(in srgb, currentColor 9%, transparent) 1px, transparent 1px); background-size: 100% 25%; }
     .gen-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 3px; height: 100%; min-width: 0; }
-    .gen-val { font-size: 9px; font-weight: 800; color: color-mix(in srgb, currentColor 65%, transparent); font-variant-numeric: tabular-nums; }
-    .gen-bar { width: 100%; max-width: 24px; border-radius: 6px 6px 2px 2px; transform-origin: bottom; transform: scaleY(0); animation: growBar 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards; box-shadow: 0 8px 18px -10px rgba(18,1,128,.5); }
-    .gen-mes { margin-top: .45rem; text-align: center; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; opacity: .85; background: color-mix(in srgb, currentColor 7%, transparent); border-radius: 999px; padding: .2rem .1rem; }
+    .gen-val { font-size: 10px; font-weight: 800; color: color-mix(in srgb, currentColor 65%, transparent); font-variant-numeric: tabular-nums; }
+    .gen-bar { width: 100%; max-width: 34px; border-radius: 8px 8px 3px 3px; transform-origin: bottom; transform: scaleY(0); animation: growBar 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards; box-shadow: 0 10px 22px -10px rgba(18,1,128,.5); transition: filter .25s ease; }
+    .gen-col:hover .gen-bar { filter: brightness(1.12) saturate(1.15); }
+    .gen-total { margin-top: .55rem; text-align: center; font-size: .85rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .gen-mes { margin-top: .3rem; text-align: center; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; opacity: .85; background: color-mix(in srgb, currentColor 7%, transparent); border-radius: 999px; padding: .25rem .1rem; }
   </style>
-
-  <section class="glass mt-4 overflow-x-auto rounded-3xl p-3">
-    <table class="w-full min-w-[900px] text-left text-xs">
-      <thead><tr class="uppercase tracking-wider text-tinta/55">
-        <th class="p-3">Contrato</th><th class="p-3">Gasera</th><th class="p-3">Aseguradora</th><th class="p-3">Canal</th><th class="p-3">Producto</th><th class="p-3">Estado</th><th class="p-3">Clasificación</th><th class="p-3">Fecha</th><th class="p-3">Mes</th><th class="p-3">Cabina</th>
-      </tr></thead>
-      <tbody>
-        {pagina.rows.map((r: any) => (
-          <tr class="border-t border-tinta/10 hover:bg-tinta/5">
-            <td class="p-3 font-bold">{r.contrato ?? '—'}</td><td class="p-3">{r.gasera ?? '—'}</td><td class="p-3">{r.aseguradora ?? '—'}</td><td class="p-3">{r.canal ?? '—'}</td><td class="p-3">{r.producto ?? '—'}</td><td class="p-3">{r.estado ?? '—'}</td><td class="p-3 font-semibold">{r.clasificacion ?? '—'}</td><td class="p-3">{r.fecha_ejecucion ?? '—'}</td><td class="p-3">{r.mes ?? '—'}</td><td class="p-3">{r.cabina ?? '—'}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-    <div class="flex flex-wrap items-center justify-between gap-3 p-3">
-      <p class="text-xs text-tinta/60">Mostrando {pagina.rows.length} de {fmt.format(pagina.total)} · página {pageSafe}/{fmt.format(totalPages)}</p>
-      <div class="flex gap-2">
-        {prevHref ? <a href={prevHref} class="glass glass-hover rounded-xl px-4 py-2 text-xs font-bold">← Anterior</a> : <span class="rounded-xl bg-tinta/5 px-4 py-2 text-xs opacity-50">← Anterior</span>}
-        {nextHref ? <a href={nextHref} class="glass glass-hover rounded-xl px-4 py-2 text-xs font-bold">Siguiente →</a> : <span class="rounded-xl bg-tinta/5 px-4 py-2 text-xs opacity-50">Siguiente →</span>}
-      </div>
-    </div>
-  </section>
 </SidebarLayout>
