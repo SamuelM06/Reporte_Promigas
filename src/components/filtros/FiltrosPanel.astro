@@ -86,8 +86,8 @@ const chips = defs
   }
   .filtro-sel:hover { transform: translateY(-1px); }
   .filtro-sel:focus { outline: none; border-color: var(--color-xuma-verde-oscuro); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-xuma-verde-oscuro) 25%, transparent); }
-  .filtro-sel option { background: #ffffff; color: #0a1030; font-weight: 600; }
-  :global(.dark) .filtro-sel option { background: #0a1030; color: #f4f6fb; }
+  .filtro-sel option { background: rgba(255,255,255,.82); color: #0a1030; font-weight: 600; }
+  :global(.dark) .filtro-sel option { background: rgba(10,16,48,.88); color: #f4f6fb; }
   .btn-filtrar {
     height: 2.75rem; border-radius: .9rem; padding: 0 1.25rem;
     font-size: .85rem; font-weight: 800; color: #fff; background: var(--color-xuma-azul);
@@ -113,6 +113,10 @@ const chips = defs
   // se re-animan solos al recargar con el filtro aplicado).
   (function () {
     document.querySelectorAll('[data-filtros]').forEach(function (form) {
+      // Aplicado inmediato: al elegir un ítem se filtra solo, sin buscar el botón.
+      form.querySelectorAll('select').forEach(function (sel) {
+        sel.addEventListener('change', function () { form.requestSubmit(); });
+      });
       form.addEventListener('submit', function () {
         var btn = form.querySelector('[data-btn-filtrar]');
         if (btn) { btn.classList.add('is-loading'); btn.textContent = 'Filtrando…'; }
