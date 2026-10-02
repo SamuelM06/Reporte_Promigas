@@ -4,9 +4,10 @@
 interface Props {
   datos: any[];
   alto?: number;
+  ocultar?: string[];
 }
 
-const { datos = [], alto = 300 } = Astro.props;
+const { datos = [], alto = 300, ocultar = [] } = Astro.props;
 const H = alto;
 const fmt = new Intl.NumberFormat('es-CO');
 
@@ -26,7 +27,7 @@ const SERIES = [
   { key: 'inbound', label: 'Inbound', color: 'linear-gradient(180deg,#00cd93,#5ae280)', dot: '#00cd93' },
   { key: 'outbound', label: 'Outbound', color: 'linear-gradient(180deg,#8b7bff,#c4b5fd)', dot: '#8b7bff' },
   { key: 'retenidos', label: 'Retenciones', color: 'linear-gradient(180deg,#f59e0b,#fcd34d)', dot: '#f59e0b' },
-];
+].filter((s) => !ocultar.includes(s.key));
 ---
 
 <div class="mc-legend">
@@ -90,11 +91,12 @@ const SERIES = [
   @media (prefers-reduced-motion: reduce) { .pct-line, .pct-flow { animation: none !important; } .pct-line { stroke-dashoffset: 0; } }
   .chart-cols { position: relative; display: flex; gap: .5rem; padding-top: .5rem; }
   .chart-month { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .chart-month + .chart-month { border-left: 1px dashed color-mix(in srgb, currentColor 18%, transparent); padding-left: .5rem; }
   .chart-bars { position: relative; display: flex; align-items: flex-end; justify-content: center; gap: .3rem; border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent); padding-bottom: 2px; }
   .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 3px; height: 100%; min-width: 0; }
   .bar-val { font-size: 12px; font-weight: 800; color: color-mix(in srgb, currentColor 75%, transparent); font-variant-numeric: tabular-nums; }
   .bar { width: 100%; max-width: 30px; border-radius: 7px 7px 3px 3px; box-shadow: 0 8px 18px -10px rgba(18,1,128,.5); }
-  .chart-mes { margin-top: .45rem; text-align: center; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; opacity: .7; }
+    .chart-mes { margin-top: .45rem; text-align: center; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; opacity: .85; background: color-mix(in srgb, currentColor 7%, transparent); border-radius: 999px; padding: .2rem .1rem; }
   .pct-dot { position: absolute; width: 15px; height: 15px; margin-left: -7.5px; border-radius: 999px; background: #fff; border: 3.5px solid currentColor; box-shadow: 0 3px 10px rgba(0,0,0,.4); }
   .pct-tag { position: absolute; bottom: 17px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums; color: currentColor; background: color-mix(in srgb, currentColor 12%, Canvas 88%); border: 1px solid currentColor; border-radius: 999px; padding: 2px 8px; }
 </style>
