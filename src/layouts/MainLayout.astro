@@ -21,12 +21,23 @@ const { title = 'Gestión Diaria Promigas 2026' } = Astro.props;
     <title>{title}</title>
     <script is:inline>
       // Tema persistente sin parpadeo: aplica la clase .dark antes del primer paint.
+      // Además se re-aplica tras cada navegación: <ClientRouter /> copia los
+      // atributos del <html> nuevo (que trae class="dark" por defecto) sobre el
+      // documento vivo, lo que tumbaba el modo claro al cambiar de página.
       (function () {
-        try {
-          var t = localStorage.getItem('xuma_tema');
-          document.documentElement.classList.toggle('dark', t !== 'claro');
-        } catch (e) {
-          document.documentElement.classList.add('dark');
+        function aplicarTema() {
+          try {
+            var t = localStorage.getItem('xuma_tema');
+            document.documentElement.classList.toggle('dark', t !== 'claro');
+          } catch (e) {
+            document.documentElement.classList.add('dark');
+          }
+        }
+        aplicarTema();
+        if (!window.__xumaTemaListo) {
+          window.__xumaTemaListo = true;
+          document.addEventListener('astro:after-swap', aplicarTema);
+          document.addEventListener('astro:page-load', aplicarTema);
         }
       })();
     </script>

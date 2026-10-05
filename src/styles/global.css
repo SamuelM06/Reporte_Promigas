@@ -360,13 +360,13 @@ body {
 :where(.kpi-halo-verde-claro)  { box-shadow: 0 6px 16px -13px rgba(21, 128, 61, 0.5); }
 :where(.kpi-halo-verde-oscuro) { box-shadow: 0 6px 16px -13px rgba(15, 118, 110, 0.5); }
 :where(.kpi-halo-violeta)      { box-shadow: 0 6px 16px -13px rgba(109, 40, 217, 0.5); }
-:where(.kpi-halo-ambar)        { box-shadow: 0 6px 16px -13px rgba(180, 83, 9, 0.45); }
+:where(.kpi-halo-ambar)        { box-shadow: 0 6px 16px -13px rgba(30, 64, 175, 0.45); }
 
 .dark :where(.kpi-halo-azul)         { box-shadow: 0 0 35px -10px rgba(106, 79, 216, 0.6); }
 .dark :where(.kpi-halo-verde-claro)  { box-shadow: 0 0 35px -10px rgba(90, 226, 128, 0.6); }
 .dark :where(.kpi-halo-verde-oscuro) { box-shadow: 0 0 35px -10px rgba(0, 205, 147, 0.6); }
 .dark :where(.kpi-halo-violeta)      { box-shadow: 0 0 35px -10px rgba(139, 123, 255, 0.6); }
-.dark :where(.kpi-halo-ambar)        { box-shadow: 0 0 35px -10px rgba(240, 180, 41, 0.55); }
+.dark :where(.kpi-halo-ambar)        { box-shadow: 0 0 35px -10px rgba(96, 165, 250, 0.55); }
 
 /* ---------- Superficie superior (topbar) ---------- */
 .topbar {
@@ -412,9 +412,9 @@ body {
 .num-verde   { color: #15803d; }
 .num-teal    { color: #0f766e; }
 .num-violeta { color: #6d28d9; }
-.num-ambar   { color: #b45309; }
+.num-ambar   { color: #1d4ed8; }
 .dark .num-azul    { color: #b8c0ff; }
 .dark .num-verde   { color: #7df0a0; }
 .dark .num-teal    { color: #63e2b9; }
 .dark .num-violeta { color: #b8c0ff; }
-.dark .num-ambar   { color: #ffd98a; }
+.dark .num-ambar   { color: #93c5fd; }

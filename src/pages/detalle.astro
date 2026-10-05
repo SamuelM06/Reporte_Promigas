@@ -28,7 +28,7 @@ const COLORES: Record<string,string> = {
   ALFA: 'linear-gradient(180deg,#120180,#3d22c8)',
   HDI: 'linear-gradient(180deg,#00cd93,#5ae280)',
   SURA: 'linear-gradient(180deg,#8b7bff,#b8c0ff)',
-  GNP: 'linear-gradient(180deg,#f59e0b,#fcd34d)',
+  GNP: 'linear-gradient(180deg,#1e40af,#60a5fa)',
   PROEXEQUIAL: 'linear-gradient(180deg,#0ea5e9,#7dd3fc)',
   IKE: 'linear-gradient(180deg,#ec4899,#f9a8d4)',
   OTRAS: 'linear-gradient(180deg,#64748b,#cbd5e1)',
@@ -69,7 +69,7 @@ const kpiMini = [
   { label: 'Outbound', valor: fmt.format(tTot('outbound')), cls: 'mk-violeta' },
   { label: 'Aptos', valor: fmt.format(TAPT), cls: 'mk-teal' },
   { label: 'No aptos', valor: fmt.format(tTot('noAptos')), cls: 'mk-gris' },
-  { label: 'Retenciones', valor: fmt.format(TRET), cls: 'mk-ambar' },
+  { label: 'Retenciones', valor: fmt.format(TRET), cls: 'mk-azul-claro' },
   { label: '% Retención', valor: `${TPCT}%`, cls: 'mk-rosa' },
 ];
 ---
@@ -188,7 +188,7 @@ const kpiMini = [
     .kpi-mini-num { font-size: 1.15rem; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
     .kpi-mini-label { font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; opacity: .6; }
     .mk-azul { --mk: #120180; } .mk-verde { --mk: #00cd93; } .mk-violeta { --mk: #8b7bff; }
-    .mk-teal { --mk: #0d9488; } .mk-gris { --mk: #64748b; } .mk-ambar { --mk: #f59e0b; } .mk-rosa { --mk: #f43f5e; }
+    .mk-teal { --mk: #0d9488; } .mk-gris { --mk: #64748b; } .mk-azul-claro { --mk: #2563eb; } .mk-rosa { --mk: #f43f5e; }
     @keyframes growBar { from { transform: scaleY(0); } to { transform: scaleY(1); } }
     @media (prefers-reduced-motion: reduce) { .gen-bar { animation: none !important; transform: none !important; } }
     /* Tabla mensual: cada columna con su color para diferenciarlas */
@@ -196,15 +196,15 @@ const kpiMini = [
     .tbl-mes thead th { font-size: 10px; color: color-mix(in srgb, currentColor 62%, transparent); border-bottom: 2px solid color-mix(in srgb, currentColor 14%, transparent); white-space: nowrap; }
     .tbl-mes thead th::before { content: ""; display: inline-block; width: .55rem; height: .55rem; border-radius: 999px; margin-right: .4rem; background: var(--thc, currentColor); box-shadow: 0 2px 8px -2px var(--thc, currentColor); }
     .th-mes { --thc: #120180; } .th-tot { --thc: #3d22c8; } .th-in { --thc: #00cd93; } .th-out { --thc: #8b7bff; }
-    .th-ret { --thc: #f59e0b; } .th-ap { --thc: #0d9488; } .th-no { --thc: #64748b; } .th-pct { --thc: #f43f5e; }
+    .th-ret { --thc: #2563eb; } .th-ap { --thc: #0d9488; } .th-no { --thc: #64748b; } .th-pct { --thc: #f43f5e; }
     .tbl-mes tbody td { border-bottom: 1px solid color-mix(in srgb, currentColor 8%, transparent); transition: background .25s ease; }
     .tbl-mes tbody tr:hover td { background: color-mix(in srgb, currentColor 6%, transparent); }
     .c-mes { font-weight: 800; background: color-mix(in srgb, #120180 7%, transparent); }
     .c-tot { font-weight: 800; background: color-mix(in srgb, #3d22c8 7%, transparent); }
     .c-in { background: color-mix(in srgb, #00cd93 8%, transparent); }
     .c-out { background: color-mix(in srgb, #8b7bff 8%, transparent); }
-    .c-ret { font-weight: 700; color: #b45309; background: color-mix(in srgb, #f59e0b 10%, transparent); }
-    :global(.dark) .c-ret { color: #fcd34d; }
+    .c-ret { font-weight: 700; color: #1d4ed8; background: color-mix(in srgb, #2563eb 10%, transparent); }
+    :global(.dark) .c-ret { color: #93c5fd; }
     .c-ap { background: color-mix(in srgb, #0d9488 8%, transparent); }
     .c-no { background: color-mix(in srgb, #64748b 8%, transparent); }
     .c-pct { font-weight: 800; background: color-mix(in srgb, #f43f5e 9%, transparent); }

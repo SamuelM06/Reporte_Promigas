@@ -28,6 +28,20 @@ export default function ThemeToggle() {
     const t = leerTema();
     setTema(t);
     aplicar(t);
+    // El header persiste entre páginas (transition:persist) y el swap del
+    // ClientRouter puede re-escribir la clase .dark: re-sincronizar el icono
+    // y la clase tras cada navegación para que nunca se descuadren.
+    const resincronizar = () => {
+      const actual = leerTema();
+      setTema(actual);
+      aplicar(actual);
+    };
+    document.addEventListener('astro:after-swap', resincronizar);
+    document.addEventListener('astro:page-load', resincronizar);
+    return () => {
+      document.removeEventListener('astro:after-swap', resincronizar);
+      document.removeEventListener('astro:page-load', resincronizar);
+    };
   }, []);
 
   const alternar = () => {
