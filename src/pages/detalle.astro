@@ -66,7 +66,7 @@ const TPCT = TAPT > 0 ? Math.round((TRET / TAPT) * 1000) / 10 : 0;
 const kpiMini = [
   { label: 'Total llamadas', valor: fmt.format(TT), cls: 'mk-azul' },
   { label: 'Inbound', valor: fmt.format(tTot('inbound')), cls: 'mk-verde' },
-  { label: 'Outbound', valor: fmt.format(tTot('outbound')), cls: 'mk-violeta' },
+  { label: 'Outbound', valor: fmt.format(tTot('outbound')), cls: 'mk-gris-oscuro' },
   { label: 'Aptos', valor: fmt.format(TAPT), cls: 'mk-teal' },
   { label: 'No aptos', valor: fmt.format(tTot('noAptos')), cls: 'mk-gris' },
   { label: 'Retenciones', valor: fmt.format(TRET), cls: 'mk-azul-claro' },
@@ -187,7 +187,7 @@ const kpiMini = [
     .kpi-mini::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 3px; background: var(--mk, var(--color-xuma-azul)); }
     .kpi-mini-num { font-size: 1.15rem; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
     .kpi-mini-label { font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; opacity: .6; }
-    .mk-azul { --mk: #120180; } .mk-verde { --mk: #00cd93; } .mk-violeta { --mk: #8b7bff; }
+    .mk-azul { --mk: #120180; } .mk-verde { --mk: #00cd93; } .mk-gris-oscuro { --mk: #475569; }
     .mk-teal { --mk: #0d9488; } .mk-gris { --mk: #64748b; } .mk-azul-claro { --mk: #2563eb; } .mk-rosa { --mk: #f43f5e; }
     @keyframes growBar { from { transform: scaleY(0); } to { transform: scaleY(1); } }
     @media (prefers-reduced-motion: reduce) { .gen-bar { animation: none !important; transform: none !important; } }
@@ -195,14 +195,14 @@ const kpiMini = [
     .tbl-mes { border-collapse: separate; border-spacing: 0; font-variant-numeric: tabular-nums; }
     .tbl-mes thead th { font-size: 10px; color: color-mix(in srgb, currentColor 62%, transparent); border-bottom: 2px solid color-mix(in srgb, currentColor 14%, transparent); white-space: nowrap; }
     .tbl-mes thead th::before { content: ""; display: inline-block; width: .55rem; height: .55rem; border-radius: 999px; margin-right: .4rem; background: var(--thc, currentColor); box-shadow: 0 2px 8px -2px var(--thc, currentColor); }
-    .th-mes { --thc: #120180; } .th-tot { --thc: #3d22c8; } .th-in { --thc: #00cd93; } .th-out { --thc: #8b7bff; }
+    .th-mes { --thc: #120180; } .th-tot { --thc: #3d22c8; } .th-in { --thc: #00cd93; } .th-out { --thc: #475569; }
     .th-ret { --thc: #2563eb; } .th-ap { --thc: #0d9488; } .th-no { --thc: #64748b; } .th-pct { --thc: #f43f5e; }
     .tbl-mes tbody td { border-bottom: 1px solid color-mix(in srgb, currentColor 8%, transparent); transition: background .25s ease; }
     .tbl-mes tbody tr:hover td { background: color-mix(in srgb, currentColor 6%, transparent); }
     .c-mes { font-weight: 800; background: color-mix(in srgb, #120180 7%, transparent); }
     .c-tot { font-weight: 800; background: color-mix(in srgb, #3d22c8 7%, transparent); }
     .c-in { background: color-mix(in srgb, #00cd93 8%, transparent); }
-    .c-out { background: color-mix(in srgb, #8b7bff 8%, transparent); }
+    .c-out { background: color-mix(in srgb, #475569 8%, transparent); }
     .c-ret { font-weight: 700; color: #1d4ed8; background: color-mix(in srgb, #2563eb 10%, transparent); }
     :global(.dark) .c-ret { color: #93c5fd; }
     .c-ap { background: color-mix(in srgb, #0d9488 8%, transparent); }

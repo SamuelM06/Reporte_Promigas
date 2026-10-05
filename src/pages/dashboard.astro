@@ -42,7 +42,7 @@ const linePts = mensual.map((r: any, i: number) => `${px(i)},${py(Number(r.pct ?
 const SERIES = [
   { key: 'total', label: 'Total llamadas', color: 'linear-gradient(180deg,#120180,#3d22c8)', dot: '#3d22c8' },
   { key: 'inbound', label: 'Inbound', color: 'linear-gradient(180deg,#00cd93,#5ae280)', dot: '#00cd93' },
-  { key: 'outbound', label: 'Outbound', color: 'linear-gradient(180deg,#8b7bff,#c4b5fd)', dot: '#8b7bff' },
+  { key: 'outbound', label: 'Outbound', color: 'linear-gradient(180deg,#334155,#64748b)', dot: '#475569' },
   { key: 'retenidos', label: 'Retenciones', color: 'linear-gradient(180deg,#1e40af,#60a5fa)', dot: '#2563eb' },
 ];
 
@@ -68,7 +68,7 @@ interface KpiCard {
 const kpis: KpiCard[] = [
   { label: 'Total llamadas', valor: T, texto: fmt.format(T), icon: svgLlamadas, chip: 'kpi-azul', num: 'text-tinta' },
   { label: 'Inbound', valor: INB, texto: fmt.format(INB), icon: svgIn, chip: 'kpi-verde', num: 'text-xuma-verde-oscuro' },
-  { label: 'Outbound', valor: OUT, texto: fmt.format(OUT), icon: svgOut, chip: 'kpi-violeta', num: 'text-[#5b3df0]' },
+  { label: 'Outbound', valor: OUT, texto: fmt.format(OUT), icon: svgOut, chip: 'kpi-gris-oscuro', num: 'text-slate-700 dark:text-slate-400' },
   { label: 'Total Aptos', valor: APT, texto: fmt.format(APT), icon: svgUserCheck, chip: 'kpi-teal', num: 'text-teal-600' },
   { label: 'Total No Aptos', valor: NOAP, texto: fmt.format(NOAP), icon: svgUserX, chip: 'kpi-gris', num: 'text-slate-500' },
   { label: 'Retenciones', valor: RET, texto: fmt.format(RET), icon: svgShield, chip: 'kpi-azul-claro', num: 'text-blue-700 dark:text-blue-300' },
@@ -188,7 +188,7 @@ const kpis: KpiCard[] = [
     .kpi-card:hover { transform: translateY(-6px) scale(1.015); box-shadow: 0 32px 60px -24px rgba(18,1,128,.55); }
     .kpi-glow { position: absolute; top: -34px; right: -34px; width: 110px; height: 110px; border-radius: 999px; filter: blur(30px); opacity: .55; animation: floatGlow 6s ease-in-out infinite; pointer-events: none; }
     .kpi-azul .kpi-glow { background: rgba(18,1,128,.35); } .kpi-verde .kpi-glow { background: rgba(0,205,147,.4); }
-    .kpi-violeta .kpi-glow { background: rgba(139,123,255,.45); } .kpi-azul-claro .kpi-glow { background: rgba(37,99,235,.4); }
+    .kpi-gris-oscuro .kpi-glow { background: rgba(51,65,85,.4); } .kpi-azul-claro .kpi-glow { background: rgba(37,99,235,.4); }
     .kpi-teal .kpi-glow { background: rgba(45,212,191,.4); } .kpi-gris .kpi-glow { background: rgba(148,163,184,.4); }
     .kpi-rosa .kpi-glow { background: rgba(244,63,94,.4); }
     .kpi-ico { display: inline-flex; align-items: center; justify-content: center; width: 2.4rem; height: 2.4rem; border-radius: 1rem; flex-shrink: 0; color: #fff; box-shadow: 0 12px 24px -12px rgba(0,0,0,.5); }
@@ -197,7 +197,7 @@ const kpis: KpiCard[] = [
     .kpi-ico-sm :global(svg) { width: 1rem; height: 1rem; }
     .kpi-azul .kpi-ico { background: linear-gradient(135deg,#120180,#3d22c8); }
     .kpi-verde .kpi-ico { background: linear-gradient(135deg,#00cd93,#5ae280); }
-    .kpi-violeta .kpi-ico { background: linear-gradient(135deg,#8b7bff,#5b3df0); }
+    .kpi-gris-oscuro .kpi-ico { background: linear-gradient(135deg,#334155,#64748b); }
     .kpi-azul-claro .kpi-ico { background: linear-gradient(135deg,#1e40af,#60a5fa); }
     .kpi-teal .kpi-ico { background: linear-gradient(135deg,#0d9488,#2dd4bf); }
     .kpi-gris .kpi-ico { background: linear-gradient(135deg,#475569,#94a3b8); }
