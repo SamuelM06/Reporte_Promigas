@@ -2,6 +2,7 @@
 import SidebarLayout from '../layouts/SidebarLayout.astro';
 import FiltrosPanel from '../components/filtros/FiltrosPanel.astro';
 import { cargaSSR, filtrosPorDefecto, getMetadatos, getMensualPorAseguradora, getDashboardMensual, parseFiltros, METADATOS_VACIOS } from '../lib/query';
+import { KPI_COLORS, type KpiKey } from '../lib/kpi-colors';
 
 const f = { ...filtrosPorDefecto(), ...parseFiltros(Astro.url) };
 const claveFiltros = JSON.stringify(f);
@@ -63,15 +64,20 @@ const TT = tTot('total'), TRET = tTot('retenidos'), TAPT = tTot('aptos');
 const TPCT = TAPT > 0 ? Math.round((TRET / TAPT) * 1000) / 10 : 0;
 
 // Mini KPIs de la vista detalle (mismo cálculo que el dashboard, tarjetas compactas)
-const kpiMini = [
-  { label: 'Total llamadas', valor: fmt.format(TT), cls: 'mk-azul' },
-  { label: 'Inbound', valor: fmt.format(tTot('inbound')), cls: 'mk-verde' },
-  { label: 'Outbound', valor: fmt.format(tTot('outbound')), cls: 'mk-gris-oscuro' },
-  { label: 'Aptos', valor: fmt.format(TAPT), cls: 'mk-teal' },
-  { label: 'No aptos', valor: fmt.format(tTot('noAptos')), cls: 'mk-gris' },
-  { label: 'Retenciones', valor: fmt.format(TRET), cls: 'mk-azul-claro' },
-  { label: '% Retención', valor: `${TPCT}%`, cls: 'mk-rosa' },
-];
+const miniMap: Record<KpiKey, { label: string; valor: string }> = {
+  total: { label: 'Total llamadas', valor: fmt.format(TT) },
+  inbound: { label: 'Inbound', valor: fmt.format(tTot('inbound')) },
+  outbound: { label: 'Outbound', valor: fmt.format(tTot('outbound')) },
+  aptos: { label: 'Aptos', valor: fmt.format(TAPT) },
+  noAptos: { label: 'No aptos', valor: fmt.format(tTot('noAptos')) },
+  retenciones: { label: 'Retenciones', valor: fmt.format(TRET) },
+  pctRetencion: { label: '% Retención', valor: `${TPCT}%` },
+};
+
+const kpiMini = (['total', 'inbound', 'outbound', 'aptos', 'noAptos', 'retenciones', 'pctRetencion'] as KpiKey[]).map((k) => ({
+  ...miniMap[k],
+  cls: KPI_COLORS[k].miniCls,
+}));
 ---
 
 <SidebarLayout title="Detalle · Gestión Diaria Promigas 2026">
@@ -196,7 +202,7 @@ const kpiMini = [
     .tbl-mes thead th { font-size: 10px; color: color-mix(in srgb, currentColor 62%, transparent); border-bottom: 2px solid color-mix(in srgb, currentColor 14%, transparent); white-space: nowrap; }
     .tbl-mes thead th::before { content: ""; display: inline-block; width: .55rem; height: .55rem; border-radius: 999px; margin-right: .4rem; background: var(--thc, currentColor); box-shadow: 0 2px 8px -2px var(--thc, currentColor); }
     .th-mes { --thc: #120180; } .th-tot { --thc: #3d22c8; } .th-in { --thc: #00cd93; } .th-out { --thc: #475569; }
-    .th-ret { --thc: #2563eb; } .th-ap { --thc: #0d9488; } .th-no { --thc: #64748b; } .th-pct { --thc: #f43f5e; }
+    .th-ret { --thc: #2563eb; } .th-ap { --thc: #0d9488; } .th-no { --thc: #f43f5e; } .th-pct { --thc: #64748b; }
     .tbl-mes tbody td { border-bottom: 1px solid color-mix(in srgb, currentColor 8%, transparent); transition: background .25s ease; }
     .tbl-mes tbody tr:hover td { background: color-mix(in srgb, currentColor 6%, transparent); }
     .c-mes { font-weight: 800; background: color-mix(in srgb, #120180 7%, transparent); }
@@ -206,8 +212,8 @@ const kpiMini = [
     .c-ret { font-weight: 700; color: #1d4ed8; background: color-mix(in srgb, #2563eb 10%, transparent); }
     :global(.dark) .c-ret { color: #93c5fd; }
     .c-ap { background: color-mix(in srgb, #0d9488 8%, transparent); }
-    .c-no { background: color-mix(in srgb, #64748b 8%, transparent); }
-    .c-pct { font-weight: 800; background: color-mix(in srgb, #f43f5e 9%, transparent); }
+    .c-no { background: color-mix(in srgb, #f43f5e 10%, transparent); color: #fff; }
+    .c-pct { font-weight: 800; background: color-mix(in srgb, #64748b 10%, transparent); }
     .total-row td { font-weight: 800; border-top: 2px solid color-mix(in srgb, currentColor 22%, transparent); }
     /* Gráfico general: más grande y con presencia */
     .gen-inner { min-width: 860px; }

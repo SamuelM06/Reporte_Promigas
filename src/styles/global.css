@@ -361,12 +361,16 @@ body {
 :where(.kpi-halo-verde-oscuro) { box-shadow: 0 6px 16px -13px rgba(15, 118, 110, 0.5); }
 :where(.kpi-halo-violeta)      { box-shadow: 0 6px 16px -13px rgba(51, 65, 85, 0.5); }
 :where(.kpi-halo-ambar)        { box-shadow: 0 6px 16px -13px rgba(30, 64, 175, 0.45); }
+:where(.kpi-halo-rosa)        { box-shadow: 0 6px 16px -13px rgba(244, 63, 94, 0.45); }
+:where(.kpi-halo-gris)        { box-shadow: 0 6px 16px -13px rgba(148, 163, 184, 0.45); }
 
 .dark :where(.kpi-halo-azul)         { box-shadow: 0 0 35px -10px rgba(106, 79, 216, 0.6); }
 .dark :where(.kpi-halo-verde-claro)  { box-shadow: 0 0 35px -10px rgba(90, 226, 128, 0.6); }
 .dark :where(.kpi-halo-verde-oscuro) { box-shadow: 0 0 35px -10px rgba(0, 205, 147, 0.6); }
 .dark :where(.kpi-halo-violeta)      { box-shadow: 0 0 35px -10px rgba(100, 116, 139, 0.6); }
 .dark :where(.kpi-halo-ambar)        { box-shadow: 0 0 35px -10px rgba(96, 165, 250, 0.55); }
+.dark :where(.kpi-halo-rosa)        { box-shadow: 0 0 35px -10px rgba(244, 63, 94, 0.6); }
+.dark :where(.kpi-halo-gris)        { box-shadow: 0 0 35px -10px rgba(148, 163, 184, 0.6); }
 
 /* ---------- Superficie superior (topbar) ---------- */
 .topbar {
@@ -413,8 +417,12 @@ body {
 .num-teal    { color: #0f766e; }
 .num-violeta { color: #334155; }
 .num-ambar   { color: #1d4ed8; }
+.num-rosa   { color: #be123c; }
+.num-gris   { color: #475569; }
 .dark .num-azul    { color: #b8c0ff; }
 .dark .num-verde   { color: #7df0a0; }
 .dark .num-teal    { color: #63e2b9; }
 .dark .num-violeta { color: #94a3b8; }
 .dark .num-ambar   { color: #93c5fd; }
+.dark .num-rosa   { color: #fb7185; }
+.dark .num-gris   { color: #94a3b8; }

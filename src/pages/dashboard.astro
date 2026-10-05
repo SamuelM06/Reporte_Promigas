@@ -2,6 +2,7 @@
 import SidebarLayout from '../layouts/SidebarLayout.astro';
 import FiltrosPanel from '../components/filtros/FiltrosPanel.astro';
 import { cargaSSR, filtrosPorDefecto, getDashboardMensual, getMetadatos, METADATOS_VACIOS, parseFiltros } from '../lib/query';
+import { KPI_COLORS, type KpiKey } from '../lib/kpi-colors';
 
 const f = { ...filtrosPorDefecto(), ...parseFiltros(Astro.url) };
 const claveFiltros = JSON.stringify(f);
@@ -65,15 +66,21 @@ interface KpiCard {
   nota?: string;
 }
 
-const kpis: KpiCard[] = [
-  { label: 'Total llamadas', valor: T, texto: fmt.format(T), icon: svgLlamadas, chip: 'kpi-azul', num: 'text-tinta' },
-  { label: 'Inbound', valor: INB, texto: fmt.format(INB), icon: svgIn, chip: 'kpi-verde', num: 'text-xuma-verde-oscuro' },
-  { label: 'Outbound', valor: OUT, texto: fmt.format(OUT), icon: svgOut, chip: 'kpi-gris-oscuro', num: 'text-slate-700 dark:text-slate-400' },
-  { label: 'Total Aptos', valor: APT, texto: fmt.format(APT), icon: svgUserCheck, chip: 'kpi-teal', num: 'text-teal-600' },
-  { label: 'Total No Aptos', valor: NOAP, texto: fmt.format(NOAP), icon: svgUserX, chip: 'kpi-gris', num: 'text-slate-500' },
-  { label: 'Retenciones', valor: RET, texto: fmt.format(RET), icon: svgShield, chip: 'kpi-azul-claro', num: 'text-blue-700 dark:text-blue-300' },
-  { label: '% Retención', valor: PCT, texto: `${PCT}%`, icon: svgPct, chip: 'kpi-rosa', num: 'text-rose-500' },
-];
+const kpiMap: Record<KpiKey, { label: string; valor: number; texto: string; icon: string }> = {
+  total: { label: 'Total llamadas', valor: T, texto: fmt.format(T), icon: svgLlamadas },
+  inbound: { label: 'Inbound', valor: INB, texto: fmt.format(INB), icon: svgIn },
+  outbound: { label: 'Outbound', valor: OUT, texto: fmt.format(OUT), icon: svgOut },
+  aptos: { label: 'Total Aptos', valor: APT, texto: fmt.format(APT), icon: svgUserCheck },
+  noAptos: { label: 'Total No Aptos', valor: NOAP, texto: fmt.format(NOAP), icon: svgUserX },
+  retenciones: { label: 'Retenciones', valor: RET, texto: fmt.format(RET), icon: svgShield },
+  pctRetencion: { label: '% Retención', valor: PCT, texto: `${PCT}%`, icon: svgPct },
+};
+
+const kpis: KpiCard[] = (['total', 'inbound', 'outbound', 'aptos', 'noAptos', 'retenciones', 'pctRetencion'] as KpiKey[]).map((k) => {
+  const def = KPI_COLORS[k];
+  const base = kpiMap[k];
+  return { ...base, chip: def.chip, num: def.numClass };
+});
 ---
 
 <SidebarLayout title="Dashboard · Gestión Diaria Promigas 2026">
