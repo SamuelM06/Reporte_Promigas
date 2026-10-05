@@ -8,6 +8,7 @@
     "build": "astro build",
     "preview": "astro preview",
     "start": "node ./scripts/serve.mjs",
+    "servidor": "node ./scripts/lanzar-servidor.mjs",
     "scan-secrets": "node ./scripts/scan-secrets.mjs --strict",
     "scan-secrets:soft": "node ./scripts/scan-secrets.mjs",
     "db:init": "node ./scripts/db-init.mjs",
