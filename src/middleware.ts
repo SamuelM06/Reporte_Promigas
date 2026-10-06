@@ -4,7 +4,8 @@
 // 1) Autenticación: sesión ÚNICA del Hub. Se exige la cookie `xuma_session`
 //    (JWT HS256 firmado con el JWT_SECRET compartido) en toda ruta que no sea
 //    un estático. Sin sesión válida -> 401. Sin JWT_SECRET en producción
-//    también 401 (falla cerrado). `/login` solo redirige a `/dashboard`.
+//    también 401 (falla cerrado). Además la persona (`sub`) debe estar en
+//    ALLOWED_PERSONAS (si no, 403). `/login` solo redirige a `/dashboard`.
 //    Este portal muestra datos de gestión (contrato, asesor, motivo).
 // 2) Endurecimiento: headers de seguridad + CSP en toda respuesta.
 // 3) Rate limiting sobre /api/* (mitigación de abuso / recolección). Hoy el
@@ -16,7 +17,7 @@
 import { defineMiddleware } from 'astro:middleware';
 import { rateLimit } from './lib/ratelimit';
 import { ENV } from './lib/env';
-import { HUB_COOKIE, authDev, verificarJwt } from './lib/auth';
+import { HUB_COOKIE, authDev, personaAutorizada, verificarJwt } from './lib/auth';
 import { ruta, sinBase } from './lib/base';
 
 const esRutaApi = (p: string) => p === '/api' || p.startsWith('/api/');
@@ -46,7 +47,24 @@ export const onRequest = defineMiddleware(async (context, next) => {
   // --- Sesión del Hub (estáticos exentos: no llevan datos) --------------------
   if (!esEstatico(path) && !authDev()) {
     const token = context.cookies.get(HUB_COOKIE)?.value;
-    if (!token || !verificarJwt(token)) {
+    const claims = token ? verificarJwt(token) : null;
+    // 403: sesión válida del Hub, pero la persona no está en ALLOWED_PERSONAS.
+    if (claims && !personaAutorizada(claims)) {
+      return new Response(
+        '<!doctype html><meta charset="utf-8"><title>Sin acceso</title>' +
+          '<p style="font-family:sans-serif;padding:2rem">No tienes permiso para ver este reporte.</p>',
+        {
+          status: 403,
+          headers: {
+            'content-type': 'text/html; charset=utf-8',
+            'cache-control': 'no-store',
+            'x-frame-options': 'SAMEORIGIN',
+            'x-content-type-options': 'nosniff',
+          },
+        },
+      );
+    }
+    if (!claims) {
       if (!ENV.jwtSecret) console.error('[auth] JWT_SECRET no configurado: se niega todo acceso.');
       const cuerpo =
         '<!doctype html><meta charset="utf-8"><title>Sesión requerida</title>' +

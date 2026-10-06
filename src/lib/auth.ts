@@ -39,6 +39,10 @@ export function verificarJwt(token: string): HubClaims | null {
   }
 }
 
+/** ¿Esta persona figura en ALLOWED_PERSONAS? Lista vacía = nadie (falla cerrado). */
+export const personaAutorizada = (claims: HubClaims): boolean =>
+  ENV.allowedPersonas.includes(String(claims.sub));
+
 /** Desarrollo local sin Hub: solo con AUTH_DEV=true y NUNCA en producción. */
 export const authDev = (): boolean =>
   process.env.AUTH_DEV === 'true' && process.env.NODE_ENV !== 'production';
