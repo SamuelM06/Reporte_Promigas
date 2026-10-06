@@ -37,7 +37,9 @@ USER astro
 EXPOSE 4321
 
 # Health check del contenedor. Usa wget de busybox (Alpine no trae curl).
-# Pegarle a `/reporte-promigas/` (el `base` de Astro; `/` da 404) y NO a una ruta de datos: el chequeo debe depender solo del
+# Pegarle a `/reporte-promigas/favicon.svg`: es un estatico (el middleware no pide
+# sesion ahi) bajo el `base` de Astro. Las paginas devuelven 401 sin sesion del Hub y
+# `/` da 404, asi que ninguna sirve de healthcheck. Y NO a una ruta de datos: el chequeo debe depender solo del
 # proceso, no de la base de datos. Si espera a la BD, una caída de PostgreSQL
 # hace que el orquestador reinicie el contenedor en bucle sin resolver nada.
 #
@@ -46,6 +48,6 @@ EXPOSE 4321
 # orquestador lo reiniciaba en bucle.
 # Intervalo 30 s, 3 intentos antes de marcarlo unhealthy.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD wget --quiet --spider http://127.0.0.1:4321/reporte-promigas/ || exit 1
+  CMD wget --quiet --spider http://127.0.0.1:4321/reporte-promigas/favicon.svg || exit 1
 
 CMD ["node", "./scripts/serve.mjs"]

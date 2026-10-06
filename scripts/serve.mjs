@@ -55,13 +55,15 @@ server.listen(PORT, HOST, () => {
   setTimeout(async () => {
     try {
       const base = `http://127.0.0.1:${PORT}`;
+      // Las paginas piden sesion del Hub: sin cookie responden 401 y no calientan nada.
+      // Solo queda el aviso de arranque; el cache se llena con la primera visita real.
       await Promise.allSettled([
         fetch(`${base}${BASE}/`).then((r) => r.text()),
         fetch(`${base}${BASE}/dashboard`).then((r) => r.text()),
         fetch(`${base}${BASE}/por-gasera`).then((r) => r.text()),
         fetch(`${base}${BASE}/detalle`).then((r) => r.text()),
       ]);
-      console.log('[serve.mjs] 🔥 Rutas y datos precalentados en RAM: respuestas instantáneas (<20ms)');
+      console.log('[serve.mjs] precalentamiento de rutas ejecutado (sin sesión: solo comprueba que el servidor responde)');
     } catch {
       // Silencioso en arranque
     }
