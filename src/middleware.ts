@@ -1,15 +1,11 @@
 // ============================================================================
 // MIDDLEWARE (Astro)
 // ----------------------------------------------------------------------------
-// 1) Autenticación: DESACTIVADA A PROPÓSITO desde el commit 921e33a
-//    ("desactiva login obligatorio... para acceso directo al dashboard").
-//    `/login` solo redirige a `/dashboard`. Este portal muestra datos de
-//    gestión (contrato, asesor, motivo): publicarlo fuera de una red
-//    controlada es un problema de datos, no de código.
-//
-//    Si se reactiva la auth, hay que volver a traer `lib/auth.ts` (se borró al
-//    eliminar el código muerto), validar la sesión aquí antes de `next()` y
-//    proteger las rutas que la necesiten.
+// 1) Autenticación: sesión ÚNICA del Hub. Se exige la cookie `xuma_session`
+//    (JWT HS256 firmado con el JWT_SECRET compartido) en toda ruta que no sea
+//    un estático. Sin sesión válida -> 401. Sin JWT_SECRET en producción
+//    también 401 (falla cerrado). `/login` solo redirige a `/dashboard`.
+//    Este portal muestra datos de gestión (contrato, asesor, motivo).
 // 2) Endurecimiento: headers de seguridad + CSP en toda respuesta.
 // 3) Rate limiting sobre /api/* (mitigación de abuso / recolección). Hoy el
 //    portal no expone rutas /api: queda como guarda si se vuelve a añadir
@@ -20,6 +16,7 @@
 import { defineMiddleware } from 'astro:middleware';
 import { rateLimit } from './lib/ratelimit';
 import { ENV } from './lib/env';
+import { HUB_COOKIE, authDev, verificarJwt } from './lib/auth';
 import { ruta, sinBase } from './lib/base';
 
 const esRutaApi = (p: string) => p === '/api' || p.startsWith('/api/');
@@ -44,6 +41,27 @@ export const onRequest = defineMiddleware(async (context, next) => {
   // --- Acceso sin login (login deshabilitado/oculto) -----------------------
   if (path === '/login' || path === '/login/') {
     return redirect(ruta('/dashboard'));
+  }
+
+  // --- Sesión del Hub (estáticos exentos: no llevan datos) --------------------
+  if (!esEstatico(path) && !authDev()) {
+    const token = context.cookies.get(HUB_COOKIE)?.value;
+    if (!token || !verificarJwt(token)) {
+      if (!ENV.jwtSecret) console.error('[auth] JWT_SECRET no configurado: se niega todo acceso.');
+      const cuerpo =
+        '<!doctype html><meta charset="utf-8"><title>Sesión requerida</title>' +
+        '<p style="font-family:sans-serif;padding:2rem">Tu sesión expiró o no existe. ' +
+        'Inicia sesión en Xuma Enterprise y vuelve a abrir este reporte.</p>';
+      return new Response(cuerpo, {
+        status: 401,
+        headers: {
+          'content-type': 'text/html; charset=utf-8',
+          'cache-control': 'no-store',
+          'x-frame-options': 'SAMEORIGIN',
+          'x-content-type-options': 'nosniff',
+        },
+      });
+    }
   }
 
   // --- Ratelimit sobre /api/* (solo si algún día vuelve a haber rutas) -------

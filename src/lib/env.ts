@@ -58,6 +58,9 @@ export const ENV = {
   dbPassword: env('DB_PASSWORD'),
   dbSsl: env('DB_SSL') === 'true',
 
+  // Secreto compartido con el Hub para validar la cookie `xuma_session`.
+  jwtSecret: env('JWT_SECRET'),
+
   appBaseUrl: env('APP_BASE_URL'),
   isHttps: resolverHttps(),
   allowedHosts: resolverAllowedHosts(),
