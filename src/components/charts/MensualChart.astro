@@ -1,5 +1,5 @@
 ---
-// Gráfico combinado mensual reutilizable: columnas (Total/Inbound/Outbound/Retenciones)
+// Gráfico combinado mensual reutilizable: columnas (Outbound/Inbound/Retenciones)
 // + línea de % retención con flujo continuo. Sin IDs: se puede instanciar N veces.
 interface Props {
   datos: any[];
@@ -12,7 +12,7 @@ const { datos = [], alto = 300, ocultar = [] } = Astro.props;
 const H = alto;
 const fmt = new Intl.NumberFormat('es-CO');
 
-const maxBar = Math.max(1, ...datos.map((r: any) => Math.max(Number(r.total ?? 0), Number(r.inbound ?? 0), Number(r.outbound ?? 0), Number(r.retenidos ?? 0))));
+const maxBar = Math.max(1, ...datos.map((r: any) => Math.max(Number(r.inbound ?? 0), Number(r.outbound ?? 0), Number(r.retenidos ?? 0))));
 const maxPct = Math.max(10, ...datos.map((r: any) => Number(r.pct ?? 0)));
 
 const n = Math.max(1, datos.length);
@@ -24,9 +24,8 @@ const dotTop = (pct: number) => ((pyNum(pct) / H) * (H + 8) - 8 - 7.5).toFixed(1
 const linePts = datos.map((r: any, i: number) => `${px(i)},${py(Number(r.pct ?? 0))}`).join(' ');
 
 const SERIES = [
-  { key: 'total', label: 'Total llamadas', color: 'linear-gradient(180deg,#120180,#3d22c8)', dot: '#3d22c8' },
-  { key: 'inbound', label: 'Inbound', color: 'linear-gradient(180deg,#00cd93,#5ae280)', dot: '#00cd93' },
   { key: 'outbound', label: 'Outbound', color: 'linear-gradient(180deg,#334155,#64748b)', dot: '#475569' },
+  { key: 'inbound', label: 'Inbound', color: 'linear-gradient(180deg,#00cd93,#5ae280)', dot: '#00cd93' },
   { key: 'retenidos', label: 'Retenciones', color: 'linear-gradient(180deg,#1e40af,#60a5fa)', dot: '#2563eb' },
 ].filter((s) => !ocultar.includes(s.key));
 ---

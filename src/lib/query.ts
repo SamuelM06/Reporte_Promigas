@@ -143,11 +143,14 @@ export async function getMensualPorAseguradora(f: Filtros): Promise<FilaMensualA
   );
 }
 
-// Aptos / No aptos salen de la columna CLASIFICACION de la base (índice 19 del Excel).
-// % Retención = Retenidos / Aptos × 100.
-const APTOS_SQL = `(clasificacion_norm = 'APTO')`;
-const NO_APTOS_SQL = `(clasificacion_norm = 'NO APTO')`;
-const RETENIDOS_SQL = `(estado_norm ILIKE 'RETENID%')`;
+// Aptos / No aptos / Retenidos basados en estado_norm (normalizado desde validación GDO).
+// Retenidos = Estado IN ('RETENIDO', 'CANCELADO + VENTA')
+// Aptos = Total - NO CONTACTO - NO APTO - NO APLICA - NULL
+// No Aptos = NO CONTACTO + NO APTO + NO APLICA + NULL
+// % Retención = Retenidos / Aptos × 100 (misma fórmula para todas las gaseras).
+const RETENIDOS_SQL = `(estado_norm IN ('RETENIDO', 'CANCELADO + VENTA'))`;
+const NO_APTOS_SQL = `(estado_norm IN ('NO CONTACTO', 'NO APTO', 'NO APLICA') OR estado_norm IS NULL)`;
+const APTOS_SQL = `(NOT (estado_norm IN ('NO CONTACTO', 'NO APTO', 'NO APLICA') OR estado_norm IS NULL))`;
 
 export interface FilaDashboardMensual {
   mes: string;

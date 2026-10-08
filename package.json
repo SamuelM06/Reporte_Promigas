@@ -9,6 +9,7 @@
     "preview": "astro preview",
     "start": "node ./scripts/serve.mjs",
     "servidor": "node ./scripts/lanzar-servidor.mjs",
+    "servidor:oculto": "powershell -NoProfile -WindowStyle Hidden -Command \"Start-Process -FilePath 'cmd.exe' -ArgumentList '/c','iniciar-servidor.cmd' -WorkingDirectory (Get-Location).Path -WindowStyle Hidden\"",
     "scan-secrets": "node ./scripts/scan-secrets.mjs --strict",
     "scan-secrets:soft": "node ./scripts/scan-secrets.mjs",
     "db:init": "node ./scripts/db-init.mjs",
