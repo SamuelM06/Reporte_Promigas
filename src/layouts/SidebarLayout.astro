@@ -5,8 +5,9 @@ import Footer from '../components/ui/Footer.astro';
 
 interface Props {
   title?: string;
+  corteTexto?: string;
 }
-const { title = 'Gestión Diaria Promigas 2026' } = Astro.props;
+const { title = 'Gestión Diaria Promigas 2026', corteTexto = 'Corte · Enero a Diciembre 2026' } = Astro.props;
 const actual = Astro.url.pathname;
 
 const nav = [
@@ -44,7 +45,7 @@ const nav = [
       <div class="flex shrink-0 items-center gap-2">
         <span class="hidden lg:inline-flex items-center gap-1.5 rounded-full bg-tinta/10 px-3 py-1 text-[11px] font-bold text-tinta/70">
           <span class="h-1.5 w-1.5 rounded-full bg-xuma-verde-claro animate-pulse"></span>
-          Corte Ene-Sep 2026
+          {corteTexto}
         </span>
         <ThemeToggle client:load />
       </div>
@@ -72,7 +73,7 @@ const nav = [
       </button>
     </div>
 
-    <p class="side-section">Corte · Enero a Septiembre 2026</p>
+    <p class="side-section">{corteTexto}</p>
 
     <nav class="side-nav">
       {nav.map((item) => {

@@ -22,6 +22,12 @@ const estados = metadatos.estados ?? [];
 const mesesFiltro = (metadatos.meses ?? []).filter((m) => m !== 'SIN DATO');
 const totalBase = metadatos.total ?? 0;
 
+// Corte dinámico para layout
+const mesesDisponibles = (metadatos.meses ?? []).filter(m => m !== 'SIN DATO');
+const corteTexto = mesesDisponibles.length > 0
+  ? `Corte · ${mesesDisponibles[0]} a ${mesesDisponibles[mesesDisponibles.length - 1]} 2026`
+  : 'Corte · Enero a Diciembre 2026';
+
 // --- Arma matriz mes x aseguradora para el gráfico (aseguradoras como columnas) ---
 const ORDEN_MES = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
 const ASEGS = ['ALFA','HDI','SURA','GNP','PROEXEQUIAL','IKE','OTRAS','SIN DATO'];
@@ -80,12 +86,20 @@ const kpiMini = (['total', 'inbound', 'outbound', 'aptos', 'noAptos', 'retencion
 }));
 ---
 
-<SidebarLayout title="Detalle · Gestión Diaria Promigas 2026">
+<SidebarLayout title="Detalle · Gestión Diaria Promigas 2026" corteTexto={corteTexto}>
   <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
-    <div>
-      <p class="text-xs font-bold uppercase tracking-widest text-tinta/55">Corte · Enero a Septiembre 2026</p>
-      <h1 class="text-2xl font-extrabold md:text-3xl">Detalle de gestión</h1>
-    </div>
+<div>
+    {(() => {
+      const mesesDisponibles = (metadatos.meses ?? []).filter(m => m !== 'SIN DATO');
+      if (mesesDisponibles.length > 0) {
+        const primero = mesesDisponibles[0];
+        const ultimo = mesesDisponibles[mesesDisponibles.length - 1];
+        return <p class="text-xs font-bold uppercase tracking-widest text-tinta/55">Corte · {primero} a {ultimo} 2026</p>;
+      }
+      return <p class="text-xs font-bold uppercase tracking-widest text-tinta/55">Corte · Enero a Diciembre 2026</p>;
+    })()}
+    <h1 class="text-2xl font-extrabold md:text-3xl">Detalle de gestión</h1>
+  </div>
     <p class="rounded-full bg-tinta/10 px-4 py-1.5 text-xs font-bold">{fmt.format(TT)} registros</p>
   </div>
 
@@ -145,7 +159,15 @@ const kpiMini = (['total', 'inbound', 'outbound', 'aptos', 'noAptos', 'retencion
   <section class="glass mt-4 rounded-3xl p-5 md:p-8">
     <div class="flex flex-wrap items-end justify-between gap-2">
       <div>
-        <p class="text-xs font-bold uppercase tracking-widest text-tinta/55">Tendencia · Enero a Septiembre 2026</p>
+        {(() => {
+          const mesesDisponibles = (metadatos.meses ?? []).filter(m => m !== 'SIN DATO');
+          if (mesesDisponibles.length > 0) {
+            const primero = mesesDisponibles[0];
+            const ultimo = mesesDisponibles[mesesDisponibles.length - 1];
+            return <p class="text-xs font-bold uppercase tracking-widest text-tinta/55">Tendencia · {primero} a {ultimo} 2026</p>;
+          }
+          return <p class="text-xs font-bold uppercase tracking-widest text-tinta/55">Tendencia · Enero a Diciembre 2026</p>;
+        })()}
         <h2 class="text-lg font-extrabold md:text-xl">Gestión mensual por aseguradora</h2>
       </div>
       <p class="text-xs text-tinta/60">Un solo gráfico general · eje X todos los meses · aseguradoras como columnas</p>

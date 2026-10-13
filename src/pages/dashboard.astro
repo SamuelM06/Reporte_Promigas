@@ -24,6 +24,12 @@ const estados = metadatos.estados ?? [];
 const mesesFiltro = (metadatos.meses ?? []).filter((m) => m !== 'SIN DATO');
 const totalBase = metadatos.total ?? 0;
 
+// Corte dinámico para layout
+const mesesDisponibles = (metadatos.meses ?? []).filter(m => m !== 'SIN DATO');
+const corteTexto = mesesDisponibles.length > 0
+  ? `Corte · ${mesesDisponibles[0]} a ${mesesDisponibles[mesesDisponibles.length - 1]} 2026`
+  : 'Corte · Enero a Diciembre 2026';
+
 const maxBar = Math.max(1, ...mensual.map((r: any) => Math.max(Number(r.total ?? 0), Number(r.inbound ?? 0), Number(r.outbound ?? 0), Number(r.retenidos ?? 0))));
 const maxPct = Math.max(10, ...mensual.map((r: any) => Number(r.pct ?? 0)));
 // Alto del gráfico. Ajustado para que el tablero completo quepa en una
@@ -83,14 +89,22 @@ const kpis: KpiCard[] = (['total', 'inbound', 'outbound', 'aptos', 'noAptos', 'r
 });
 ---
 
-<SidebarLayout title="Dashboard · Gestión Diaria Promigas 2026">
+<SidebarLayout title="Dashboard · Gestión Diaria Promigas 2026" corteTexto={corteTexto}>
   <div class="mb-3 flex flex-wrap items-end justify-between gap-2">
-    <div>
-      <p class="text-xs font-bold uppercase tracking-widest text-tinta/55">Corte · Enero a Septiembre 2026</p>
-      <h1 class="flex items-center gap-2 text-2xl font-extrabold md:text-3xl">
-        <span class="kpi-ico" set:html={svgChart} /> Dashboard de <span class="texto-brillo">Gestión Diaria</span>
-      </h1>
-    </div>
+<div>
+    {(() => {
+      const mesesDisponibles = (metadatos.meses ?? []).filter(m => m !== 'SIN DATO');
+      if (mesesDisponibles.length > 0) {
+        const primero = mesesDisponibles[0];
+        const ultimo = mesesDisponibles[mesesDisponibles.length - 1];
+        return <p class="text-xs font-bold uppercase tracking-widest text-tinta/55">Corte · {primero} a {ultimo} 2026</p>;
+      }
+      return <p class="text-xs font-bold uppercase tracking-widest text-tinta/55">Corte · Enero a Diciembre 2026</p>;
+    })()}
+    <h1 class="flex items-center gap-2 text-2xl font-extrabold md:text-3xl">
+      <span class="kpi-ico" set:html={svgChart} /> Dashboard de <span class="texto-brillo">Gestión Diaria</span>
+    </h1>
+  </div>
   </div>
 
   <FiltrosPanel

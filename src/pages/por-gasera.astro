@@ -35,6 +35,12 @@ const mesesFiltro = (metadatos.meses ?? []).filter((m) => m !== 'SIN DATO');
 const cabinas = metadatos.cabinas ?? [];
 const defsPanel = FILTROS.filter((d) => d.key === 'mes' || d.key === 'cabina');
 
+// Corte dinámico para layout
+const mesesDisponibles = (metadatos.meses ?? []).filter(m => m !== 'SIN DATO');
+const corteTexto = mesesDisponibles.length > 0
+  ? `Corte · ${mesesDisponibles[0]} a ${mesesDisponibles[mesesDisponibles.length - 1]} 2026`
+  : 'Corte · Enero a Diciembre 2026';
+
 // Conserva los filtros al cambiar de página.
 const qs = (p: number) => {
   const q = new URLSearchParams();
@@ -52,9 +58,9 @@ const resumen = (datos: any[]) => {
 };
 ---
 
-<SidebarLayout title="Gestión por Gasera · Promigas 2026">
+<SidebarLayout title="Gestión por Gasera · Promigas 2026" corteTexto={corteTexto}>
   <div class="mb-4">
-    <p class="text-xs font-bold uppercase tracking-widest text-tinta/55">Corte · Enero a Septiembre 2026 · Página {page} de 2</p>
+    <p class="text-xs font-bold uppercase tracking-widest text-tinta/55">{corteTexto} · Página {page} de 2</p>
     <h1 class="text-2xl font-extrabold md:text-3xl">Gestión por <span class="texto-brillo">Gasera</span></h1>
   </div>
 
