@@ -148,12 +148,12 @@ export async function getMensualPorAseguradora(f: Filtros): Promise<FilaMensualA
 
 // Aptos / No aptos / Retenidos basados en estado_norm (normalizado desde validación GDO).
 // Retenidos = Estado IN ('RETENIDO', 'CANCELADO + VENTA')
-// Aptos = Total - NO CONTACTO - NO APTO - NO APLICA - NULL
-// No Aptos = NO CONTACTO + NO APTO + NO APLICA + NULL
+// Aptos = Estado IN ('CANCELADO', 'CANCELADO + REINTEGRO', 'CANCELADO + VENTA', 'RETENIDO')
+// No Aptos = Todo lo demás (cualquier otro estado o NULL)
 // % Retención = Retenidos / Aptos × 100 (misma fórmula para todas las gaseras).
 const RETENIDOS_SQL = `(estado_norm IN ('RETENIDO', 'CANCELADO + VENTA'))`;
-const NO_APTOS_SQL = `(estado_norm IN ('NO CONTACTO', 'NO APTO', 'NO APLICA') OR estado_norm IS NULL)`;
-const APTOS_SQL = `(NOT (estado_norm IN ('NO CONTACTO', 'NO APTO', 'NO APLICA') OR estado_norm IS NULL))`;
+const APTOS_SQL = `(estado_norm IN ('CANCELADO', 'CANCELADO + REINTEGRO', 'CANCELADO + VENTA', 'RETENIDO'))`;
+const NO_APTOS_SQL = `(NOT (estado_norm IN ('CANCELADO', 'CANCELADO + REINTEGRO', 'CANCELADO + VENTA', 'RETENIDO')))`;
 
 export interface FilaDashboardMensual {
   mes: string;
