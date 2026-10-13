@@ -1,4 +1,5 @@
 ---
+import { ruta } from '../../lib/base';
 import { FILTROS, ICONOS, type FiltroDef } from './filtros';
 
 interface Props {
@@ -69,7 +70,7 @@ const chips = defs
 
   <!-- Overlay de transición al filtrar: tapa el parpadeo del reload -->
   <div class="filtro-overlay" data-filtro-overlay aria-hidden="true">
-    <img src="/favicon.svg" alt="" class="filtro-overlay-logo" />
+    <img src={ruta('/favicon.svg')} alt="" class="filtro-overlay-logo" />
     <p>Filtrando reporte…</p>
     <span class="filtro-overlay-bar"><span></span></span>
   </div>

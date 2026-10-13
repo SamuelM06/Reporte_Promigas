@@ -58,6 +58,15 @@ export const ENV = {
   dbPassword: env('DB_PASSWORD'),
   dbSsl: env('DB_SSL') === 'true',
 
+  // Secreto compartido con el Hub para validar la cookie `xuma_session`.
+  jwtSecret: env('JWT_SECRET'),
+  // Ids de persona (claim `sub` del JWT) con acceso al reporte, separados por coma.
+  // Vacío = nadie entra (falla cerrado), aunque la sesión del Hub sea válida.
+  allowedPersonas: env('ALLOWED_PERSONAS')
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean),
+
   appBaseUrl: env('APP_BASE_URL'),
   isHttps: resolverHttps(),
   allowedHosts: resolverAllowedHosts(),

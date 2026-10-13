@@ -1,3 +1,4 @@
 ---
-return Astro.redirect('/dashboard');
----
+import { ruta } from '../lib/base';
+return Astro.redirect(ruta('/dashboard'));
+---
