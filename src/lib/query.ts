@@ -155,6 +155,25 @@ const RETENIDOS_SQL = `(estado_norm IN ('RETENIDO', 'CANCELADO + VENTA'))`;
 const APTOS_SQL = `(estado_norm IN ('CANCELADO', 'CANCELADO + REINTEGRO', 'CANCELADO + VENTA', 'RETENIDO'))`;
 const NO_APTOS_SQL = `(NOT (estado_norm IN ('CANCELADO', 'CANCELADO + REINTEGRO', 'CANCELADO + VENTA', 'RETENIDO')))`;
 
+export interface FilaResultadoMensual {
+  resultado: string;
+  mes: string;
+  total: number;
+}
+
+export async function getResultadosPorMes(f: Filtros, esApto: boolean): Promise<FilaResultadoMensual[]> {
+  const params: unknown[] = [];
+  const w = whereGestion(f, params);
+  const condicion = esApto ? APTOS_SQL : NO_APTOS_SQL;
+  return query(
+    `SELECT estado_norm AS resultado, mes_norm AS mes, COUNT(*)::int AS total
+     FROM ${VISTA} WHERE ${w} AND mes_norm IS NOT NULL AND ${condicion}
+     GROUP BY estado_norm, mes_norm
+     ORDER BY estado_norm, ${ORDEN_MES_SQL}`,
+    params,
+  );
+}
+
 export interface FilaDashboardMensual {
   mes: string;
   total: number;

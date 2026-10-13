@@ -1,0 +1,190 @@
+---
+import SidebarLayout from '../layouts/SidebarLayout.astro';
+import FiltrosPanel from '../components/filtros/FiltrosPanel.astro';
+import { cargaSSR, filtrosPorDefecto, getDashboardMensual, getMetadatos, getResultadosPorMes, METADATOS_VACIOS, parseFiltros } from '../lib/query';
+import { KPI_COLORS, type KpiKey } from '../lib/kpi-colors';
+
+const f = { ...filtrosPorDefecto(), ...parseFiltros(Astro.url) };
+const claveFiltros = JSON.stringify(f);
+
+const metadatos = await cargaSSR('global/metadatos', getMetadatos(f), METADATOS_VACIOS, 300_000);
+const tablaMes: any[] = await cargaSSR(`mensual/${claveFiltros}`, getDashboardMensual(f), []);
+const resultadosAptos: any[] = await cargaSSR(`resultados/aptos/${claveFiltros}`, getResultadosPorMes(f, true), []);
+const resultadosNoAptos: any[] = await cargaSSR(`resultados/no-aptos/${claveFiltros}`, getResultadosPorMes(f, false), []);
+const fmt = new Intl.NumberFormat('es-CO');
+
+const selMes = f.mes ?? '';
+const selGas = (f.gasera ?? [])[0] ?? '';
+const selCabina = (f.cabina ?? [])[0] ?? '';
+const selEstado = (f.estado ?? [])[0] ?? '';
+const gaseras = metadatos.gaseras ?? [];
+const cabinas = metadatos.cabinas ?? [];
+const estados = metadatos.estados ?? [];
+const mesesFiltro = (metadatos.meses ?? []).filter((m) => m !== 'SIN DATO');
+const totalBase = metadatos.total ?? 0;
+
+const mesesDisponibles = (metadatos.meses ?? []).filter(m => m !== 'SIN DATO');
+const corteTexto = mesesDisponibles.length > 0
+  ? `Corte · ${mesesDisponibles[0]} a ${mesesDisponibles[mesesDisponibles.length - 1]} 2026`
+  : 'Corte · Enero a Diciembre 2026';
+
+const tTot = (k: string) => tablaMes.reduce((s: number, r: any) => s + Number(r[k] ?? 0), 0);
+const TT = tTot('total'), TRET = tTot('retenidos'), TAPT = tTot('aptos');
+const TPCT = TAPT > 0 ? Math.round((TRET / TAPT) * 1000) / 10 : 0;
+
+const miniMap: Record<KpiKey, { label: string; valor: string }> = {
+  total: { label: 'Total llamadas', valor: fmt.format(TT) },
+  inbound: { label: 'Inbound', valor: fmt.format(tTot('inbound')) },
+  outbound: { label: 'Outbound', valor: fmt.format(tTot('outbound')) },
+  aptos: { label: 'Aptos', valor: fmt.format(TAPT) },
+  noAptos: { label: 'No aptos', valor: fmt.format(tTot('noAptos')) },
+  retenciones: { label: 'Retenciones', valor: fmt.format(TRET) },
+  pctRetencion: { label: '% Retención', valor: `${TPCT}%` },
+};
+
+const kpiMini = (['total', 'inbound', 'outbound', 'aptos', 'noAptos', 'retenciones', 'pctRetencion'] as KpiKey[]).map((k) => ({
+  ...miniMap[k],
+  cls: KPI_COLORS[k].miniCls,
+}));
+
+const ORDEN_MES = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+const mesesTabla = ORDEN_MES.filter(m => mesesDisponibles.includes(m));
+
+function armarTabla(resultados: any[]) {
+  const mapa: Record<string, Record<string, number>> = {};
+  const totales: Record<string, number> = {};
+  for (const r of resultados) {
+    if (!r?.resultado || !r?.mes) continue;
+    mapa[r.resultado] ??= {};
+    mapa[r.resultado][r.mes] = Number(r.total ?? 0);
+    totales[r.resultado] = (totales[r.resultado] ?? 0) + Number(r.total ?? 0);
+  }
+  const filas = Object.entries(mapa)
+    .map(([res, porMes]) => ({ resultado: res, porMes, total: totales[res] }))
+    .sort((a, b) => b.total - a.total);
+  const totalGeneral = filas.reduce((s, f) => s + f.total, 0);
+  return { filas, totalGeneral };
+}
+
+const tablaAptos = armarTabla(resultadosAptos);
+const tablaNoAptos = armarTabla(resultadosNoAptos);
+---
+
+<SidebarLayout title="Resultados · Gestión Diaria Promigas 2026" corteTexto={corteTexto}>
+  <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
+    <div>
+      <p class="text-xs font-bold uppercase tracking-widest text-tinta/55">{corteTexto}</p>
+      <h1 class="text-2xl font-extrabold md:text-3xl">Resultados de <span class="texto-brillo">gestión</span></h1>
+    </div>
+    <p class="rounded-full bg-tinta/10 px-4 py-1.5 text-xs font-bold">{fmt.format(TT)} registros</p>
+  </div>
+
+  <FiltrosPanel
+    action="/resultados"
+    opciones={{ mes: mesesFiltro, gasera: gaseras, cabina: cabinas, estado: estados }}
+    actual={{ mes: selMes, gasera: selGas, cabina: selCabina, estado: selEstado }}
+    totalFiltrado={TT}
+    totalBase={totalBase}
+  />
+
+  <section class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7" aria-label="Indicadores">
+    {kpiMini.map((k) => (
+      <div class={`kpi-mini ${k.cls}`}>
+        <p class="kpi-mini-num">{k.valor}</p>
+        <p class="kpi-mini-label">{k.label}</p>
+      </div>
+    ))}
+  </section>
+
+  <section class="glass mt-4 overflow-x-auto rounded-3xl p-3">
+    <h2 class="p-2 text-base font-bold">Resultados <span class="texto-brillo">Aptos</span></h2>
+    {tablaAptos.filas.length === 0 ? (
+      <p class="p-4 text-sm text-tinta/60">Sin resultados aptos para los filtros seleccionados.</p>
+    ) : (
+      <table class="tbl-mes w-full min-w-[840px] text-left text-xs">
+        <thead><tr class="uppercase tracking-wider">
+          <th class="th-mes p-3">Resultado</th>
+          {mesesTabla.map((m) => <th key={m} class="th-tot p-3 text-right">{m.slice(0, 3)}</th>)}
+          <th class="th-ret p-3 text-right">Total</th>
+          <th class="th-pct p-3 text-right">%</th>
+        </tr></thead>
+        <tbody>
+          {tablaAptos.filas.map((f) => (
+            <tr key={f.resultado}>
+              <td class="c-mes p-3">{f.resultado}</td>
+              {mesesTabla.map((m) => <td key={m} class="c-tot p-3 text-right">{f.porMes[m] ? fmt.format(f.porMes[m]) : '—'}</td>)}
+              <td class="c-ret p-3 text-right">{fmt.format(f.total)}</td>
+              <td class="c-pct p-3 text-right">{((f.total / tablaAptos.totalGeneral) * 100).toFixed(1)}%</td>
+            </tr>
+          ))}
+          <tr class="total-row">
+            <td class="p-3">TOTAL</td>
+            {mesesTabla.map((m) => {
+              const totalMes = tablaAptos.filas.reduce((s, f) => s + (f.porMes[m] ?? 0), 0);
+              return <td key={m} class="p-3 text-right">{totalMes ? fmt.format(totalMes) : '—'}</td>;
+            })}
+            <td class="p-3 text-right">{fmt.format(tablaAptos.totalGeneral)}</td>
+            <td class="p-3 text-right">100%</td>
+          </tr>
+        </tbody>
+      </table>
+    )}
+  </section>
+
+  <section class="glass mt-4 overflow-x-auto rounded-3xl p-3">
+    <h2 class="p-2 text-base font-bold">Resultados <span class="texto-brillo">No Aptos</span></h2>
+    {tablaNoAptos.filas.length === 0 ? (
+      <p class="p-4 text-sm text-tinta/60">Sin resultados no aptos para los filtros seleccionados.</p>
+    ) : (
+      <table class="tbl-mes w-full min-w-[840px] text-left text-xs">
+        <thead><tr class="uppercase tracking-wider">
+          <th class="th-mes p-3">Resultado</th>
+          {mesesTabla.map((m) => <th key={m} class="th-tot p-3 text-right">{m.slice(0, 3)}</th>)}
+          <th class="th-ret p-3 text-right">Total</th>
+          <th class="th-pct p-3 text-right">%</th>
+        </tr></thead>
+        <tbody>
+          {tablaNoAptos.filas.map((f) => (
+            <tr key={f.resultado}>
+              <td class="c-mes p-3">{f.resultado}</td>
+              {mesesTabla.map((m) => <td key={m} class="c-tot p-3 text-right">{f.porMes[m] ? fmt.format(f.porMes[m]) : '—'}</td>)}
+              <td class="c-ret p-3 text-right">{fmt.format(f.total)}</td>
+              <td class="c-pct p-3 text-right">{((f.total / tablaNoAptos.totalGeneral) * 100).toFixed(1)}%</td>
+            </tr>
+          ))}
+          <tr class="total-row">
+            <td class="p-3">TOTAL</td>
+            {mesesTabla.map((m) => {
+              const totalMes = tablaNoAptos.filas.reduce((s, f) => s + (f.porMes[m] ?? 0), 0);
+              return <td key={m} class="p-3 text-right">{totalMes ? fmt.format(totalMes) : '—'}</td>;
+            })}
+            <td class="p-3 text-right">{fmt.format(tablaNoAptos.totalGeneral)}</td>
+            <td class="p-3 text-right">100%</td>
+          </tr>
+        </tbody>
+      </table>
+    )}
+  </section>
+
+  <style>
+    .kpi-mini { position: relative; overflow: hidden; border-radius: 1rem; padding: .7rem .8rem; border: 1px solid color-mix(in srgb, currentColor 12%, transparent); background: color-mix(in srgb, Canvas 80%, transparent); backdrop-filter: blur(14px); transition: transform .3s cubic-bezier(.22, 1, .36, 1), box-shadow .3s ease; }
+    .kpi-mini:hover { transform: translateY(-3px); box-shadow: 0 14px 28px -16px rgba(18,1,128,.55); }
+    .kpi-mini::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 3px; background: var(--mk, var(--color-xuma-azul)); }
+    .kpi-mini-num { font-size: 1.15rem; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
+    .kpi-mini-label { font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; opacity: .6; }
+    .mk-azul { --mk: #120180; } .mk-verde { --mk: #00cd93; } .mk-gris-oscuro { --mk: #475569; }
+    .mk-teal { --mk: #0d9488; } .mk-gris { --mk: #64748b; } .mk-azul-claro { --mk: #2563eb; } .mk-rosa { --mk: #f43f5e; }
+    .tbl-mes { border-collapse: separate; border-spacing: 0; font-variant-numeric: tabular-nums; }
+    .tbl-mes thead th { font-size: 10px; color: color-mix(in srgb, currentColor 62%, transparent); border-bottom: 2px solid color-mix(in srgb, currentColor 14%, transparent); white-space: nowrap; }
+    .tbl-mes thead th::before { content: ""; display: inline-block; width: .55rem; height: .55rem; border-radius: 999px; margin-right: .4rem; background: var(--thc, currentColor); box-shadow: 0 2px 8px -2px var(--thc, currentColor); }
+    .th-mes { --thc: #120180; } .th-tot { --thc: #3d22c8; } .th-ret { --thc: #2563eb; } .th-pct { --thc: #64748b; }
+    .tbl-mes tbody td { border-bottom: 1px solid color-mix(in srgb, currentColor 8%, transparent); transition: background .25s ease; }
+    .tbl-mes tbody tr:hover td { background: color-mix(in srgb, currentColor 6%, transparent); }
+    .c-mes { font-weight: 800; background: color-mix(in srgb, #120180 7%, transparent); }
+    .c-tot { font-weight: 800; background: color-mix(in srgb, #3d22c8 7%, transparent); }
+    .c-ret { font-weight: 700; color: #1d4ed8; background: color-mix(in srgb, #2563eb 10%, transparent); }
+    :global(.dark) .c-ret { color: #93c5fd; }
+    .c-pct { font-weight: 800; background: color-mix(in srgb, #64748b 10%, transparent); }
+    .total-row td { font-weight: 800; border-top: 2px solid color-mix(in srgb, currentColor 22%, transparent); }
+  </style>
+</SidebarLayout>
