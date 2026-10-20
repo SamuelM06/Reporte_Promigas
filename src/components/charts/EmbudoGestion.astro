@@ -37,7 +37,7 @@ const pctRetencion = pct;
 
 const stepHeight = 34;
 const gap = 4;
-const svgHeight = steps.length * (stepHeight + gap) + 32;
+const svgHeight = steps.length * (stepHeight + gap) + 42;
 const svgWidth = 300;
 const maxFunnelWidth = 230;
 const minFunnelWidth = 80;
@@ -58,6 +58,10 @@ const funnelOffsetX = (svgWidth - maxFunnelWidth) / 2;
           <linearGradient id="funnelGradPromi" x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stop-color="#120180" stop-opacity="0.85" />
             <stop offset="100%" stop-color="#00cd93" stop-opacity="0.85" />
+          </linearGradient>
+          <linearGradient id="pctGradPromi" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#1e40af" />
+            <stop offset="100%" stop-color="#3b82f6" />
           </linearGradient>
         </defs>
         <g transform={`translate(${funnelOffsetX}, 6)`}>
@@ -96,12 +100,13 @@ const funnelOffsetX = (svgWidth - maxFunnelWidth) / 2;
               </g>
             );
           })}
-          <g transform={`translate(${maxFunnelWidth / 2}, ${steps.length * (stepHeight + gap) + 6})`}>
-            <text x={0} y={0} text-anchor="middle" dominant-baseline="central" font-size="10" font-weight="800" fill="#2563eb">
-              % Ret: {pct.toFixed(1)}%
+          <g transform={`translate(${maxFunnelWidth / 2}, ${steps.length * (stepHeight + gap) + 4})`}>
+            <rect x={-72} y={0} width={144} height={30} rx={10} fill="url(#pctGradPromi)" stroke="rgba(255,255,255,0.18)" stroke-width="0.6" />
+            <text x={0} y={10} text-anchor="middle" dominant-baseline="central" font-size="8" font-weight="700" fill="rgba(255,255,255,0.92)">
+              % Retención
             </text>
-            <text x={0} y={12} text-anchor="middle" dominant-baseline="central" font-size="7" fill="#94a3b8">
-              (Ret/Aptos)
+            <text x={0} y={22} text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="800" fill="#fff">
+              {pct.toFixed(1)}%
             </text>
           </g>
         </g>
