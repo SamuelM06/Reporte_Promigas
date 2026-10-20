@@ -12,6 +12,9 @@ const { total, inbound, outbound, aptos, noAptos, retenciones, pct } = Astro.pro
 const fmt = new Intl.NumberFormat('es-CO');
 
 const maxVal = Math.max(total || 1, 1);
+// Solo se muestran los pasos con datos (>0) para la gasera/filtro actual
+// (ej. CEO no tiene outbound, Efigas no tiene inbound).
+// Se ordenan de mayor a menor para que el embudo vaya estrechándose.
 const steps = [
   { key: 'total', label: 'Total llamadas', value: total, color: '#120180' },
   { key: 'inbound', label: 'Inbound', value: inbound, color: '#00cd93' },
@@ -19,11 +22,14 @@ const steps = [
   { key: 'aptos', label: 'Aptos', value: aptos, color: '#0d9488' },
   { key: 'noAptos', label: 'No Aptos', value: noAptos, color: '#f43f5e' },
   { key: 'retenciones', label: 'Retenciones', value: retenciones, color: '#2563eb' },
-].map((s) => ({
-  ...s,
-  pctOfTotal: maxVal > 0 ? (s.value / maxVal) * 100 : 0,
-  pctOfPrev: 0,
-}));
+]
+  .filter((s) => (s.value ?? 0) > 0)
+  .sort((a, b) => (b.value ?? 0) - (a.value ?? 0))
+  .map((s) => ({
+    ...s,
+    pctOfTotal: maxVal > 0 ? (s.value / maxVal) * 100 : 0,
+    pctOfPrev: 0,
+  }));
 for (let i = 1; i < steps.length; i++) {
   const prev = steps[i - 1].value || 1;
   steps[i].pctOfPrev = (steps[i].value / prev) * 100;
