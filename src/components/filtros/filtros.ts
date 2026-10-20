@@ -5,7 +5,7 @@
 // muestren los ítems de la base de datos.
 
 export interface FiltroDef {
-  key: 'mes' | 'gasera' | 'cabina' | 'estado';
+  key: 'mes' | 'gasera' | 'aseguradora' | 'cabina' | 'estado';
   label: string;
   param: string;
   columnaDb: string;
@@ -29,6 +29,7 @@ export const ICONOS = {
 export const FILTROS: FiltroDef[] = [
   { key: 'mes', label: 'Mes', param: 'mes', columnaDb: 'mes_norm', placeholder: 'Todos', icon: ICONOS.calendario },
   { key: 'gasera', label: 'Gasera', param: 'gasera', columnaDb: 'gasera_norm', placeholder: 'Todas', icon: ICONOS.edificio },
+  { key: 'aseguradora', label: 'Aseguradora', param: 'aseguradora', columnaDb: 'aseguradora_norm', placeholder: 'Todas', icon: ICONOS.etiqueta },
   { key: 'cabina', label: 'Cabina', param: 'cabina', columnaDb: 'cabina_norm', placeholder: 'Todas', icon: ICONOS.idaVuelta },
-  { key: 'estado', label: 'Estado', param: 'estado', columnaDb: 'estado_norm', placeholder: 'Todos', icon: ICONOS.etiqueta },
+  { key: 'estado', label: 'Estado', param: 'estado', columnaDb: 'estado_norm', placeholder: 'Todos', icon: ICONOS.megafono },
 ];

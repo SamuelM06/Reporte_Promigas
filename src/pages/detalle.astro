@@ -14,10 +14,12 @@ const mensual: any[] = await cargaSSR(`mensual-aseguradora/${claveFiltros}`, get
 const fmt = new Intl.NumberFormat('es-CO');
 
 const selMes = f.mes ?? '';
-const selGas = (f.gasera ?? [])[0] ?? '';
-const selCabina = (f.cabina ?? [])[0] ?? '';
-const selEstado = (f.estado ?? [])[0] ?? '';
+const selGas = f.gasera ?? [];
+const selAseg = f.aseguradora ?? [];
+const selCabina = f.cabina ?? [];
+const selEstado = f.estado ?? [];
 const gaseras = metadatos.gaseras ?? [];
+const aseguradoras = metadatos.aseguradoras ?? [];
 const cabinas = metadatos.cabinas ?? [];
 const estados = metadatos.estados ?? [];
 const mesesFiltro = (metadatos.meses ?? []).filter((m) => m !== 'SIN DATO');
@@ -106,8 +108,8 @@ const kpiMini = (['total', 'inbound', 'outbound', 'aptos', 'noAptos', 'retencion
 
   <FiltrosPanel
     action={ruta('/detalle')}
-    opciones={{ mes: mesesFiltro, gasera: gaseras, cabina: cabinas, estado: estados }}
-    actual={{ mes: selMes, gasera: selGas, cabina: selCabina, estado: selEstado }}
+    opciones={{ mes: mesesFiltro, gasera: gaseras, aseguradora: aseguradoras, cabina: cabinas, estado: estados }}
+    actual={{ mes: selMes ? [selMes] : [], gasera: selGas, aseguradora: selAseg, cabina: selCabina, estado: selEstado }}
     totalFiltrado={TT}
     totalBase={totalBase}
   />

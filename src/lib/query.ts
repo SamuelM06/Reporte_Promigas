@@ -155,8 +155,32 @@ export async function getMensualPorAseguradora(f: Filtros): Promise<FilaMensualA
 // No Aptos = Todo lo demás (cualquier otro estado o NULL)
 // % Retención = Retenidos / Aptos × 100 (misma fórmula para todas las gaseras).
 const RETENIDOS_SQL = `(estado_norm IN ('RETENIDO', 'CANCELADO + VENTA', 'CANCELADA + VENTA'))`;
-const APTOS_SQL = `(estado_norm IN ('CANCELADO', 'CANCELADO + REINTEGRO', 'CANCELADO + VENTA', 'CANCELADA + VENTA', 'RETENIDO'))`;
-const NO_APTOS_SQL = `(NOT (estado_norm IN ('CANCELADO', 'CANCELADO + REINTEGRO', 'CANCELADO + VENTA', 'CANCELADA + VENTA', 'RETENIDO')))`;
+const APTOS_BASE_SQL = `(estado_norm IN ('CANCELADO', 'CANCELADO + REINTEGRO', 'CANCELADO + VENTA', 'CANCELADA + VENTA', 'RETENIDO'))`;
+
+// Aseguradoras que para CEO se consideran NO APTOS aunque tengan estado de apto
+const CEO_NO_APTOS_ASEG = `('GNP', 'PROEXEQUIAL', 'IKE')`;
+
+// Genera el SQL de APTOS considerando la gasera CEO
+function getAptosSql(f: Filtros): string {
+  // Si se filtra por gasera CEO, excluimos las aseguradoras GNP, PROEXEQUIAL, IKE de los aptos
+  const gaseras = (f.gasera ?? []).map(g => g.trim().toUpperCase());
+  if (gaseras.length === 1 && gaseras[0] === 'CEO') {
+    return `(${APTOS_BASE_SQL} AND (aseguradora_norm IS NULL OR aseguradora_norm NOT IN ${CEO_NO_APTOS_ASEG}))`;
+  }
+  // Si no hay filtro de gasera o hay múltiples, no aplicamos la regla especial
+  // (la regla solo aplica cuando se filtra específicamente por CEO)
+  return APTOS_BASE_SQL;
+}
+
+// Genera el SQL de NO_APTOS considerando la gasera CEO
+function getNoAptosSql(f: Filtros): string {
+  const gaseras = (f.gasera ?? []).map(g => g.trim().toUpperCase());
+  if (gaseras.length === 1 && gaseras[0] === 'CEO') {
+    // No aptos = (no aptos base) OR (aptos base pero aseguradora en CEO_NO_APTOS_ASEG)
+    return `(NOT ${APTOS_BASE_SQL} OR (${APTOS_BASE_SQL} AND aseguradora_norm IN ${CEO_NO_APTOS_ASEG}))`;
+  }
+  return `(NOT ${APTOS_BASE_SQL})`;
+}
 
 export interface FilaResultadoMensual {
   resultado: string;
@@ -167,7 +191,9 @@ export interface FilaResultadoMensual {
 export async function getResultadosPorMes(f: Filtros, esApto: boolean): Promise<FilaResultadoMensual[]> {
   const params: unknown[] = [];
   const w = whereGestion(f, params);
-  const condicion = esApto ? APTOS_SQL : NO_APTOS_SQL;
+  const aptosSql = getAptosSql(f);
+  const noAptosSql = getNoAptosSql(f);
+  const condicion = esApto ? aptosSql : noAptosSql;
   return query(
     `SELECT estado_norm AS resultado, mes_norm AS mes, COUNT(*)::int AS total
      FROM ${VISTA} WHERE ${w} AND mes_norm IS NOT NULL AND ${condicion}
@@ -191,13 +217,15 @@ export interface FilaDashboardMensual {
 export async function getDashboardMensual(f: Filtros): Promise<FilaDashboardMensual[]> {
   const params: unknown[] = [];
   const w = whereGestion(f, params);
+  const aptosSql = getAptosSql(f);
+  const noAptosSql = getNoAptosSql(f);
   const rows = await query<any>(
     `SELECT mes_norm AS mes, COUNT(*)::int AS total,
       COUNT(*) FILTER (WHERE cabina_norm = 'INBOUND')::int AS inbound,
       COUNT(*) FILTER (WHERE cabina_norm = 'OUTBOUND')::int AS outbound,
       COUNT(*) FILTER (WHERE ${RETENIDOS_SQL})::int AS retenidos,
-      COUNT(*) FILTER (WHERE ${APTOS_SQL})::int AS aptos,
-      COUNT(*) FILTER (WHERE ${NO_APTOS_SQL})::int AS no_aptos
+      COUNT(*) FILTER (WHERE ${aptosSql})::int AS aptos,
+      COUNT(*) FILTER (WHERE ${noAptosSql})::int AS no_aptos
      FROM ${VISTA} WHERE ${w} AND mes_norm IS NOT NULL GROUP BY mes_norm ORDER BY ${ORDEN_MES_SQL}`,
     params,
   );
