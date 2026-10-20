@@ -4,6 +4,7 @@ import SidebarLayout from '../layouts/SidebarLayout.astro';
 import FiltrosPanel from '../components/filtros/FiltrosPanel.astro';
 import { cargaSSR, filtrosPorDefecto, getDashboardMensual, getMetadatos, METADATOS_VACIOS, parseFiltros } from '../lib/query';
 import { KPI_COLORS, type KpiKey } from '../lib/kpi-colors';
+import EmbudoGestion from '../components/charts/EmbudoGestion.astro';
 
 const f = { ...filtrosPorDefecto(), ...parseFiltros(Astro.url) };
 const claveFiltros = JSON.stringify(f);
@@ -186,6 +187,9 @@ const kpis: KpiCard[] = (['total', 'inbound', 'outbound', 'aptos', 'noAptos', 'r
       columna <strong>Clasificación</strong> de la base · Mes = columna Mes de la base.
     </p>
   </section>
+
+  <!-- Embudo de gestión (no afecta el gráfico principal) -->
+  <EmbudoGestion total={T} inbound={INB} outbound={OUT} aptos={APT} noAptos={NOAP} retenciones={RET} pct={PCT} />
 
   <style>
     .show { opacity: 0; }
