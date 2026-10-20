@@ -146,14 +146,17 @@ export async function getMensualPorAseguradora(f: Filtros): Promise<FilaMensualA
   );
 }
 
-// Aptos / No aptos / Retenidos basados en estado_norm (normalizado desde validación GDO).
-// Retenidos = Estado IN ('RETENIDO', 'CANCELADO + VENTA')
-// Aptos = Estado IN ('CANCELADO', 'CANCELADO + REINTEGRO', 'CANCELADO + VENTA', 'RETENIDO')
+// Aptos / No aptos / Retenidos basados en estado_norm.
+// GDO normaliza a la forma masculina ('CANCELADO + VENTA'); las demás gaseras
+// vienen con la forma femenina ('CANCELADA + VENTA'). Se incluyen ambas para que
+// todas las gaseras (incluida GDO, sin modificarla) clasifiquen correctamente.
+// Retenidos = Estado IN ('RETENIDO', 'CANCELADO + VENTA', 'CANCELADA + VENTA')
+// Aptos = Estado IN ('CANCELADO', 'CANCELADO + REINTEGRO', 'CANCELADO + VENTA', 'CANCELADA + VENTA', 'RETENIDO')
 // No Aptos = Todo lo demás (cualquier otro estado o NULL)
 // % Retención = Retenidos / Aptos × 100 (misma fórmula para todas las gaseras).
-const RETENIDOS_SQL = `(estado_norm IN ('RETENIDO', 'CANCELADO + VENTA'))`;
-const APTOS_SQL = `(estado_norm IN ('CANCELADO', 'CANCELADO + REINTEGRO', 'CANCELADO + VENTA', 'RETENIDO'))`;
-const NO_APTOS_SQL = `(NOT (estado_norm IN ('CANCELADO', 'CANCELADO + REINTEGRO', 'CANCELADO + VENTA', 'RETENIDO')))`;
+const RETENIDOS_SQL = `(estado_norm IN ('RETENIDO', 'CANCELADO + VENTA', 'CANCELADA + VENTA'))`;
+const APTOS_SQL = `(estado_norm IN ('CANCELADO', 'CANCELADO + REINTEGRO', 'CANCELADO + VENTA', 'CANCELADA + VENTA', 'RETENIDO'))`;
+const NO_APTOS_SQL = `(NOT (estado_norm IN ('CANCELADO', 'CANCELADO + REINTEGRO', 'CANCELADO + VENTA', 'CANCELADA + VENTA', 'RETENIDO')))`;
 
 export interface FilaResultadoMensual {
   resultado: string;
