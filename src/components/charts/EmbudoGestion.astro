@@ -119,7 +119,10 @@ const funnelOffsetX = (svgWidth - maxFunnelWidth) / 2;
           </li>
         ))}
         <li class="flex items-center justify-between gap-3 rounded-xl border border-tinta/10 bg-tinta/5 px-3 py-2">
-          <span class="font-bold">% Retención</span>
+          <span class="flex items-center gap-2 font-bold">
+            <span class="inline-block h-3 w-3 rounded" style="background:#2563eb"></span>
+            % Retención
+          </span>
           <span class="font-extrabold tabular-nums" style="color:#2563eb">{pct.toFixed(1)}%</span>
         </li>
       </ul>
