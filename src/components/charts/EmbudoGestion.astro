@@ -97,7 +97,7 @@ const funnelOffsetX = (svgWidth - maxFunnelWidth) / 2;
             );
           })}
           <g transform={`translate(${maxFunnelWidth / 2}, ${steps.length * (stepHeight + gap) + 6})`}>
-            <text x={0} y={0} text-anchor="middle" dominant-baseline="central" font-size="10" font-weight="800" fill="currentColor">
+            <text x={0} y={0} text-anchor="middle" dominant-baseline="central" font-size="10" font-weight="800" fill="#2563eb">
               % Ret: {pct.toFixed(1)}%
             </text>
             <text x={0} y={12} text-anchor="middle" dominant-baseline="central" font-size="7" fill="#94a3b8">
@@ -120,7 +120,7 @@ const funnelOffsetX = (svgWidth - maxFunnelWidth) / 2;
         ))}
         <li class="flex items-center justify-between gap-3 rounded-xl border border-tinta/10 bg-tinta/5 px-3 py-2">
           <span class="font-bold">% Retención</span>
-          <span class="font-extrabold tabular-nums">{pct.toFixed(1)}%</span>
+          <span class="font-extrabold tabular-nums" style="color:#2563eb">{pct.toFixed(1)}%</span>
         </li>
       </ul>
     </div>
