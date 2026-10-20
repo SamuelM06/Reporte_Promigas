@@ -87,35 +87,38 @@ function whereGestion(f: Filtros, params: unknown[]): string {
 
 const VISTA = `reportes.reporte_promi`;
 
-export async function getMetadatos(_f: Filtros): Promise<Metadatos> {
-  // Sin try/catch interno: si la DB falla, el error SUBE hasta cargaSSR, que
-  // aplica el fallback SIN cachearlo (un vacío cacheado dejaba todo en 0).
-  const total = await queryOne<{ n: string }>(`SELECT COUNT(*)::text AS n FROM ${VISTA}`);
-    const rango = await queryOne<{ min: string; max: string }>(
-      `SELECT COALESCE(MIN(fecha_ejecucion)::text,'2026-01-01') AS min, COALESCE(MAX(fecha_ejecucion)::text,'2026-12-31') AS max FROM ${VISTA}`,
-    );
-    const meses = await query<{ mes: string }>(
-      `SELECT mes_norm AS mes FROM ${VISTA} WHERE mes_norm IS NOT NULL GROUP BY mes_norm ORDER BY ${ORDEN_MES_SQL}`,
-    );
-    const dist = await query<{ v: string }>(`SELECT DISTINCT gasera_norm AS v FROM ${VISTA} WHERE gasera_norm IS NOT NULL ORDER BY 1`);
-    const aseg = await query<{ v: string }>(`SELECT DISTINCT aseguradora_norm AS v FROM ${VISTA} WHERE aseguradora_norm IS NOT NULL ORDER BY 1`);
-    const canales = await query<{ v: string }>(`SELECT DISTINCT canal_norm AS v FROM ${VISTA} WHERE canal_norm IS NOT NULL ORDER BY 1`);
-    const cabinas = await query<{ v: string }>(`SELECT DISTINCT cabina_norm AS v FROM ${VISTA} WHERE cabina_norm IS NOT NULL ORDER BY 1`);
-    const estados = await query<{ v: string }>(`SELECT DISTINCT estado_norm AS v FROM ${VISTA} WHERE estado_norm IS NOT NULL ORDER BY 1`);
-    const porMes = await query<{ mes: string; total: string }>(
-      `SELECT mes_norm AS mes, COUNT(*)::text AS total FROM ${VISTA} WHERE mes_norm IS NOT NULL GROUP BY mes_norm ORDER BY ${ORDEN_MES_SQL}`,
-    );
-    return {
-      total: Number(total?.n ?? 0),
-      rangoFechas: { min: rango?.min ?? '2026-01-01', max: rango?.max ?? '2026-12-31' },
-      meses: meses.map((r) => r.mes),
-      gaseras: dist.map((r) => r.v),
-      aseguradoras: aseg.map((r) => r.v),
-      canales: canales.map((r) => r.v),
-      cabinas: cabinas.map((r) => r.v),
-      estados: estados.map((r) => r.v),
-      porMes: porMes.map((r) => ({ mes: r.mes, total: Number(r.total) })),
-    };
+export async function getMetadatos(f: Filtros): Promise<Metadatos> {
+  const params: unknown[] = [];
+  const w = whereGestion(f, params);
+  const total = await queryOne<{ n: string }>(`SELECT COUNT(*)::text AS n FROM ${VISTA} WHERE ${w}`, params);
+  const rango = await queryOne<{ min: string; max: string }>(
+    `SELECT COALESCE(MIN(fecha_ejecucion)::text,'2026-01-01') AS min, COALESCE(MAX(fecha_ejecucion)::text,'2026-12-31') AS max FROM ${VISTA} WHERE ${w}`,
+    params,
+  );
+  const meses = await query<{ mes: string }>(
+    `SELECT mes_norm AS mes FROM ${VISTA} WHERE mes_norm IS NOT NULL AND ${w} GROUP BY mes_norm ORDER BY ${ORDEN_MES_SQL}`,
+    params,
+  );
+  const dist = await query<{ v: string }>(`SELECT DISTINCT gasera_norm AS v FROM ${VISTA} WHERE gasera_norm IS NOT NULL AND ${w} ORDER BY 1`, params);
+  const aseg = await query<{ v: string }>(`SELECT DISTINCT aseguradora_norm AS v FROM ${VISTA} WHERE aseguradora_norm IS NOT NULL AND ${w} ORDER BY 1`, params);
+  const canales = await query<{ v: string }>(`SELECT DISTINCT canal_norm AS v FROM ${VISTA} WHERE canal_norm IS NOT NULL AND ${w} ORDER BY 1`, params);
+  const cabinas = await query<{ v: string }>(`SELECT DISTINCT cabina_norm AS v FROM ${VISTA} WHERE cabina_norm IS NOT NULL AND ${w} ORDER BY 1`, params);
+  const estados = await query<{ v: string }>(`SELECT DISTINCT estado_norm AS v FROM ${VISTA} WHERE estado_norm IS NOT NULL AND ${w} ORDER BY 1`, params);
+  const porMes = await query<{ mes: string; total: string }>(
+    `SELECT mes_norm AS mes, COUNT(*)::text AS total FROM ${VISTA} WHERE mes_norm IS NOT NULL AND ${w} GROUP BY mes_norm ORDER BY ${ORDEN_MES_SQL}`,
+    params,
+  );
+  return {
+    total: Number(total?.n ?? 0),
+    rangoFechas: { min: rango?.min ?? '2026-01-01', max: rango?.max ?? '2026-12-31' },
+    meses: meses.map((r) => r.mes),
+    gaseras: dist.map((r) => r.v),
+    aseguradoras: aseg.map((r) => r.v),
+    canales: canales.map((r) => r.v),
+    cabinas: cabinas.map((r) => r.v),
+    estados: estados.map((r) => r.v),
+    porMes: porMes.map((r) => ({ mes: r.mes, total: Number(r.total) })),
+  };
 }
 
 export interface FilaMensualAseguradora { mes: string; aseguradora: string; total: number; }
@@ -143,14 +146,36 @@ export async function getMensualPorAseguradora(f: Filtros): Promise<FilaMensualA
   );
 }
 
-// Aptos / No aptos / Retenidos basados en estado_norm (normalizado desde validación GDO).
-// Retenidos = Estado IN ('RETENIDO', 'CANCELADO + VENTA')
-// Aptos = Total - NO CONTACTO - NO APTO - NO APLICA - NULL
-// No Aptos = NO CONTACTO + NO APTO + NO APLICA + NULL
+// Aptos / No aptos / Retenidos basados en estado_norm.
+// GDO normaliza a la forma masculina ('CANCELADO + VENTA'); las demás gaseras
+// vienen con la forma femenina ('CANCELADA + VENTA'). Se incluyen ambas para que
+// todas las gaseras (incluida GDO, sin modificarla) clasifiquen correctamente.
+// Retenidos = Estado IN ('RETENIDO', 'CANCELADO + VENTA', 'CANCELADA + VENTA')
+// Aptos = Estado IN ('CANCELADO', 'CANCELADO + REINTEGRO', 'CANCELADO + VENTA', 'CANCELADA + VENTA', 'RETENIDO')
+// No Aptos = Todo lo demás (cualquier otro estado o NULL)
 // % Retención = Retenidos / Aptos × 100 (misma fórmula para todas las gaseras).
-const RETENIDOS_SQL = `(estado_norm IN ('RETENIDO', 'CANCELADO + VENTA'))`;
-const NO_APTOS_SQL = `(estado_norm IN ('NO CONTACTO', 'NO APTO', 'NO APLICA') OR estado_norm IS NULL)`;
-const APTOS_SQL = `(NOT (estado_norm IN ('NO CONTACTO', 'NO APTO', 'NO APLICA') OR estado_norm IS NULL))`;
+const RETENIDOS_SQL = `(estado_norm IN ('RETENIDO', 'CANCELADO + VENTA', 'CANCELADA + VENTA'))`;
+const APTOS_SQL = `(estado_norm IN ('CANCELADO', 'CANCELADO + REINTEGRO', 'CANCELADO + VENTA', 'CANCELADA + VENTA', 'RETENIDO'))`;
+const NO_APTOS_SQL = `(NOT (estado_norm IN ('CANCELADO', 'CANCELADO + REINTEGRO', 'CANCELADO + VENTA', 'CANCELADA + VENTA', 'RETENIDO')))`;
+
+export interface FilaResultadoMensual {
+  resultado: string;
+  mes: string;
+  total: number;
+}
+
+export async function getResultadosPorMes(f: Filtros, esApto: boolean): Promise<FilaResultadoMensual[]> {
+  const params: unknown[] = [];
+  const w = whereGestion(f, params);
+  const condicion = esApto ? APTOS_SQL : NO_APTOS_SQL;
+  return query(
+    `SELECT estado_norm AS resultado, mes_norm AS mes, COUNT(*)::int AS total
+     FROM ${VISTA} WHERE ${w} AND mes_norm IS NOT NULL AND ${condicion}
+     GROUP BY estado_norm, mes_norm
+     ORDER BY estado_norm, ${ORDEN_MES_SQL}`,
+    params,
+  );
+}
 
 export interface FilaDashboardMensual {
   mes: string;

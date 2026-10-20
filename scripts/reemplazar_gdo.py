@@ -113,12 +113,12 @@ def leer_archivo_validacion():
     """Lee el archivo de validación GDO y retorna DataFrame unificado."""
     print("\n=== PASO 2: Leer archivo de validación GDO ===")
 
-    # Leer hoja GESTIÓN INBOUND (índice 15)
-    df_inbound = pd.read_excel(FILE_GDO, sheet_name=15)
+    # Leer hoja GESTIÓN INBOUND por nombre
+    df_inbound = pd.read_excel(FILE_GDO, sheet_name='GESTIÓN INBOUND')
     print(f"  GESTIÓN INBOUND: {len(df_inbound)} registros")
 
-    # Leer hoja OUT (índice 4)
-    df_out = pd.read_excel(FILE_GDO, sheet_name=4)
+    # Leer hoja OUT por nombre
+    df_out = pd.read_excel(FILE_GDO, sheet_name='OUT')
     print(f"  OUT: {len(df_out)} registros")
 
     # Procesar INBOUND - columnas reales de la hoja original
