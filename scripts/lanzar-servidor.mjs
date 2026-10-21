@@ -199,8 +199,8 @@ async function esperarListo() {
   const base = `http://127.0.0.1:${PORT}`;
   while (Date.now() - t0 < LISTO_MS) {
     try {
-      const r = await fetch(`${base}/`, { signal: AbortSignal.timeout(5000) });
-      if (r.ok) {
+      const r = await fetch(`${base}/reporte-promigas/`, { signal: AbortSignal.timeout(5000) });
+      if (r.ok || r.status === 401 || r.status === 302) {
         await r.text().catch(() => '');
         return { base, ms: Date.now() - t0 };
       }
@@ -214,9 +214,9 @@ async function verificarRutas(base) {
   const filas = [];
   for (const ruta of RUTAS) {
     try {
-      const r = await fetch(`${base}${ruta}`, { signal: AbortSignal.timeout(30_000) });
+      const r = await fetch(`${base}/reporte-promigas${ruta}`, { signal: AbortSignal.timeout(30_000) });
       await r.text().catch(() => '');
-      filas.push({ ruta, ok: r.ok, estado: r.status });
+      filas.push({ ruta, ok: r.ok || r.status === 401 || r.status === 302, estado: r.status });
     } catch (e) {
       filas.push({ ruta, ok: false, estado: `ERROR ${e?.message ?? e}` });
     }

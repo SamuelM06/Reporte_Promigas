@@ -18,6 +18,13 @@
 // ============================================================================
 process.env.ASTRO_NODE_AUTOSTART = 'disabled';
 
+// El `.env` local se carga AQUÍ, en tiempo de ejecución. El build de Astro solo
+// congela `import.meta.env`; las variables que el código lee de `process.env`
+// en caliente (p. ej. AUTH_DEV, que habilita el acceso local sin el Hub) no
+// existían en el proceso del servidor y la app respondía 401 en todo.
+// `dotenv/config` NO pisa variables ya definidas: el entorno del sistema manda.
+import 'dotenv/config';
+
 import { createServer } from 'node:http';
 import { crearProxyRespuesta } from './compresion.mjs';
 import { crearDrenaje } from './drenaje.mjs';

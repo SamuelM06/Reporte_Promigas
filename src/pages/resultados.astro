@@ -7,17 +7,19 @@ import { KPI_COLORS, type KpiKey } from '../lib/kpi-colors';
 const f = { ...filtrosPorDefecto(), ...parseFiltros(Astro.url) };
 const claveFiltros = JSON.stringify(f);
 
-const metadatos = await cargaSSR('global/metadatos', getMetadatos(f), METADATOS_VACIOS, 300_000);
+const metadatos = await cargaSSR(`metadatos/${claveFiltros}`, getMetadatos(f), METADATOS_VACIOS, 300_000);
 const tablaMes: any[] = await cargaSSR(`mensual/${claveFiltros}`, getDashboardMensual(f), []);
 const resultadosAptos: any[] = await cargaSSR(`resultados/aptos/${claveFiltros}`, getResultadosPorMes(f, true), []);
 const resultadosNoAptos: any[] = await cargaSSR(`resultados/no-aptos/${claveFiltros}`, getResultadosPorMes(f, false), []);
 const fmt = new Intl.NumberFormat('es-CO');
 
-const selMes = f.mes ?? '';
-const selGas = (f.gasera ?? [])[0] ?? '';
-const selCabina = (f.cabina ?? [])[0] ?? '';
-const selEstado = (f.estado ?? [])[0] ?? '';
+const selMes = f.mes ?? [];
+const selGas = f.gasera ?? [];
+const selAseg = f.aseguradora ?? [];
+const selCabina = f.cabina ?? [];
+const selEstado = f.estado ?? [];
 const gaseras = metadatos.gaseras ?? [];
+const aseguradoras = metadatos.aseguradoras ?? [];
 const cabinas = metadatos.cabinas ?? [];
 const estados = metadatos.estados ?? [];
 const mesesFiltro = (metadatos.meses ?? []).filter((m) => m !== 'SIN DATO');
@@ -56,11 +58,12 @@ function armarTabla(resultados: any[]) {
   for (const r of resultados) {
     if (!r?.resultado || !r?.mes) continue;
     mapa[r.resultado] ??= {};
-    mapa[r.resultado][r.mes] = Number(r.total ?? 0);
+    const filaMes = mapa[r.resultado]!;
+    filaMes[r.mes] = Number(r.total ?? 0);
     totales[r.resultado] = (totales[r.resultado] ?? 0) + Number(r.total ?? 0);
   }
   const filas = Object.entries(mapa)
-    .map(([res, porMes]) => ({ resultado: res, porMes, total: totales[res] }))
+    .map(([res, porMes]) => ({ resultado: res, porMes, total: totales[res] ?? 0 }))
     .sort((a, b) => b.total - a.total);
   const totalGeneral = filas.reduce((s, f) => s + f.total, 0);
   return { filas, totalGeneral };
@@ -81,8 +84,8 @@ const tablaNoAptos = armarTabla(resultadosNoAptos);
 
   <FiltrosPanel
     action="/resultados"
-    opciones={{ mes: mesesFiltro, gasera: gaseras, cabina: cabinas, estado: estados }}
-    actual={{ mes: selMes, gasera: selGas, cabina: selCabina, estado: selEstado }}
+    opciones={{ mes: mesesFiltro, gasera: gaseras, aseguradora: aseguradoras, cabina: cabinas, estado: estados }}
+    actual={{ mes: selMes, gasera: selGas, aseguradora: selAseg, cabina: selCabina, estado: selEstado }}
     totalFiltrado={TT}
     totalBase={totalBase}
   />
@@ -104,15 +107,15 @@ const tablaNoAptos = armarTabla(resultadosNoAptos);
       <table class="tbl-mes w-full min-w-[840px] text-left text-xs">
         <thead><tr class="uppercase tracking-wider">
           <th class="th-mes p-3">Resultado</th>
-          {mesesTabla.map((m) => <th key={m} class="th-tot p-3 text-right">{m.slice(0, 3)}</th>)}
+          {mesesTabla.map((m) => <th class="th-tot p-3 text-right">{m.slice(0, 3)}</th>)}
           <th class="th-ret p-3 text-right">Total</th>
           <th class="th-pct p-3 text-right">%</th>
         </tr></thead>
         <tbody>
           {tablaAptos.filas.map((f) => (
-            <tr key={f.resultado}>
+            <tr>
               <td class="c-mes p-3">{f.resultado}</td>
-              {mesesTabla.map((m) => <td key={m} class="c-tot p-3 text-right">{f.porMes[m] ? fmt.format(f.porMes[m]) : '—'}</td>)}
+              {mesesTabla.map((m) => <td class="c-tot p-3 text-right">{f.porMes[m] ? fmt.format(f.porMes[m]) : '—'}</td>)}
               <td class="c-ret p-3 text-right">{fmt.format(f.total)}</td>
               <td class="c-pct p-3 text-right">{((f.total / tablaAptos.totalGeneral) * 100).toFixed(1)}%</td>
             </tr>
@@ -121,7 +124,7 @@ const tablaNoAptos = armarTabla(resultadosNoAptos);
             <td class="p-3">TOTAL</td>
             {mesesTabla.map((m) => {
               const totalMes = tablaAptos.filas.reduce((s, f) => s + (f.porMes[m] ?? 0), 0);
-              return <td key={m} class="p-3 text-right">{totalMes ? fmt.format(totalMes) : '—'}</td>;
+              return <td class="p-3 text-right">{totalMes ? fmt.format(totalMes) : '—'}</td>;
             })}
             <td class="p-3 text-right">{fmt.format(tablaAptos.totalGeneral)}</td>
             <td class="p-3 text-right">100%</td>
@@ -139,15 +142,15 @@ const tablaNoAptos = armarTabla(resultadosNoAptos);
       <table class="tbl-mes w-full min-w-[840px] text-left text-xs">
         <thead><tr class="uppercase tracking-wider">
           <th class="th-mes p-3">Resultado</th>
-          {mesesTabla.map((m) => <th key={m} class="th-tot p-3 text-right">{m.slice(0, 3)}</th>)}
+          {mesesTabla.map((m) => <th class="th-tot p-3 text-right">{m.slice(0, 3)}</th>)}
           <th class="th-ret p-3 text-right">Total</th>
           <th class="th-pct p-3 text-right">%</th>
         </tr></thead>
         <tbody>
           {tablaNoAptos.filas.map((f) => (
-            <tr key={f.resultado}>
+            <tr>
               <td class="c-mes p-3">{f.resultado}</td>
-              {mesesTabla.map((m) => <td key={m} class="c-tot p-3 text-right">{f.porMes[m] ? fmt.format(f.porMes[m]) : '—'}</td>)}
+              {mesesTabla.map((m) => <td class="c-tot p-3 text-right">{f.porMes[m] ? fmt.format(f.porMes[m]) : '—'}</td>)}
               <td class="c-ret p-3 text-right">{fmt.format(f.total)}</td>
               <td class="c-pct p-3 text-right">{((f.total / tablaNoAptos.totalGeneral) * 100).toFixed(1)}%</td>
             </tr>
@@ -156,7 +159,7 @@ const tablaNoAptos = armarTabla(resultadosNoAptos);
             <td class="p-3">TOTAL</td>
             {mesesTabla.map((m) => {
               const totalMes = tablaNoAptos.filas.reduce((s, f) => s + (f.porMes[m] ?? 0), 0);
-              return <td key={m} class="p-3 text-right">{totalMes ? fmt.format(totalMes) : '—'}</td>;
+              return <td class="p-3 text-right">{totalMes ? fmt.format(totalMes) : '—'}</td>;
             })}
             <td class="p-3 text-right">{fmt.format(tablaNoAptos.totalGeneral)}</td>
             <td class="p-3 text-right">100%</td>

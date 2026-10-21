@@ -545,11 +545,12 @@ const limites = [
   </div>
 
   <style>
-    .show { opacity: 0; }
+    /* Estado natural visible: la animación solo lo mejora (ver dashboard.astro). */
+    .show { opacity: 1; }
     @keyframes fadeUp { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
     @media (prefers-reduced-motion: reduce) {
-      .show { opacity: 1; }
+      .fade-up { animation: none !important; }
     }
-    .fade-up { animation: fadeUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) both; }
+    .fade-up { animation: fadeUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
   </style>
 </SidebarLayout>

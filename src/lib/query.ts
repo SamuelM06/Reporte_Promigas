@@ -5,7 +5,7 @@ import { query, queryOne } from './db';
 export interface Filtros {
   desde?: string;
   hasta?: string;
-  mes?: string;
+  mes?: string[];
   gasera?: string[];
   aseguradora?: string[];
   canal?: string[];
@@ -15,7 +15,10 @@ export interface Filtros {
 }
 
 export interface Metadatos {
+  /** Registros en base (sin ningún filtro del panel): el "en base" del panel. */
   total: number;
+  /** Registros que cumplen TODOS los filtros activos. */
+  totalFiltrado: number;
   rangoFechas: { min: string; max: string };
   meses: string[];
   gaseras: string[];
@@ -28,6 +31,7 @@ export interface Metadatos {
 
 export const METADATOS_VACIOS: Metadatos = {
   total: 0,
+  totalFiltrado: 0,
   rangoFechas: { min: '2026-01-01', max: '2026-12-31' },
   meses: [], gaseras: [], aseguradoras: [], canales: [], cabinas: [], estados: [], porMes: [],
 };
@@ -48,7 +52,7 @@ export function parseFiltros(url: URL): Filtros {
   return {
     desde: g('desde') ?? '2026-01-01',
     hasta: g('hasta') ?? '2026-12-31',
-    mes: g('mes'),
+    mes: gl('mes'),
     gasera: gl('gasera'),
     aseguradora: gl('aseguradora'),
     canal: gl('canal'),
@@ -64,15 +68,16 @@ const ORDEN_MES_SQL = `CASE mes_norm WHEN 'ENERO' THEN 1 WHEN 'FEBRERO' THEN 2 W
 
 function whereGestion(f: Filtros, params: unknown[]): string {
   const cond: string[] = ['1=1'];
-  if (f.desde && !f.mes) { params.push(f.desde); cond.push(`(fecha_ejecucion IS NULL OR fecha_ejecucion >= $${params.length}::date)`); }
-  if (f.hasta && !f.mes) { params.push(f.hasta); cond.push(`(fecha_ejecucion IS NULL OR fecha_ejecucion <= $${params.length}::date)`); }
-  if (f.mes?.trim()) { params.push(f.mes.trim().toUpperCase()); cond.push(`mes_norm = $${params.length}`); }
+  const tieneMes = Boolean(f.mes && f.mes.length > 0);
+  if (f.desde && !tieneMes) { params.push(f.desde); cond.push(`(fecha_ejecucion IS NULL OR fecha_ejecucion >= $${params.length}::date)`); }
+  if (f.hasta && !tieneMes) { params.push(f.hasta); cond.push(`(fecha_ejecucion IS NULL OR fecha_ejecucion <= $${params.length}::date)`); }
   const lista = (col: string, vals?: string[]) => {
     const l = (vals ?? []).map((v) => v.trim().toUpperCase()).filter(Boolean);
     if (!l.length) return;
     params.push(l);
     cond.push(`${col} = ANY($${params.length})`);
   };
+  lista('mes_norm', f.mes);
   lista('gasera_norm', f.gasera);
   lista('aseguradora_norm', f.aseguradora);
   lista('canal_norm', f.canal);
@@ -87,37 +92,75 @@ function whereGestion(f: Filtros, params: unknown[]): string {
 
 const VISTA = `reportes.reporte_promi`;
 
+// Dimensiones del panel de filtros.
+const DIMENSIONES = ['mes', 'gasera', 'aseguradora', 'canal', 'cabina', 'estado'] as const;
+type Dimension = (typeof DIMENSIONES)[number];
+
+/** Copia de los filtros sin la dimensión indicada. */
+function sinDimension(f: Filtros, dim: Dimension): Filtros {
+  const g: Filtros = { ...f };
+  delete g[dim];
+  return g;
+}
+
 export async function getMetadatos(f: Filtros): Promise<Metadatos> {
-  const params: unknown[] = [];
-  const w = whereGestion(f, params);
-  const total = await queryOne<{ n: string }>(`SELECT COUNT(*)::text AS n FROM ${VISTA} WHERE ${w}`, params);
+  // --- Base del reporte: sin filtros del panel -------------------------------
+  // "total" es el "en base" que muestra el panel: el total de la vista.
+  const total = await queryOne<{ n: string }>(`SELECT COUNT(*)::text AS n FROM ${VISTA}`);
   const rango = await queryOne<{ min: string; max: string }>(
-    `SELECT COALESCE(MIN(fecha_ejecucion)::text,'2026-01-01') AS min, COALESCE(MAX(fecha_ejecucion)::text,'2026-12-31') AS max FROM ${VISTA} WHERE ${w}`,
-    params,
+    `SELECT COALESCE(MIN(fecha_ejecucion)::text,'2026-01-01') AS min, COALESCE(MAX(fecha_ejecucion)::text,'2026-12-31') AS max FROM ${VISTA}`,
   );
-  const meses = await query<{ mes: string }>(
-    `SELECT mes_norm AS mes FROM ${VISTA} WHERE mes_norm IS NOT NULL AND ${w} GROUP BY mes_norm ORDER BY ${ORDEN_MES_SQL}`,
-    params,
+
+  // --- Opciones de cada desplegable ------------------------------------------
+  // Cada dimensión se resuelve SIN su propio filtro (pero con los demás).
+  // Antes se usaba el filtro completo: al filtrar por una gasera el desplegable
+  // de gasera solo ofrecía esa gasera, y como el desplegable se recarga con
+  // los datos ya filtrados, era imposible añadir una segunda -> la selección
+  // múltiple con checkbox quedaba inutilizable.
+  const opciones = async (dim: Dimension, col: string): Promise<string[]> => {
+    const params: unknown[] = [];
+    const w = whereGestion(sinDimension(f, dim), params);
+    const filas = await query<{ v: string }>(
+      `SELECT DISTINCT ${col} AS v FROM ${VISTA} WHERE ${col} IS NOT NULL AND ${w} ORDER BY 1`,
+      params,
+    );
+    return filas.map((r) => r.v);
+  };
+
+  // Los meses van en orden natural (ENERO -> DICIEMBRE), no alfabético: con
+  // DISTINCT, Postgres exige que la expresión del ORDER BY esté en la lista de
+  // resultados, así que aquí se agrupa en vez de usar DISTINCT.
+  const pMeses: unknown[] = [];
+  const filasMeses = await query<{ v: string }>(
+    `SELECT mes_norm AS v FROM ${VISTA} WHERE mes_norm IS NOT NULL AND ${whereGestion(sinDimension(f, 'mes'), pMeses)} GROUP BY mes_norm ORDER BY ${ORDEN_MES_SQL}`,
+    pMeses,
   );
-  const dist = await query<{ v: string }>(`SELECT DISTINCT gasera_norm AS v FROM ${VISTA} WHERE gasera_norm IS NOT NULL AND ${w} ORDER BY 1`, params);
-  const aseg = await query<{ v: string }>(`SELECT DISTINCT aseguradora_norm AS v FROM ${VISTA} WHERE aseguradora_norm IS NOT NULL AND ${w} ORDER BY 1`, params);
-  const canales = await query<{ v: string }>(`SELECT DISTINCT canal_norm AS v FROM ${VISTA} WHERE canal_norm IS NOT NULL AND ${w} ORDER BY 1`, params);
-  const cabinas = await query<{ v: string }>(`SELECT DISTINCT cabina_norm AS v FROM ${VISTA} WHERE cabina_norm IS NOT NULL AND ${w} ORDER BY 1`, params);
-  const estados = await query<{ v: string }>(`SELECT DISTINCT estado_norm AS v FROM ${VISTA} WHERE estado_norm IS NOT NULL AND ${w} ORDER BY 1`, params);
-  const porMes = await query<{ mes: string; total: string }>(
-    `SELECT mes_norm AS mes, COUNT(*)::text AS total FROM ${VISTA} WHERE mes_norm IS NOT NULL AND ${w} GROUP BY mes_norm ORDER BY ${ORDEN_MES_SQL}`,
-    params,
+
+  const meses = filasMeses.map((r) => r.v);
+  const gaseras = await opciones('gasera', 'gasera_norm');
+  const aseguradoras = await opciones('aseguradora', 'aseguradora_norm');
+  const canales = await opciones('canal', 'canal_norm');
+  const cabinas = await opciones('cabina', 'cabina_norm');
+  const estados = await opciones('estado', 'estado_norm');
+
+  // --- Registros que cumplen todos los filtros --------------------------------
+  const pTotal: unknown[] = [];
+  const totalFiltrado = await queryOne<{ n: string }>(
+    `SELECT COUNT(*)::text AS n FROM ${VISTA} WHERE ${whereGestion(f, pTotal)}`,
+    pTotal,
   );
+
   return {
     total: Number(total?.n ?? 0),
+    totalFiltrado: Number(totalFiltrado?.n ?? 0),
     rangoFechas: { min: rango?.min ?? '2026-01-01', max: rango?.max ?? '2026-12-31' },
-    meses: meses.map((r) => r.mes),
-    gaseras: dist.map((r) => r.v),
-    aseguradoras: aseg.map((r) => r.v),
-    canales: canales.map((r) => r.v),
-    cabinas: cabinas.map((r) => r.v),
-    estados: estados.map((r) => r.v),
-    porMes: porMes.map((r) => ({ mes: r.mes, total: Number(r.total) })),
+    meses,
+    gaseras,
+    aseguradoras,
+    canales,
+    cabinas,
+    estados,
+    porMes: [],
   };
 }
 
@@ -155,8 +198,32 @@ export async function getMensualPorAseguradora(f: Filtros): Promise<FilaMensualA
 // No Aptos = Todo lo demás (cualquier otro estado o NULL)
 // % Retención = Retenidos / Aptos × 100 (misma fórmula para todas las gaseras).
 const RETENIDOS_SQL = `(estado_norm IN ('RETENIDO', 'CANCELADO + VENTA', 'CANCELADA + VENTA'))`;
-const APTOS_SQL = `(estado_norm IN ('CANCELADO', 'CANCELADO + REINTEGRO', 'CANCELADO + VENTA', 'CANCELADA + VENTA', 'RETENIDO'))`;
-const NO_APTOS_SQL = `(NOT (estado_norm IN ('CANCELADO', 'CANCELADO + REINTEGRO', 'CANCELADO + VENTA', 'CANCELADA + VENTA', 'RETENIDO')))`;
+const APTOS_BASE_SQL = `(estado_norm IN ('CANCELADO', 'CANCELADO + REINTEGRO', 'CANCELADO + VENTA', 'CANCELADA + VENTA', 'RETENIDO'))`;
+
+// Aseguradoras que para CEO se consideran NO APTOS aunque tengan estado de apto
+const CEO_NO_APTOS_ASEG = `('GNP', 'PROEXEQUIAL', 'IKE')`;
+
+// Genera el SQL de APTOS considerando la gasera CEO
+function getAptosSql(f: Filtros): string {
+  // Si se filtra por gasera CEO, excluimos las aseguradoras GNP, PROEXEQUIAL, IKE de los aptos
+  const gaseras = (f.gasera ?? []).map(g => g.trim().toUpperCase());
+  if (gaseras.length === 1 && gaseras[0] === 'CEO') {
+    return `(${APTOS_BASE_SQL} AND (aseguradora_norm IS NULL OR aseguradora_norm NOT IN ${CEO_NO_APTOS_ASEG}))`;
+  }
+  // Si no hay filtro de gasera o hay múltiples, no aplicamos la regla especial
+  // (la regla solo aplica cuando se filtra específicamente por CEO)
+  return APTOS_BASE_SQL;
+}
+
+// Genera el SQL de NO_APTOS considerando la gasera CEO
+function getNoAptosSql(f: Filtros): string {
+  const gaseras = (f.gasera ?? []).map(g => g.trim().toUpperCase());
+  if (gaseras.length === 1 && gaseras[0] === 'CEO') {
+    // No aptos = (no aptos base) OR (aptos base pero aseguradora en CEO_NO_APTOS_ASEG)
+    return `(NOT ${APTOS_BASE_SQL} OR (${APTOS_BASE_SQL} AND aseguradora_norm IN ${CEO_NO_APTOS_ASEG}))`;
+  }
+  return `(NOT ${APTOS_BASE_SQL})`;
+}
 
 export interface FilaResultadoMensual {
   resultado: string;
@@ -167,7 +234,9 @@ export interface FilaResultadoMensual {
 export async function getResultadosPorMes(f: Filtros, esApto: boolean): Promise<FilaResultadoMensual[]> {
   const params: unknown[] = [];
   const w = whereGestion(f, params);
-  const condicion = esApto ? APTOS_SQL : NO_APTOS_SQL;
+  const aptosSql = getAptosSql(f);
+  const noAptosSql = getNoAptosSql(f);
+  const condicion = esApto ? aptosSql : noAptosSql;
   return query(
     `SELECT estado_norm AS resultado, mes_norm AS mes, COUNT(*)::int AS total
      FROM ${VISTA} WHERE ${w} AND mes_norm IS NOT NULL AND ${condicion}
@@ -191,13 +260,15 @@ export interface FilaDashboardMensual {
 export async function getDashboardMensual(f: Filtros): Promise<FilaDashboardMensual[]> {
   const params: unknown[] = [];
   const w = whereGestion(f, params);
+  const aptosSql = getAptosSql(f);
+  const noAptosSql = getNoAptosSql(f);
   const rows = await query<any>(
     `SELECT mes_norm AS mes, COUNT(*)::int AS total,
       COUNT(*) FILTER (WHERE cabina_norm = 'INBOUND')::int AS inbound,
       COUNT(*) FILTER (WHERE cabina_norm = 'OUTBOUND')::int AS outbound,
       COUNT(*) FILTER (WHERE ${RETENIDOS_SQL})::int AS retenidos,
-      COUNT(*) FILTER (WHERE ${APTOS_SQL})::int AS aptos,
-      COUNT(*) FILTER (WHERE ${NO_APTOS_SQL})::int AS no_aptos
+      COUNT(*) FILTER (WHERE ${aptosSql})::int AS aptos,
+      COUNT(*) FILTER (WHERE ${noAptosSql})::int AS no_aptos
      FROM ${VISTA} WHERE ${w} AND mes_norm IS NOT NULL GROUP BY mes_norm ORDER BY ${ORDEN_MES_SQL}`,
     params,
   );
