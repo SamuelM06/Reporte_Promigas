@@ -667,6 +667,27 @@ const chips = defs
       }
     }
 
+    // Aplica los filtros del desplegable dado: navega a su URL con los
+    // checkboxes marcados como query params (sin pasar por requestSubmit,
+    // que no funciona de forma fiable con el router de cliente de Astro).
+    function aplicarFiltrosDesde(dd) {
+      var form = dd.closest('[data-filtros]');
+      if (!form) return;
+      var btn = form.querySelector('[data-btn-filtrar]');
+      if (btn) {
+        if (!btn.dataset.etiqueta) btn.dataset.etiqueta = btn.textContent;
+        btn.classList.add('is-loading');
+        btn.textContent = 'Filtrando…';
+      }
+      var qs = new URLSearchParams();
+      form.querySelectorAll('.dropdown-opt-checkbox:checked').forEach(function (c) {
+        qs.append(c.name, c.value);
+      });
+      var sep = form.action.indexOf('?') === -1 ? '?' : '&';
+      location.href = form.action + sep + qs.toString();
+      tapando();
+    }
+
     // Delegación de clicks para abrir/cerrar menús y acciones rápidas
     document.addEventListener('click', function (e) {
       var trigger = e.target.closest('[data-dropdown-trigger]');
@@ -701,6 +722,7 @@ const chips = defs
           }
         });
         actualizarTrigger(dd);
+        aplicarFiltrosDesde(dd);
         return;
       }
 
@@ -714,6 +736,7 @@ const chips = defs
           if (label) label.classList.remove('is-selected');
         });
         actualizarTrigger(dd);
+        aplicarFiltrosDesde(dd);
         return;
       }
 
@@ -724,6 +747,7 @@ const chips = defs
           dd.classList.remove('is-open');
           var t = dd.querySelector('[data-dropdown-trigger]');
           if (t) t.setAttribute('aria-expanded', 'false');
+          aplicarFiltrosDesde(dd);
         }
         return;
       }
@@ -758,7 +782,7 @@ const chips = defs
       });
     });
 
-    // Cambio en checkbox: sincronizar clases y etiqueta de trigger
+    // Cambio en checkbox: sincronizar clases, etiqueta de trigger y filtrar al instante.
     document.addEventListener('change', function (e) {
       var cb = e.target;
       if (!cb || !cb.classList || !cb.classList.contains('dropdown-opt-checkbox')) return;
@@ -770,6 +794,12 @@ const chips = defs
         else label.classList.remove('is-selected');
       }
       actualizarTrigger(dd);
+
+      // Cierra el desplegable y aplica los filtros inmediatamente.
+      dd.classList.remove('is-open');
+      var t = dd.querySelector('[data-dropdown-trigger]');
+      if (t) t.setAttribute('aria-expanded', 'false');
+      aplicarFiltrosDesde(dd);
     });
 
     // Submit del formulario
