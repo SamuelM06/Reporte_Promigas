@@ -16,7 +16,7 @@ const tot = (k: string) => mensual.reduce((s: number, r: any) => s + Number(r[k]
 const T = tot('total'), INB = tot('inbound'), OUT = tot('outbound'), RET = tot('retenidos'), APT = tot('aptos'), NOAP = tot('noAptos');
 const PCT = APT > 0 ? Math.round((RET / APT) * 1000) / 10 : 0;
 
-const selMes = f.mes ?? '';
+const selMes = f.mes ?? [];
 const selGas = f.gasera ?? [];
 const selAseg = f.aseguradora ?? [];
 const selCabina = f.cabina ?? [];
@@ -114,7 +114,7 @@ const kpis: KpiCard[] = (['total', 'inbound', 'outbound', 'aptos', 'noAptos', 'r
   <FiltrosPanel
     action={ruta('/dashboard')}
     opciones={{ mes: mesesFiltro, gasera: gaseras, aseguradora: aseguradoras, cabina: cabinas, estado: estados }}
-    actual={{ mes: selMes ? [selMes] : [], gasera: selGas, aseguradora: selAseg, cabina: selCabina, estado: selEstado }}
+    actual={{ mes: selMes, gasera: selGas, aseguradora: selAseg, cabina: selCabina, estado: selEstado }}
     totalFiltrado={T}
     totalBase={totalBase}
   />

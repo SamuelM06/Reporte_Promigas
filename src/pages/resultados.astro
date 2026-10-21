@@ -13,7 +13,7 @@ const resultadosAptos: any[] = await cargaSSR(`resultados/aptos/${claveFiltros}`
 const resultadosNoAptos: any[] = await cargaSSR(`resultados/no-aptos/${claveFiltros}`, getResultadosPorMes(f, false), []);
 const fmt = new Intl.NumberFormat('es-CO');
 
-const selMes = f.mes ?? '';
+const selMes = f.mes ?? [];
 const selGas = f.gasera ?? [];
 const selAseg = f.aseguradora ?? [];
 const selCabina = f.cabina ?? [];
@@ -84,7 +84,7 @@ const tablaNoAptos = armarTabla(resultadosNoAptos);
   <FiltrosPanel
     action="/resultados"
     opciones={{ mes: mesesFiltro, gasera: gaseras, aseguradora: aseguradoras, cabina: cabinas, estado: estados }}
-    actual={{ mes: selMes ? [selMes] : [], gasera: selGas, aseguradora: selAseg, cabina: selCabina, estado: selEstado }}
+    actual={{ mes: selMes, gasera: selGas, aseguradora: selAseg, cabina: selCabina, estado: selEstado }}
     totalFiltrado={TT}
     totalBase={totalBase}
   />

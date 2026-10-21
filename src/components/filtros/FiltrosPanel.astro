@@ -38,21 +38,110 @@ const chips = defs
     </p>
   </div>
 
-  <div class="filtros-grid">
-    {defs.map((d) => (
-      <label class="filtro">
-        <span class="filtro-nombre"><span class="filtro-ico" set:html={d.icon} />{d.label}</span>
-        <select name={d.param} class="filtro-sel" multiple size={5}>
-          {(opciones[d.key] ?? []).map((op) => (
-            <option value={op} selected={(actual[d.key] ?? []).includes(op)}>{op}</option>
-          ))}
-        </select>
-      </label>
-    ))}
-    <div class="flex items-end gap-2">
+  <div class="filtros-grid" style={`--num-filtros: ${defs.length};`}>
+    {defs.map((d) => {
+      const ops = opciones[d.key] ?? [];
+      const seleccionados = actual[d.key] ?? [];
+      const count = seleccionados.length;
+      const textoInicial = count === 0
+        ? d.placeholder
+        : count === 1
+          ? seleccionados[0]
+          : `${count} seleccionados`;
+
+      return (
+        <div class="filtro" data-filtro-key={d.key}>
+          <span class="filtro-nombre" title={d.label}>
+            <span class="filtro-ico" set:html={d.icon} />
+            <span>{d.label}</span>
+          </span>
+
+          <div class="filtro-dropdown" data-dropdown>
+            <button
+              type="button"
+              class="dropdown-trigger"
+              data-dropdown-trigger
+              aria-expanded="false"
+              aria-haspopup="listbox"
+              title={count === 1 ? seleccionados[0] : (count > 1 ? seleccionados.join(', ') : d.placeholder)}
+            >
+              <div class="dropdown-trigger-content">
+                <span class="dropdown-trigger-text" data-trigger-text data-placeholder={d.placeholder}>
+                  {textoInicial}
+                </span>
+                <span
+                  class="dropdown-trigger-badge"
+                  data-trigger-badge
+                  style={count > 1 ? '' : 'display: none;'}
+                >
+                  {count}
+                </span>
+              </div>
+              <svg class="dropdown-chevron" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+              </svg>
+            </button>
+
+            <div class="dropdown-menu" data-dropdown-menu>
+              <div class="dropdown-menu-header">
+                <span class="dropdown-count-text">
+                  <span data-count>{count}</span> de {ops.length}
+                </span>
+                <div class="dropdown-actions">
+                  <button type="button" class="btn-mini-action" data-action="all">Todos</button>
+                  <span class="text-tinta/30">·</span>
+                  <button type="button" class="btn-mini-action" data-action="clear">Limpiar</button>
+                </div>
+              </div>
+
+              {ops.length > 5 && (
+                <div class="dropdown-search-wrap">
+                  <svg class="dropdown-search-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                  <input
+                    type="text"
+                    class="dropdown-search-input"
+                    placeholder={`Buscar ${d.label.toLowerCase()}…`}
+                    data-search-input
+                  />
+                </div>
+              )}
+
+              <div class="dropdown-options-list" role="listbox" aria-multiselectable="true">
+                {ops.map((op) => {
+                  const isChecked = seleccionados.includes(op);
+                  return (
+                    <label class={`dropdown-opt-label ${isChecked ? 'is-selected' : ''}`} data-opt-item data-value={op.toLowerCase()}>
+                      <input
+                        type="checkbox"
+                        name={d.param}
+                        value={op}
+                        checked={isChecked}
+                        class="dropdown-opt-checkbox"
+                      />
+                      <span class="dropdown-opt-text" title={op}>{op}</span>
+                    </label>
+                  );
+                })}
+              </div>
+
+              <div class="dropdown-menu-footer">
+                <button type="button" class="btn-dropdown-apply" data-action="apply">
+                  Listo
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    })}
+
+    <div class="filtros-acciones">
       {Object.entries(extras).map(([k, v]) => (<input type="hidden" name={k} value={v} />))}
       <button type="submit" class="btn-filtrar" data-btn-filtrar>Filtrar</button>
-      <a href={action} class="glass glass-hover inline-flex h-11 items-center rounded-xl px-4 text-sm font-semibold">Limpiar</a>
+      <a href={action} class="glass glass-hover btn-limpiar">Limpiar</a>
     </div>
   </div>
 
@@ -76,47 +165,422 @@ const chips = defs
 </form>
 
 <style>
-  .filtros-grid { margin-top: .75rem; display: grid; gap: .8rem; grid-template-columns: 1fr; }
-  @media (min-width: 640px) { .filtros-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
-  @media (min-width: 1024px) { .filtros-grid { grid-template-columns: repeat(4, minmax(0,1fr)) auto; align-items: end; } }
-  .filtro { display: flex; flex-direction: column; gap: .25rem; min-width: 0; font-size: .68rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: color-mix(in srgb, currentColor 55%, transparent); }
-  .filtro-nombre { display: inline-flex; align-items: center; gap: .4rem; }
-  .filtro-ico { display: inline-flex; align-items: center; justify-content: center; width: 1.5rem; height: 1.5rem; color: var(--color-xuma-verde-oscuro); }
+  .filtros-panel { position: relative; z-index: 20; }
+
+  .filtros-grid {
+    margin-top: .75rem;
+    display: grid;
+    gap: .75rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: end;
+  }
+  @media (min-width: 640px) {
+    .filtros-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+  @media (min-width: 1100px) {
+    .filtros-grid {
+      grid-template-columns: repeat(var(--num-filtros, 5), minmax(0, 1fr)) auto;
+    }
+  }
+
+  .filtro {
+    display: flex;
+    flex-direction: column;
+    gap: .3rem;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .filtro-nombre {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    font-size: .68rem;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, currentColor 60%, transparent);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .filtro-ico {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    color: var(--color-xuma-verde-oscuro);
+    flex-shrink: 0;
+  }
   :global(.dark) .filtro-ico { color: var(--color-xuma-verde-claro); }
-  .filtro-ico :global(svg) { width: 1rem; height: 1rem; }
-  .filtro-titulo-ico { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; color: var(--color-xuma-verde-oscuro); }
+  .filtro-ico :global(svg) { width: .9rem; height: .9rem; }
+
+  .filtro-titulo-ico {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    color: var(--color-xuma-verde-oscuro);
+  }
   :global(.dark) .filtro-titulo-ico { color: var(--color-xuma-verde-claro); }
   .filtro-titulo-ico :global(svg) { width: 1rem; height: 1rem; }
-  .filtro-sel {
-    height: auto; min-height: 2.75rem; border-radius: .9rem; padding: .4rem .8rem;
+
+  /* Dropdown container */
+  .filtro-dropdown {
+    position: relative;
+    width: 100%;
+  }
+
+  /* Trigger button */
+  .dropdown-trigger {
+    width: 100%;
+    height: 2.75rem;
+    border-radius: .85rem;
+    padding: 0 .75rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .4rem;
     border: 1px solid color-mix(in srgb, currentColor 15%, transparent);
     background: color-mix(in srgb, currentColor 5%, transparent);
-    font-size: .85rem; font-weight: 700; text-transform: none; letter-spacing: normal; color: inherit;
-    transition: border-color .25s ease, box-shadow .25s ease, transform .25s ease;
+    color: inherit;
+    font-size: .82rem;
+    font-weight: 700;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease, background .2s ease;
+    user-select: none;
   }
-  .filtro-sel:hover { transform: translateY(-1px); }
-  .filtro-sel:focus { outline: none; border-color: var(--color-xuma-verde-oscuro); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-xuma-verde-oscuro) 25%, transparent); }
-  .filtro-sel option { background: rgba(255,255,255,.82); color: #0a1030; font-weight: 600; padding: .3rem .5rem; }
-  :global(.dark) .filtro-sel option { background: rgba(10,16,48,.88); color: #f4f6fb; }
+  .dropdown-trigger:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, currentColor 30%, transparent);
+    background: color-mix(in srgb, currentColor 8%, transparent);
+  }
+  .dropdown-trigger:focus-visible,
+  .filtro-dropdown.is-open .dropdown-trigger {
+    outline: none;
+    border-color: var(--color-xuma-verde-oscuro);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-xuma-verde-oscuro) 25%, transparent);
+  }
+  :global(.dark) .dropdown-trigger:focus-visible,
+  :global(.dark) .filtro-dropdown.is-open .dropdown-trigger {
+    border-color: var(--color-xuma-verde-claro);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-xuma-verde-claro) 25%, transparent);
+  }
+
+  .dropdown-trigger-content {
+    display: flex;
+    align-items: center;
+    gap: .35rem;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .dropdown-trigger-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: .82rem;
+    font-weight: 700;
+  }
+
+  .dropdown-trigger-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    padding: 0 .35rem;
+    border-radius: 999px;
+    font-size: .68rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--color-xuma-azul), var(--color-xuma-verde-oscuro));
+    color: #fff;
+    flex-shrink: 0;
+  }
+  :global(.dark) .dropdown-trigger-badge {
+    background: linear-gradient(135deg, var(--color-xuma-verde-claro), var(--color-xuma-verde-oscuro));
+    color: #0a1030;
+  }
+
+  .dropdown-chevron {
+    width: 1.1rem;
+    height: 1.1rem;
+    color: color-mix(in srgb, currentColor 60%, transparent);
+    transition: transform .25s cubic-bezier(0.22, 1, 0.36, 1);
+    flex-shrink: 0;
+  }
+  .filtro-dropdown.is-open .dropdown-chevron {
+    transform: rotate(180deg);
+    color: var(--color-xuma-verde-oscuro);
+  }
+  :global(.dark) .filtro-dropdown.is-open .dropdown-chevron {
+    color: var(--color-xuma-verde-claro);
+  }
+
+  /* Dropdown Menu */
+  .dropdown-menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + .4rem);
+    left: 0;
+    width: 100%;
+    min-width: 210px;
+    max-width: 320px;
+    border-radius: 1rem;
+    padding: .5rem;
+    background: rgba(255, 255, 255, 0.96);
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    box-shadow: 0 16px 38px -6px rgba(10, 16, 48, 0.22), 0 0 0 1px rgba(255, 255, 255, 0.8) inset;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    z-index: 60;
+    flex-direction: column;
+    gap: .4rem;
+  }
+  :global(.dark) .dropdown-menu {
+    background: rgba(14, 20, 42, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 18px 42px -6px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  }
+
+  @media (min-width: 768px) {
+    .filtro:nth-last-child(2) .dropdown-menu,
+    .filtro:nth-last-child(3) .dropdown-menu {
+      left: auto;
+      right: 0;
+    }
+  }
+
+  .filtro-dropdown.is-open .dropdown-menu {
+    display: flex;
+    animation: dropIn .22s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  @keyframes dropIn {
+    from { opacity: 0; transform: translateY(-6px) scale(.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  /* Header inside menu */
+  .dropdown-menu-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: .2rem .35rem .35rem;
+    border-bottom: 1px solid color-mix(in srgb, currentColor 10%, transparent);
+    font-size: .7rem;
+    font-weight: 700;
+    color: color-mix(in srgb, currentColor 65%, transparent);
+  }
+  .dropdown-actions {
+    display: flex;
+    align-items: center;
+    gap: .35rem;
+  }
+  .btn-mini-action {
+    background: none;
+    border: none;
+    padding: .15rem .35rem;
+    border-radius: .35rem;
+    font-size: .68rem;
+    font-weight: 800;
+    color: var(--color-xuma-azul);
+    cursor: pointer;
+    transition: background .15s ease;
+  }
+  :global(.dark) .btn-mini-action {
+    color: var(--color-xuma-verde-claro);
+  }
+  .btn-mini-action:hover {
+    background: color-mix(in srgb, currentColor 10%, transparent);
+  }
+
+  /* Search bar */
+  .dropdown-search-wrap {
+    position: relative;
+    margin: .1rem 0;
+  }
+  .dropdown-search-input {
+    width: 100%;
+    height: 2rem;
+    border-radius: .6rem;
+    padding: 0 .6rem 0 1.8rem;
+    font-size: .75rem;
+    font-weight: 600;
+    border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+    background: color-mix(in srgb, currentColor 5%, transparent);
+    color: inherit;
+    outline: none;
+    transition: border-color .15s ease;
+  }
+  .dropdown-search-input:focus {
+    border-color: var(--color-xuma-verde-oscuro);
+  }
+  :global(.dark) .dropdown-search-input:focus {
+    border-color: var(--color-xuma-verde-claro);
+  }
+  .dropdown-search-ico {
+    position: absolute;
+    left: .55rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: .8rem;
+    height: .8rem;
+    opacity: .5;
+    pointer-events: none;
+  }
+
+  /* Options list */
+  .dropdown-options-list {
+    max-height: 200px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-right: 2px;
+    overscroll-behavior: contain;
+  }
+  .dropdown-options-list::-webkit-scrollbar { width: 5px; }
+  .dropdown-options-list::-webkit-scrollbar-track { background: transparent; }
+  .dropdown-options-list::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, currentColor 20%, transparent);
+    border-radius: 999px;
+  }
+
+  .dropdown-opt-label {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+    padding: .35rem .55rem;
+    border-radius: .55rem;
+    font-size: .78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .12s ease;
+    user-select: none;
+  }
+  .dropdown-opt-label:hover {
+    background: color-mix(in srgb, currentColor 8%, transparent);
+  }
+  .dropdown-opt-label.is-selected {
+    background: color-mix(in srgb, var(--color-xuma-azul) 12%, transparent);
+  }
+  :global(.dark) .dropdown-opt-label.is-selected {
+    background: color-mix(in srgb, var(--color-xuma-verde-claro) 15%, transparent);
+  }
+
+  .dropdown-opt-checkbox {
+    width: 1.05rem;
+    height: 1.05rem;
+    border-radius: .3rem;
+    cursor: pointer;
+    accent-color: var(--color-xuma-azul);
+    flex-shrink: 0;
+  }
+  :global(.dark) .dropdown-opt-checkbox {
+    accent-color: var(--color-xuma-verde-claro);
+  }
+
+  .dropdown-opt-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+  }
+
+  /* Dropdown footer */
+  .dropdown-menu-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: .35rem;
+    border-top: 1px solid color-mix(in srgb, currentColor 10%, transparent);
+  }
+  .btn-dropdown-apply {
+    height: 1.85rem;
+    padding: 0 .85rem;
+    border-radius: .55rem;
+    font-size: .72rem;
+    font-weight: 800;
+    color: #fff;
+    background: var(--color-xuma-azul);
+    border: none;
+    cursor: pointer;
+    transition: transform .15s ease, opacity .15s ease;
+  }
+  :global(.dark) .btn-dropdown-apply {
+    background: var(--color-xuma-verde-claro);
+    color: #0a1030;
+  }
+  .btn-dropdown-apply:hover { transform: scale(1.03); }
+
+  /* Acciones del panel */
+  .filtros-acciones {
+    display: flex;
+    align-items: end;
+    gap: .5rem;
+    flex-shrink: 0;
+  }
+  @media (max-width: 639px) {
+    .filtros-acciones {
+      grid-column: 1 / -1;
+      justify-content: flex-end;
+    }
+  }
+
   .btn-filtrar {
-    height: 2.75rem; border-radius: .9rem; padding: 0 1.25rem;
-    font-size: .85rem; font-weight: 800; color: #fff; background: var(--color-xuma-azul);
+    height: 2.75rem;
+    border-radius: .85rem;
+    padding: 0 1.25rem;
+    font-size: .85rem;
+    font-weight: 800;
+    color: #fff;
+    background: var(--color-xuma-azul);
     box-shadow: 0 14px 28px -14px rgba(18,1,128,.55);
-    transition: transform .25s ease, box-shadow .25s ease;
+    transition: transform .2s ease, box-shadow .2s ease;
+    cursor: pointer;
+    border: none;
   }
-  :global(.dark) .btn-filtrar { background: var(--color-xuma-verde-claro); color: #0a1030; }
-  .btn-filtrar:hover { transform: scale(1.05); }
+  :global(.dark) .btn-filtrar {
+    background: var(--color-xuma-verde-claro);
+    color: #0a1030;
+  }
+  .btn-filtrar:hover { transform: scale(1.03); }
   .btn-filtrar.is-loading { opacity: .7; pointer-events: none; }
+
+  .btn-limpiar {
+    display: inline-flex;
+    height: 2.75rem;
+    align-items: center;
+    border-radius: .85rem;
+    padding: 0 1rem;
+    font-size: .85rem;
+    font-weight: 700;
+  }
+
+  /* Chips */
   .chip-filtro {
-    display: inline-flex; align-items: center; gap: .35rem;
-    border-radius: 999px; padding: .35rem .8rem; font-size: .72rem;
-    color: #fff; background: linear-gradient(135deg, var(--color-xuma-azul), var(--color-xuma-verde-oscuro));
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    border-radius: 999px;
+    padding: .35rem .8rem;
+    font-size: .72rem;
+    color: #fff;
+    background: linear-gradient(135deg, var(--color-xuma-azul), var(--color-xuma-verde-oscuro));
     box-shadow: 0 10px 22px -12px rgba(18,1,128,.6);
     animation: chipIn .5s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
   @keyframes chipIn { from { opacity: 0; transform: translateY(8px) scale(.94); } to { opacity: 1; transform: none; } }
   @media (prefers-reduced-motion: reduce) { .chip-filtro { animation: none; } }
-  .filtros-panel { position: relative; }
+
+  /* Overlay de filtrado */
   .filtro-overlay {
     position: fixed; inset: 0; z-index: 100;
     display: none; flex-direction: column; align-items: center; justify-content: center; gap: .9rem;
@@ -135,20 +599,14 @@ const chips = defs
 
 <script is:inline>
   // ---------------------------------------------------------------------------
-  // Wiring GLOBAL, registrado UNA sola vez y por delegación.
-  //
-  // Por qué NO se ata listener por formulario: los <script is:inline> no se
-  // re-ejecutan tras una navegación con <ClientRouter />, así que el panel
-  // quedaba sin listeners al cambiar de página y los filtros dejaban de
-  // filtrar en silencio (solo aplicaba el primero). Delegar en `document`
-  // cubre cualquier panel que aparezca en el DOM más adelante.
+  // Wiring GLOBAL de Dropdowns Multi-Selección con Checkboxes.
+  // Registrado UNA sola vez sobre `document` para mantenerse activo
+  // a través de navegaciones cliente (Astro ClientRouter).
   // ---------------------------------------------------------------------------
   (function () {
     if (window.__xumaFiltrosListo) return;
     window.__xumaFiltrosListo = true;
 
-    // El overlay tiene z-index 100 (por encima del menú lateral, z-70), así que
-    // un watchdog global es obligatorio: nunca debe atrapar la página tapada.
     var MAX_ESPERA_MS = 15000;
     var watchdog = null;
 
@@ -167,19 +625,158 @@ const chips = defs
       watchdog = setTimeout(apagar, MAX_ESPERA_MS);
     }
 
-    // Aplicado inmediato: al elegir un ítem se filtra solo, sin buscar el botón.
-    document.addEventListener('change', function (e) {
-      var sel = e.target;
-      if (!sel || sel.tagName !== 'SELECT') return;
-      if (!sel.closest || !sel.closest('[data-filtros]')) return;
-      if (sel.form) sel.form.requestSubmit();
+    function cerrarTodosDropdowns(excepto) {
+      document.querySelectorAll('[data-dropdown].is-open').forEach(function (d) {
+        if (d !== excepto) {
+          d.classList.remove('is-open');
+          var t = d.querySelector('[data-dropdown-trigger]');
+          if (t) t.setAttribute('aria-expanded', 'false');
+        }
+      });
+    }
+
+    function actualizarTrigger(dd) {
+      var cbs = dd.querySelectorAll('.dropdown-opt-checkbox');
+      var checkedVals = [];
+      cbs.forEach(function (c) {
+        if (c.checked) checkedVals.push(c.value);
+      });
+      var textEl = dd.querySelector('[data-trigger-text]');
+      var badgeEl = dd.querySelector('[data-trigger-badge]');
+      var countEl = dd.querySelector('[data-count]');
+      var triggerBtn = dd.querySelector('[data-dropdown-trigger]');
+      var placeholder = (textEl && textEl.getAttribute('data-placeholder')) || 'Todos';
+
+      if (countEl) countEl.textContent = checkedVals.length;
+
+      if (checkedVals.length === 0) {
+        if (textEl) textEl.textContent = placeholder;
+        if (badgeEl) badgeEl.style.display = 'none';
+        if (triggerBtn) triggerBtn.setAttribute('title', placeholder);
+      } else if (checkedVals.length === 1) {
+        if (textEl) textEl.textContent = checkedVals[0];
+        if (badgeEl) badgeEl.style.display = 'none';
+        if (triggerBtn) triggerBtn.setAttribute('title', checkedVals[0]);
+      } else {
+        if (textEl) textEl.textContent = checkedVals.length + ' seleccionados';
+        if (badgeEl) {
+          badgeEl.textContent = checkedVals.length;
+          badgeEl.style.display = 'inline-flex';
+        }
+        if (triggerBtn) triggerBtn.setAttribute('title', checkedVals.join(', '));
+      }
+    }
+
+    // Delegación de clicks para abrir/cerrar menús y acciones rápidas
+    document.addEventListener('click', function (e) {
+      var trigger = e.target.closest('[data-dropdown-trigger]');
+      if (trigger) {
+        var dd = trigger.closest('[data-dropdown]');
+        if (!dd) return;
+        var estaAbierto = dd.classList.contains('is-open');
+        cerrarTodosDropdowns(dd);
+        if (estaAbierto) {
+          dd.classList.remove('is-open');
+          trigger.setAttribute('aria-expanded', 'false');
+        } else {
+          dd.classList.add('is-open');
+          trigger.setAttribute('aria-expanded', 'true');
+          var sInput = dd.querySelector('[data-search-input]');
+          if (sInput) {
+            setTimeout(function () { sInput.focus(); }, 40);
+          }
+        }
+        return;
+      }
+
+      var btnAll = e.target.closest('[data-action="all"]');
+      if (btnAll) {
+        var dd = btnAll.closest('[data-dropdown]');
+        if (!dd) return;
+        dd.querySelectorAll('.dropdown-opt-checkbox').forEach(function (cb) {
+          var label = cb.closest('.dropdown-opt-label');
+          if (!label || label.style.display !== 'none') {
+            cb.checked = true;
+            if (label) label.classList.add('is-selected');
+          }
+        });
+        actualizarTrigger(dd);
+        return;
+      }
+
+      var btnClear = e.target.closest('[data-action="clear"]');
+      if (btnClear) {
+        var dd = btnClear.closest('[data-dropdown]');
+        if (!dd) return;
+        dd.querySelectorAll('.dropdown-opt-checkbox').forEach(function (cb) {
+          cb.checked = false;
+          var label = cb.closest('.dropdown-opt-label');
+          if (label) label.classList.remove('is-selected');
+        });
+        actualizarTrigger(dd);
+        return;
+      }
+
+      var btnApply = e.target.closest('[data-action="apply"]');
+      if (btnApply) {
+        var dd = btnApply.closest('[data-dropdown]');
+        if (dd) {
+          dd.classList.remove('is-open');
+          var t = dd.querySelector('[data-dropdown-trigger]');
+          if (t) t.setAttribute('aria-expanded', 'false');
+        }
+        return;
+      }
+
+      // Click fuera de cualquier dropdown -> cerrar todos
+      if (!e.target.closest('[data-dropdown]')) {
+        cerrarTodosDropdowns();
+      }
     });
 
-    // Estado de carga en el botón + fundido del gráfico (los gráficos se
-    // re-animan solos al recargar con el filtro aplicado).
+    // Tecla Escape cierra menús
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        cerrarTodosDropdowns();
+      }
+    });
+
+    // Filtro en tiempo real con input de búsqueda en dropdown
+    document.addEventListener('input', function (e) {
+      var input = e.target;
+      if (!input || !input.hasAttribute || !input.hasAttribute('data-search-input')) return;
+      var dd = input.closest('[data-dropdown]');
+      if (!dd) return;
+      var term = input.value.trim().toLowerCase();
+      dd.querySelectorAll('[data-opt-item]').forEach(function (item) {
+        var val = item.getAttribute('data-value') || '';
+        if (!term || val.indexOf(term) !== -1) {
+          item.style.display = 'flex';
+        } else {
+          item.style.display = 'none';
+        }
+      });
+    });
+
+    // Cambio en checkbox: sincronizar clases y etiqueta de trigger
+    document.addEventListener('change', function (e) {
+      var cb = e.target;
+      if (!cb || !cb.classList || !cb.classList.contains('dropdown-opt-checkbox')) return;
+      var dd = cb.closest('[data-dropdown]');
+      if (!dd) return;
+      var label = cb.closest('.dropdown-opt-label');
+      if (label) {
+        if (cb.checked) label.classList.add('is-selected');
+        else label.classList.remove('is-selected');
+      }
+      actualizarTrigger(dd);
+    });
+
+    // Submit del formulario
     document.addEventListener('submit', function (e) {
       var form = e.target;
       if (!form || !form.closest || !form.closest('[data-filtros]')) return;
+      cerrarTodosDropdowns();
       var btn = form.querySelector('[data-btn-filtrar]');
       if (btn) {
         if (!btn.dataset.etiqueta) btn.dataset.etiqueta = btn.textContent;
@@ -189,8 +786,6 @@ const chips = defs
       tapando();
     });
 
-    // El overlay se apaga en cuanto la navegación termina, venga del router
-    // cliente o de una carga nativa (botón atrás, bfcache, recarga).
     window.addEventListener('pageshow', apagar);
     window.addEventListener('beforeunload', apagar);
     document.addEventListener('astro:after-swap', apagar);

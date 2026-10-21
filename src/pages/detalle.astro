@@ -13,7 +13,7 @@ const tablaMes: any[] = await cargaSSR(`mensual/${claveFiltros}`, getDashboardMe
 const mensual: any[] = await cargaSSR(`mensual-aseguradora/${claveFiltros}`, getMensualPorAseguradora(f), []);
 const fmt = new Intl.NumberFormat('es-CO');
 
-const selMes = f.mes ?? '';
+const selMes = f.mes ?? [];
 const selGas = f.gasera ?? [];
 const selAseg = f.aseguradora ?? [];
 const selCabina = f.cabina ?? [];
@@ -109,7 +109,7 @@ const kpiMini = (['total', 'inbound', 'outbound', 'aptos', 'noAptos', 'retencion
   <FiltrosPanel
     action={ruta('/detalle')}
     opciones={{ mes: mesesFiltro, gasera: gaseras, aseguradora: aseguradoras, cabina: cabinas, estado: estados }}
-    actual={{ mes: selMes ? [selMes] : [], gasera: selGas, aseguradora: selAseg, cabina: selCabina, estado: selEstado }}
+    actual={{ mes: selMes, gasera: selGas, aseguradora: selAseg, cabina: selCabina, estado: selEstado }}
     totalFiltrado={TT}
     totalBase={totalBase}
   />

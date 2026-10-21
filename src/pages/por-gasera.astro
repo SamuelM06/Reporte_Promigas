@@ -30,7 +30,7 @@ await Promise.all(
 
 const metadatos = await cargaSSR('global/metadatos', getMetadatos(f), METADATOS_VACIOS, 300_000);
 const fmt = new Intl.NumberFormat('es-CO');
-const selMes = f.mes ?? '';
+const selMes = f.mes ?? [];
 const selCabina = f.cabina ?? [];
 const selAseg = f.aseguradora ?? [];
 const mesesFiltro = (metadatos.meses ?? []).filter((m) => m !== 'SIN DATO');
@@ -47,8 +47,9 @@ const corteTexto = mesesDisponibles.length > 0
 // Conserva los filtros al cambiar de página.
 const qs = (p: number) => {
   const q = new URLSearchParams();
-  if (selMes) q.set('mes', selMes);
-  if (selCabina) q.set('cabina', selCabina);
+  for (const m of selMes) q.append('mes', m);
+  for (const c of selCabina) q.append('cabina', c);
+  for (const a of selAseg) q.append('aseguradora', a);
   if (p === 2) q.set('page', '2');
   const s = q.toString();
   return s ? ruta(`/por-gasera?${s}`) : ruta('/por-gasera');
@@ -71,7 +72,7 @@ const resumen = (datos: any[]) => {
     action={ruta('/por-gasera')}
     defs={defsPanel}
     opciones={{ mes: mesesFiltro, cabina: cabinas, aseguradora: aseguradoras }}
-    actual={{ mes: selMes ? [selMes] : [], cabina: selCabina, aseguradora: selAseg }}
+    actual={{ mes: selMes, cabina: selCabina, aseguradora: selAseg }}
     totalFiltrado={gaseras.reduce((a, g) => a + resumen(datosPorGasera[g] ?? []).total, 0)}
     totalBase={metadatos.total ?? 0}
     extras={page === 2 ? { page: '2' } : {}}

@@ -5,7 +5,7 @@ import { query, queryOne } from './db';
 export interface Filtros {
   desde?: string;
   hasta?: string;
-  mes?: string;
+  mes?: string[];
   gasera?: string[];
   aseguradora?: string[];
   canal?: string[];
@@ -48,7 +48,7 @@ export function parseFiltros(url: URL): Filtros {
   return {
     desde: g('desde') ?? '2026-01-01',
     hasta: g('hasta') ?? '2026-12-31',
-    mes: g('mes'),
+    mes: gl('mes'),
     gasera: gl('gasera'),
     aseguradora: gl('aseguradora'),
     canal: gl('canal'),
@@ -64,15 +64,16 @@ const ORDEN_MES_SQL = `CASE mes_norm WHEN 'ENERO' THEN 1 WHEN 'FEBRERO' THEN 2 W
 
 function whereGestion(f: Filtros, params: unknown[]): string {
   const cond: string[] = ['1=1'];
-  if (f.desde && !f.mes) { params.push(f.desde); cond.push(`(fecha_ejecucion IS NULL OR fecha_ejecucion >= $${params.length}::date)`); }
-  if (f.hasta && !f.mes) { params.push(f.hasta); cond.push(`(fecha_ejecucion IS NULL OR fecha_ejecucion <= $${params.length}::date)`); }
-  if (f.mes?.trim()) { params.push(f.mes.trim().toUpperCase()); cond.push(`mes_norm = $${params.length}`); }
+  const tieneMes = Boolean(f.mes && f.mes.length > 0);
+  if (f.desde && !tieneMes) { params.push(f.desde); cond.push(`(fecha_ejecucion IS NULL OR fecha_ejecucion >= $${params.length}::date)`); }
+  if (f.hasta && !tieneMes) { params.push(f.hasta); cond.push(`(fecha_ejecucion IS NULL OR fecha_ejecucion <= $${params.length}::date)`); }
   const lista = (col: string, vals?: string[]) => {
     const l = (vals ?? []).map((v) => v.trim().toUpperCase()).filter(Boolean);
     if (!l.length) return;
     params.push(l);
     cond.push(`${col} = ANY($${params.length})`);
   };
+  lista('mes_norm', f.mes);
   lista('gasera_norm', f.gasera);
   lista('aseguradora_norm', f.aseguradora);
   lista('canal_norm', f.canal);
