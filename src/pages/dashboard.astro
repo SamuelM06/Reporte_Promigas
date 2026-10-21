@@ -9,7 +9,7 @@ import EmbudoGestion from '../components/charts/EmbudoGestion.astro';
 const f = { ...filtrosPorDefecto(), ...parseFiltros(Astro.url) };
 const claveFiltros = JSON.stringify(f);
 const mensual: any[] = await cargaSSR(`mensual/${claveFiltros}`, getDashboardMensual(f), []);
-const metadatos = await cargaSSR('global/metadatos', getMetadatos(f), METADATOS_VACIOS, 300_000);
+const metadatos = await cargaSSR(`metadatos/${claveFiltros}`, getMetadatos(f), METADATOS_VACIOS, 300_000);
 const fmt = new Intl.NumberFormat('es-CO');
 
 const tot = (k: string) => mensual.reduce((s: number, r: any) => s + Number(r[k] ?? 0), 0);
@@ -194,13 +194,25 @@ const kpis: KpiCard[] = (['total', 'inbound', 'outbound', 'aptos', 'noAptos', 'r
   <EmbudoGestion total={T} inbound={INB} outbound={OUT} aptos={APT} noAptos={NOAP} retenciones={RET} pct={PCT} />
 
   <style>
-    .show { opacity: 0; }
+    /* Entrada escalonada de las tarjetas KPI.
+       El estado natural es VISIBLE: la animación solo lo mejora. Antes el
+       estado inicial era `opacity: 0` y el relleno era `both`, y eso rompía
+       la interfaz de dos maneras:
+         1) si la animación no llegaba a ejecutarse (movimiento reducido,
+            pestaña en segundo plano, navegador sin animaciones) las tarjetas
+            se quedaban invisibles y el tablero aparecía vacío;
+         2) con `both` el relleno final (`transform: none`) tiene prioridad
+            sobre `.kpi-card:hover`, así que el efecto de elevación del
+            puntero no se aplicaba nunca.
+       Con `backwards` solo se aplica el estado inicial durante el retardo:
+       al terminar, manda la cascada normal y el hover vuelve a funcionar. */
+    .show { opacity: 1; }
     @keyframes fadeUp { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: none; } }
     @keyframes drawLine { from { stroke-dashoffset: 340; } to { stroke-dashoffset: 0; } }
     @keyframes flowDash { to { stroke-dashoffset: -32; } }
     @keyframes floatGlow { 0%,100% { transform: translate(0,0); opacity: .55; } 50% { transform: translate(10px,-12px); opacity: .9; } }
-    @media (prefers-reduced-motion: reduce) { .show { opacity: 1; } .bar, .pct-line, .pct-flow, .pct-dot, .pct-area, .kpi-card { animation: none !important; } }
-    .fade-up { animation: fadeUp 0.9s cubic-bezier(0.22, 1, 0.36, 1) both; }
+    @media (prefers-reduced-motion: reduce) { .bar, .pct-line, .pct-flow, .pct-dot, .pct-area, .kpi-card { animation: none !important; } }
+    .fade-up { animation: fadeUp 0.9s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
 
     /* KPIs con diseño: icono, sombra, brillo y conteo */
     .kpi-card {

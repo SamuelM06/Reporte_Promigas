@@ -15,7 +15,10 @@ export interface Filtros {
 }
 
 export interface Metadatos {
+  /** Registros en base (sin ningún filtro del panel): el "en base" del panel. */
   total: number;
+  /** Registros que cumplen TODOS los filtros activos. */
+  totalFiltrado: number;
   rangoFechas: { min: string; max: string };
   meses: string[];
   gaseras: string[];
@@ -28,6 +31,7 @@ export interface Metadatos {
 
 export const METADATOS_VACIOS: Metadatos = {
   total: 0,
+  totalFiltrado: 0,
   rangoFechas: { min: '2026-01-01', max: '2026-12-31' },
   meses: [], gaseras: [], aseguradoras: [], canales: [], cabinas: [], estados: [], porMes: [],
 };
@@ -88,37 +92,75 @@ function whereGestion(f: Filtros, params: unknown[]): string {
 
 const VISTA = `reportes.reporte_promi`;
 
+// Dimensiones del panel de filtros.
+const DIMENSIONES = ['mes', 'gasera', 'aseguradora', 'canal', 'cabina', 'estado'] as const;
+type Dimension = (typeof DIMENSIONES)[number];
+
+/** Copia de los filtros sin la dimensión indicada. */
+function sinDimension(f: Filtros, dim: Dimension): Filtros {
+  const g: Filtros = { ...f };
+  delete g[dim];
+  return g;
+}
+
 export async function getMetadatos(f: Filtros): Promise<Metadatos> {
-  const params: unknown[] = [];
-  const w = whereGestion(f, params);
-  const total = await queryOne<{ n: string }>(`SELECT COUNT(*)::text AS n FROM ${VISTA} WHERE ${w}`, params);
+  // --- Base del reporte: sin filtros del panel -------------------------------
+  // "total" es el "en base" que muestra el panel: el total de la vista.
+  const total = await queryOne<{ n: string }>(`SELECT COUNT(*)::text AS n FROM ${VISTA}`);
   const rango = await queryOne<{ min: string; max: string }>(
-    `SELECT COALESCE(MIN(fecha_ejecucion)::text,'2026-01-01') AS min, COALESCE(MAX(fecha_ejecucion)::text,'2026-12-31') AS max FROM ${VISTA} WHERE ${w}`,
-    params,
+    `SELECT COALESCE(MIN(fecha_ejecucion)::text,'2026-01-01') AS min, COALESCE(MAX(fecha_ejecucion)::text,'2026-12-31') AS max FROM ${VISTA}`,
   );
-  const meses = await query<{ mes: string }>(
-    `SELECT mes_norm AS mes FROM ${VISTA} WHERE mes_norm IS NOT NULL AND ${w} GROUP BY mes_norm ORDER BY ${ORDEN_MES_SQL}`,
-    params,
+
+  // --- Opciones de cada desplegable ------------------------------------------
+  // Cada dimensión se resuelve SIN su propio filtro (pero con los demás).
+  // Antes se usaba el filtro completo: al filtrar por una gasera el desplegable
+  // de gasera solo ofrecía esa gasera, y como el desplegable se recarga con
+  // los datos ya filtrados, era imposible añadir una segunda -> la selección
+  // múltiple con checkbox quedaba inutilizable.
+  const opciones = async (dim: Dimension, col: string): Promise<string[]> => {
+    const params: unknown[] = [];
+    const w = whereGestion(sinDimension(f, dim), params);
+    const filas = await query<{ v: string }>(
+      `SELECT DISTINCT ${col} AS v FROM ${VISTA} WHERE ${col} IS NOT NULL AND ${w} ORDER BY 1`,
+      params,
+    );
+    return filas.map((r) => r.v);
+  };
+
+  // Los meses van en orden natural (ENERO -> DICIEMBRE), no alfabético: con
+  // DISTINCT, Postgres exige que la expresión del ORDER BY esté en la lista de
+  // resultados, así que aquí se agrupa en vez de usar DISTINCT.
+  const pMeses: unknown[] = [];
+  const filasMeses = await query<{ v: string }>(
+    `SELECT mes_norm AS v FROM ${VISTA} WHERE mes_norm IS NOT NULL AND ${whereGestion(sinDimension(f, 'mes'), pMeses)} GROUP BY mes_norm ORDER BY ${ORDEN_MES_SQL}`,
+    pMeses,
   );
-  const dist = await query<{ v: string }>(`SELECT DISTINCT gasera_norm AS v FROM ${VISTA} WHERE gasera_norm IS NOT NULL AND ${w} ORDER BY 1`, params);
-  const aseg = await query<{ v: string }>(`SELECT DISTINCT aseguradora_norm AS v FROM ${VISTA} WHERE aseguradora_norm IS NOT NULL AND ${w} ORDER BY 1`, params);
-  const canales = await query<{ v: string }>(`SELECT DISTINCT canal_norm AS v FROM ${VISTA} WHERE canal_norm IS NOT NULL AND ${w} ORDER BY 1`, params);
-  const cabinas = await query<{ v: string }>(`SELECT DISTINCT cabina_norm AS v FROM ${VISTA} WHERE cabina_norm IS NOT NULL AND ${w} ORDER BY 1`, params);
-  const estados = await query<{ v: string }>(`SELECT DISTINCT estado_norm AS v FROM ${VISTA} WHERE estado_norm IS NOT NULL AND ${w} ORDER BY 1`, params);
-  const porMes = await query<{ mes: string; total: string }>(
-    `SELECT mes_norm AS mes, COUNT(*)::text AS total FROM ${VISTA} WHERE mes_norm IS NOT NULL AND ${w} GROUP BY mes_norm ORDER BY ${ORDEN_MES_SQL}`,
-    params,
+
+  const meses = filasMeses.map((r) => r.v);
+  const gaseras = await opciones('gasera', 'gasera_norm');
+  const aseguradoras = await opciones('aseguradora', 'aseguradora_norm');
+  const canales = await opciones('canal', 'canal_norm');
+  const cabinas = await opciones('cabina', 'cabina_norm');
+  const estados = await opciones('estado', 'estado_norm');
+
+  // --- Registros que cumplen todos los filtros --------------------------------
+  const pTotal: unknown[] = [];
+  const totalFiltrado = await queryOne<{ n: string }>(
+    `SELECT COUNT(*)::text AS n FROM ${VISTA} WHERE ${whereGestion(f, pTotal)}`,
+    pTotal,
   );
+
   return {
     total: Number(total?.n ?? 0),
+    totalFiltrado: Number(totalFiltrado?.n ?? 0),
     rangoFechas: { min: rango?.min ?? '2026-01-01', max: rango?.max ?? '2026-12-31' },
-    meses: meses.map((r) => r.mes),
-    gaseras: dist.map((r) => r.v),
-    aseguradoras: aseg.map((r) => r.v),
-    canales: canales.map((r) => r.v),
-    cabinas: cabinas.map((r) => r.v),
-    estados: estados.map((r) => r.v),
-    porMes: porMes.map((r) => ({ mes: r.mes, total: Number(r.total) })),
+    meses,
+    gaseras,
+    aseguradoras,
+    canales,
+    cabinas,
+    estados,
+    porMes: [],
   };
 }
 

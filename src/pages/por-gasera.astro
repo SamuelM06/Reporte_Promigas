@@ -17,6 +17,7 @@ const GASERAS_P2 = ['EFIGAS'];
 const gaseras = page === 2 ? GASERAS_P2 : GASERAS_P1;
 
 const clave = JSON.stringify({ ...f, gaseras });
+const claveFiltros = JSON.stringify(f);
 const datosPorGasera: Record<string, any[]> = {};
 await Promise.all(
   gaseras.map(async (g) => {
@@ -28,7 +29,7 @@ await Promise.all(
   }),
 );
 
-const metadatos = await cargaSSR('global/metadatos', getMetadatos(f), METADATOS_VACIOS, 300_000);
+const metadatos = await cargaSSR(`metadatos/${claveFiltros}`, getMetadatos(f), METADATOS_VACIOS, 300_000);
 const fmt = new Intl.NumberFormat('es-CO');
 const selMes = f.mes ?? [];
 const selCabina = f.cabina ?? [];
@@ -132,10 +133,11 @@ const resumen = (datos: any[]) => {
     }
     .mini-pager:hover { transform: translateY(-2px); box-shadow: 0 12px 24px -14px rgba(18,1,128,.5); }
     .mini-pager-off { opacity: .4; pointer-events: none; }
-    .show { opacity: 0; }
+    /* Estado natural visible: la animación solo lo mejora (ver dashboard.astro). */
+    .show { opacity: 1; }
     @keyframes fadeUp { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: none; } }
-    @media (prefers-reduced-motion: reduce) { .show { opacity: 1; } }
-    .fade-up { animation: fadeUp 0.9s cubic-bezier(0.22, 1, 0.36, 1) both; }
+    @media (prefers-reduced-motion: reduce) { .fade-up { animation: none !important; } }
+    .fade-up { animation: fadeUp 0.9s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
     .gas-num {
       display: inline-grid; place-items: center; width: 2.6rem; height: 2.6rem; border-radius: 1rem;
       font-size: .95rem; color: #fff;

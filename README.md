@@ -61,6 +61,34 @@ npm run dev            # servidor de desarrollo
 npm run build && npm start
 ```
 
+### Acceso al portal
+
+El portal valida la sesión del Hub de Xuma (cookie `xuma_session`, JWT HS256) y
+no tiene login propio:
+
+| Variable | Para qué sirve |
+| --- | --- |
+| `JWT_SECRET` | Secreto **compartido con el Hub**. Sin él se niega todo acceso. |
+| `ALLOWED_PERSONAS` | Ids de persona (`sub` del JWT) con acceso. Vacío = nadie entra. |
+| `AUTH_DEV` | `true` = **solo en local**, entra sin la cookie del Hub. Se ignora si `NODE_ENV=production`. |
+
+En local, lo normal es `AUTH_DEV=true` (y el `JWT_SECRET` de pruebas). En
+producción, `AUTH_DEV=false` y el `JWT_SECRET` debe ser el mismo del Hub.
+
+El lanzador deja el portal en la red local:
+
+```bash
+npm run servidor       # build + arranque + verificación de rutas
+```
+
+Imprime el enlace local (`http://localhost:4321/reporte-promigas`) y el de red
+(`http://<ip-del-equipo>:4321/reporte-promigas`) para abrirlo desde el celular
+o desde otro equipo de la red.
+
+> El `.env` se carga en el arranque del servidor (`scripts/serve.mjs`), no solo
+> en el build: hay variables (p. ej. `AUTH_DEV`) que el código lee en caliente.
+
+
 ## Stack
 
 Astro (SSR) + Node + PostgreSQL (`pg`), Tailwind CSS, identidad de marca Xuma.

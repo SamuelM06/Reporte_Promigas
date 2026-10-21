@@ -7,7 +7,7 @@ import { KPI_COLORS, type KpiKey } from '../lib/kpi-colors';
 const f = { ...filtrosPorDefecto(), ...parseFiltros(Astro.url) };
 const claveFiltros = JSON.stringify(f);
 
-const metadatos = await cargaSSR('global/metadatos', getMetadatos(f), METADATOS_VACIOS, 300_000);
+const metadatos = await cargaSSR(`metadatos/${claveFiltros}`, getMetadatos(f), METADATOS_VACIOS, 300_000);
 const tablaMes: any[] = await cargaSSR(`mensual/${claveFiltros}`, getDashboardMensual(f), []);
 const resultadosAptos: any[] = await cargaSSR(`resultados/aptos/${claveFiltros}`, getResultadosPorMes(f, true), []);
 const resultadosNoAptos: any[] = await cargaSSR(`resultados/no-aptos/${claveFiltros}`, getResultadosPorMes(f, false), []);
