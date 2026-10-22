@@ -117,11 +117,17 @@ export async function getMetadatos(f: Filtros): Promise<Metadatos> {
   // de gasera solo ofrecía esa gasera, y como el desplegable se recarga con
   // los datos ya filtrados, era imposible añadir una segunda -> la selección
   // múltiple con checkbox quedaba inutilizable.
-  const opciones = async (dim: Dimension, col: string): Promise<string[]> => {
+  const opciones = async (dim: Dimension, col: string, excluir?: string[]): Promise<string[]> => {
     const params: unknown[] = [];
     const w = whereGestion(sinDimension(f, dim), params);
+    let excluirSql = '';
+    if (excluir && excluir.length > 0) {
+      const placeholders = excluir.map((_, i) => `$${params.length + i + 1}`).join(',');
+      excluirSql = ` AND ${col} NOT IN (${placeholders})`;
+      params.push(...excluir);
+    }
     const filas = await query<{ v: string }>(
-      `SELECT DISTINCT ${col} AS v FROM ${VISTA} WHERE ${col} IS NOT NULL AND ${w} ORDER BY 1`,
+      `SELECT DISTINCT ${col} AS v FROM ${VISTA} WHERE ${col} IS NOT NULL AND ${w}${excluirSql} ORDER BY 1`,
       params,
     );
     return filas.map((r) => r.v);
@@ -138,7 +144,8 @@ export async function getMetadatos(f: Filtros): Promise<Metadatos> {
 
   const meses = filasMeses.map((r) => r.v);
   const gaseras = await opciones('gasera', 'gasera_norm');
-  const aseguradoras = await opciones('aseguradora', 'aseguradora_norm');
+  // Excluir "NO APLICA" y "NO APTO" del filtro de aseguradoras (son errores de digitación, no aseguradoras reales)
+  const aseguradoras = await opciones('aseguradora', "aseguradora_norm", ['NO APLICA', 'NO APTO']);
   const canales = await opciones('canal', 'canal_norm');
   const cabinas = await opciones('cabina', 'cabina_norm');
   const estados = await opciones('estado', 'estado_norm');

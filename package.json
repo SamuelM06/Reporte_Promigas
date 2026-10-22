@@ -13,7 +13,9 @@
     "scan-secrets": "node ./scripts/scan-secrets.mjs --strict",
     "scan-secrets:soft": "node ./scripts/scan-secrets.mjs",
     "db:init": "node ./scripts/db-init.mjs",
-    "db:load": "node ./scripts/load-excel.mjs"
+    "db:load": "node ./scripts/load-excel.mjs",
+    "db:actualizar": "node ./scripts/actualizar-datos.mjs",
+    "db:auditar": "node ./scripts/auditar-excel.mjs"
   },
   "repository": {
     "type": "git",

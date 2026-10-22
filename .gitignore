@@ -23,6 +23,12 @@ logs/
 *.log
 npm-debug.log*
 
+# Respaldo del Excel antes de cada carga (npm run db:actualizar)
+backups/
+
+# Salida de la auditoría del Excel (npm run db:auditar)
+CORRECCIONES_PENDIENTES.csv
+
 # Sistema
 .DS_Store
 Thumbs.db

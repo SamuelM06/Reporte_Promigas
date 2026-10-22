@@ -61,6 +61,42 @@ npm run dev            # servidor de desarrollo
 npm run build && npm start
 ```
 
+## Actualizar los datos (cuando llega un Excel nuevo)
+
+El portal **no lee el Excel**: consulta PostgreSQL (`reportes.reporte_promi`).
+El Excel de `data/` es solo la fuente, y `data/ACUMULADO_ENERO_DICIEMBRE_2026_PROMI.xlsx`
+está referenciado con su nombre exacto en `scripts/load-excel.mjs`. Por eso **reemplazar
+el archivo no actualiza el portal**: hay que volver a cargarlo.
+
+```bash
+# 1. Reemplazar el Excel en data/ con el MISMO nombre de archivo
+# 2. Revisar el archivo antes de tocar la base (no modifica nada)
+npm run db:auditar
+# 3. Respaldar + cargar + verificar en un solo comando
+npm run db:actualizar
+```
+
+`db:actualizar` deja una copia del Excel anterior en `backups/` (fuera de git),
+carga en `DataCenter_Promigas` y comprueba que el número de filas de la tabla
+cuadre con el Excel. `db:auditar` no toca la base: reporta qué celdas no se
+leen bien y deja `CORRECCIONES_PENDIENTES.csv` con la fila exacta a corregir.
+
+### Requisitos del archivo que llega
+
+El loader lee la hoja **`Base`** y las **primeras 20 columnas por posición**
+(no por nombre del encabezado), así que el orden importa:
+
+| # | Columna | # | Columna | # | Columna | # | Columna |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| A | DISTRIBUIDORA | F | OPERADOR | K | SUBTIPIFICACION | P | asesor de venta |
+| B | ASEGURADORA | G | CANAL | L | MOTIVO | Q | Mes |
+| C | MEDIO DE RECEPCION | H | PRODUCTO | M | FECHA DE EJECUCION | R | Cabina |
+| D | CONTRATO | I | TIPO DE CONTACTO | N | BASE | S | AÑO |
+| E | LOCALIDAD | J | ESTADO | O | fecha de venta | T | CLASIFICACION |
+
+Si se inserta, borra o reordena una columna, los datos se corren y **el reporte
+sale mal sin dar ningún error**. `npm run db:auditar` avisa si cambia algo de esto.
+
 ### Acceso al portal
 
 El portal valida la sesión del Hub de Xuma (cookie `xuma_session`, JWT HS256) y
