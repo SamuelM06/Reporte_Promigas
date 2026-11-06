@@ -1,6 +1,7 @@
 ---
 import { ruta } from '../lib/base';
 import SidebarLayout from '../layouts/SidebarLayout.astro';
+import LogosMarquee from '../components/logos/LogosMarquee.astro';
 import { cargaSSR, filtrosPorDefecto, getMetadatos, METADATOS_VACIOS } from '../lib/query';
 
 const f = filtrosPorDefecto();
@@ -57,6 +58,8 @@ const corteTexto = mesesDisponibles.length > 0
         </span>
       </div>
     </header>
+
+    <LogosMarquee />
 
     <section class="grid items-center gap-8 lg:grid-cols-[1.05fr_0.95fr]">
       <div class="show fade-up" style="animation-delay:0.08s">

@@ -1,0 +1,62 @@
+---
+// Chip con el logo de una gasera (o de Promigas como padre).
+// Se usa en Dashboard (logo según la gasera filtrada) y en Por Gasera.
+// Los logos traen transparencia (RGBA) y van sobre fondo blanco para
+// verse bien tanto en tema claro como en oscuro.
+import { ruta } from '../../lib/base';
+
+interface Props {
+  /** 'GDO' | 'SURTIGAS' | 'CEO' | 'CARIBE' | 'EFIGAS' | 'PROMIGAS' (default). */
+  gasera?: string;
+  /** Alto de la imagen en px (default 44). */
+  alto?: number;
+  /** Si se muestra el nombre debajo del logo. */
+  conNombre?: boolean;
+  class?: string;
+}
+
+const { gasera = 'PROMIGAS', alto = 44, conNombre = false, class: className = '' } = Astro.props;
+
+const REGISTRO: Record<string, { logo: string; nombre: string }> = {
+  PROMIGAS: { logo: '/logos/gaseras/promigas.png', nombre: 'Promigas' },
+  GDO: { logo: '/logos/gaseras/gdo.png', nombre: 'Gdo' },
+  SURTIGAS: { logo: '/logos/gaseras/surtigas.png', nombre: 'Surtigas' },
+  CEO: { logo: '/logos/gaseras/ceo.png', nombre: 'Ceo' },
+  CARIBE: { logo: '/logos/gaseras/caribe.png', nombre: 'GasCaribe' },
+  EFIGAS: { logo: '/logos/gaseras/efigas.png', nombre: 'Efigas' },
+};
+
+const clave = String(gasera ?? 'PROMIGAS').trim().toUpperCase().replace(/[^A-Z]/g, '');
+const item = REGISTRO[clave] ?? { logo: '/logos/gaseras/promigas.png', nombre: 'Promigas' };
+---
+
+<figure class:list={['gasera-chip', className]} title={item.nombre} aria-label={`Logo ${item.nombre}`}>
+  <img src={ruta(item.logo)} alt={`Logo ${item.nombre}`} style={`height:${alto}px`} loading="lazy" decoding="async" />
+  {conNombre && <figcaption>{item.nombre}</figcaption>}
+</figure>
+
+<style>
+  .gasera-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.35rem 0.8rem;
+    background: #ffffff;
+    border: 1px solid rgba(2, 6, 23, 0.08);
+    border-radius: 1rem;
+    box-shadow: 0 6px 22px rgba(2, 6, 23, 0.18);
+  }
+  .gasera-chip img {
+    width: auto;
+    object-fit: contain;
+    max-width: 180px;
+  }
+  .gasera-chip figcaption {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #0f172a;
+    white-space: nowrap;
+  }
+</style>

@@ -31,6 +31,24 @@ function sello() {
   return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
 }
 
+const BACKUP_CONSERVAR = 5;
+
+// --- 2.5 Poda de respaldos viejos: conserva solo los últimos BACKUP_CONSERVAR ---
+function podarBackups() {
+  try {
+    const viejos = fs.readdirSync(BACKUPS)
+      .filter((n) => /^ACUMULADO_\d{8}_\d{6}\.xlsx$/.test(n))
+      .sort(); // el sello YYYYMMDD_HHMMSS ordena cronológicamente
+    const sobrantes = viejos.slice(0, Math.max(0, viejos.length - BACKUP_CONSERVAR));
+    for (const n of sobrantes) {
+      fs.rmSync(path.join(BACKUPS, n), { force: true });
+      console.log(`  poda respaldo viejo: ${n}`);
+    }
+  } catch (e) {
+    console.log(`  aviso: no se pudieron podar respaldos (${e.message})`);
+  }
+}
+
 async function main() {
   // --- 1. Validar el Excel ---
   if (!fs.existsSync(EXCEL)) {
@@ -56,6 +74,7 @@ async function main() {
   const destino = path.join(BACKUPS, `ACUMULADO_${sello()}.xlsx`);
   fs.copyFileSync(EXCEL, destino);
   console.log(`Respaldo  : ${path.relative(RAIZ, destino)}`);
+  podarBackups();
 
   // --- 3. Carga ---
   console.log('\n--- Cargando en la base de datos ---');
@@ -89,7 +108,7 @@ async function main() {
     console.error(`\nFAIL: el Excel tiene ${conDatos} filas con datos y la tabla quedo con ${v.total}.`);
     process.exit(1);
   }
-  console.log(`\nOK: ${v.total} filas cargadas. El portal ya las muestra (la cache SSR se renueva en 30 s).`);
+  console.log(`\nOK: ${v.total} filas cargadas. El portal ya las muestra (la cache SSR se renueva en 10 s).`);
   if (v.sin_fecha || v.fecha_anomala || v.venta_anomala) {
     console.log('Aviso: quedan celdas que no se leen bien. Revisa con:  npm run auditar');
   }

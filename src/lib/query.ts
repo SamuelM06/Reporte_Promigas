@@ -11,6 +11,8 @@ export interface Filtros {
   canal?: string[];
   cabina?: string[];
   estado?: string[];
+  /** 'APTO' | 'NO APTO' — la columna Clasificación del Excel (columna T). */
+  clasificacion?: string[];
   q?: string;
 }
 
@@ -26,6 +28,7 @@ export interface Metadatos {
   canales: string[];
   cabinas: string[];
   estados: string[];
+  clasificaciones: string[];
   porMes: { mes: string; total: number }[];
 }
 
@@ -33,7 +36,7 @@ export const METADATOS_VACIOS: Metadatos = {
   total: 0,
   totalFiltrado: 0,
   rangoFechas: { min: '2026-01-01', max: '2026-12-31' },
-  meses: [], gaseras: [], aseguradoras: [], canales: [], cabinas: [], estados: [], porMes: [],
+  meses: [], gaseras: [], aseguradoras: [], canales: [], cabinas: [], estados: [], clasificaciones: [], porMes: [],
 };
 
 export function filtrosPorDefecto(): Filtros {
@@ -58,6 +61,7 @@ export function parseFiltros(url: URL): Filtros {
     canal: gl('canal'),
     cabina: gl('cabina'),
     estado: gl('estado'),
+    clasificacion: gl('clasificacion')?.map((v) => v.toUpperCase()).filter((v) => v === 'APTO' || v === 'NO APTO'),
     q: g('q'),
   };
 }
@@ -83,6 +87,7 @@ function whereGestion(f: Filtros, params: unknown[]): string {
   lista('canal_norm', f.canal);
   lista('cabina_norm', f.cabina);
   lista('estado_norm', f.estado);
+  lista('clasificacion_norm', f.clasificacion);
   if (f.q?.trim()) {
     params.push(`%${f.q.trim()}%`);
     cond.push(`(contrato ILIKE $${params.length} OR asesor_venta ILIKE $${params.length} OR producto ILIKE $${params.length} OR motivo ILIKE $${params.length})`);
@@ -93,7 +98,7 @@ function whereGestion(f: Filtros, params: unknown[]): string {
 const VISTA = `reportes.reporte_promi`;
 
 // Dimensiones del panel de filtros.
-const DIMENSIONES = ['mes', 'gasera', 'aseguradora', 'canal', 'cabina', 'estado'] as const;
+const DIMENSIONES = ['mes', 'gasera', 'aseguradora', 'canal', 'cabina', 'estado', 'clasificacion'] as const;
 type Dimension = (typeof DIMENSIONES)[number];
 
 /** Copia de los filtros sin la dimensión indicada. */
@@ -149,6 +154,7 @@ export async function getMetadatos(f: Filtros): Promise<Metadatos> {
   const canales = await opciones('canal', 'canal_norm');
   const cabinas = await opciones('cabina', 'cabina_norm');
   const estados = await opciones('estado', 'estado_norm');
+  const clasificaciones = await opciones('clasificacion', 'clasificacion_norm');
 
   // --- Registros que cumplen todos los filtros --------------------------------
   const pTotal: unknown[] = [];
@@ -167,6 +173,7 @@ export async function getMetadatos(f: Filtros): Promise<Metadatos> {
     canales,
     cabinas,
     estados,
+    clasificaciones,
     porMes: [],
   };
 }
@@ -206,6 +213,9 @@ export async function getMensualPorAseguradora(f: Filtros): Promise<FilaMensualA
 // % Retención = Retenidos / Aptos × 100 (misma fórmula para todas las gaseras).
 const RETENIDOS_SQL = `(estado_norm IN ('RETENIDO', 'CANCELADO + VENTA', 'CANCELADA + VENTA'))`;
 const APTOS_BASE_SQL = `(estado_norm IN ('CANCELADO', 'CANCELADO + REINTEGRO', 'CANCELADO + VENTA', 'CANCELADA + VENTA', 'RETENIDO'))`;
+// No Aptos = todo lo que NO es apto. Se resuelve contra el complemento APTOS
+// (más los estados NULL) para que Total = Aptos + No Aptos siempre cuadre.
+const NO_APTOS_BASE_SQL = `(estado_norm IS NULL OR estado_norm NOT IN ('CANCELADO', 'CANCELADO + REINTEGRO', 'CANCELADO + VENTA', 'CANCELADA + VENTA', 'RETENIDO'))`;
 
 // Aseguradoras que para CEO se consideran NO APTOS aunque tengan estado de apto
 const CEO_NO_APTOS_ASEG = `('GNP', 'PROEXEQUIAL', 'IKE')`;
@@ -227,9 +237,9 @@ function getNoAptosSql(f: Filtros): string {
   const gaseras = (f.gasera ?? []).map(g => g.trim().toUpperCase());
   if (gaseras.length === 1 && gaseras[0] === 'CEO') {
     // No aptos = (no aptos base) OR (aptos base pero aseguradora en CEO_NO_APTOS_ASEG)
-    return `(NOT ${APTOS_BASE_SQL} OR (${APTOS_BASE_SQL} AND aseguradora_norm IN ${CEO_NO_APTOS_ASEG}))`;
+    return `(${NO_APTOS_BASE_SQL} OR (${APTOS_BASE_SQL} AND aseguradora_norm IN ${CEO_NO_APTOS_ASEG}))`;
   }
-  return `(NOT ${APTOS_BASE_SQL})`;
+  return `(${NO_APTOS_BASE_SQL})`;
 }
 
 export interface FilaResultadoMensual {
@@ -249,6 +259,27 @@ export async function getResultadosPorMes(f: Filtros, esApto: boolean): Promise<
      FROM ${VISTA} WHERE ${w} AND mes_norm IS NOT NULL AND ${condicion}
      GROUP BY estado_norm, mes_norm
      ORDER BY estado_norm, ${ORDEN_MES_SQL}`,
+    params,
+  );
+}
+
+export interface FilaDetalleResultadoMensual {
+  estado: string;
+  mes: string;
+  total: number;
+}
+
+// Detalle resultado × mes con el estado como dimensión (tablas "Resultado por
+// mes" del detalle de gestión, al estilo del reporte de GasCaribe).
+export async function getDetalleResultadosMensual(f: Filtros, esApto: boolean): Promise<FilaDetalleResultadoMensual[]> {
+  const params: unknown[] = [];
+  const w = whereGestion(f, params);
+  const condicion = esApto ? getAptosSql(f) : getNoAptosSql(f);
+  return query<FilaDetalleResultadoMensual>(
+    `SELECT COALESCE(estado_norm, 'SIN DATO') AS estado, mes_norm AS mes, COUNT(*)::int AS total
+     FROM ${VISTA} WHERE ${w} AND mes_norm IS NOT NULL AND ${condicion}
+     GROUP BY 1, 2
+     ORDER BY 1, ${ORDEN_MES_SQL}`,
     params,
   );
 }
@@ -336,7 +367,12 @@ if (!g.__barridoCachePromi) {
   if (typeof t === 'object' && t !== null && 'unref' in t) (t as { unref(): void }).unref();
 }
 
-export async function cargaSSR<T>(clave: string, promesa: Promise<T>, fallback: T, ttlMs = 30_000): Promise<T> {
+// Datos “calientes” (resultados de consultas de páginas): viven 10 s como máximo.
+// Así, tras recargar la DB, el front refleja los cambios casi al instante y la
+// DB compartida no recibe más consultas de las necesarias.
+export const SSR_TTL_MS = 10_000;
+
+export async function cargaSSR<T>(clave: string, promesa: Promise<T>, fallback: T, ttlMs = SSR_TTL_MS): Promise<T> {
   const hit = cacheGet<T>(clave);
   if (hit !== undefined) return hit;
   try {

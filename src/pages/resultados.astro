@@ -18,10 +18,12 @@ const selGas = f.gasera ?? [];
 const selAseg = f.aseguradora ?? [];
 const selCabina = f.cabina ?? [];
 const selEstado = f.estado ?? [];
+const selClasif = f.clasificacion ?? [];
 const gaseras = metadatos.gaseras ?? [];
 const aseguradoras = metadatos.aseguradoras ?? [];
 const cabinas = metadatos.cabinas ?? [];
 const estados = metadatos.estados ?? [];
+const clasificaciones = metadatos.clasificaciones ?? [];
 const mesesFiltro = (metadatos.meses ?? []).filter((m) => m !== 'SIN DATO');
 const totalBase = metadatos.total ?? 0;
 
@@ -84,8 +86,8 @@ const tablaNoAptos = armarTabla(resultadosNoAptos);
 
   <FiltrosPanel
     action="/resultados"
-    opciones={{ mes: mesesFiltro, gasera: gaseras, aseguradora: aseguradoras, cabina: cabinas, estado: estados }}
-    actual={{ mes: selMes, gasera: selGas, aseguradora: selAseg, cabina: selCabina, estado: selEstado }}
+    opciones={{ mes: mesesFiltro, gasera: gaseras, aseguradora: aseguradoras, cabina: cabinas, estado: estados, clasificacion: clasificaciones }}
+    actual={{ mes: selMes, gasera: selGas, aseguradora: selAseg, cabina: selCabina, estado: selEstado, clasificacion: selClasif }}
     totalFiltrado={TT}
     totalBase={totalBase}
   />
