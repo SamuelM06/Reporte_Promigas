@@ -14,9 +14,18 @@ const fmt = new Intl.NumberFormat('es-CO');
 
 // Corte dinámico para layout
 const mesesDisponibles = (metadatos.meses ?? []).filter(m => m !== 'SIN DATO');
-const corteTexto = mesesDisponibles.length > 0
-  ? `Corte · ${mesesDisponibles[0]} a ${mesesDisponibles[mesesDisponibles.length - 1]} 2026`
+const primeroMes = mesesDisponibles[0];
+const ultimoMes = mesesDisponibles[mesesDisponibles.length - 1];
+
+const corteTexto = primeroMes && ultimoMes
+  ? `Corte · ${primeroMes} a ${ultimoMes} 2026`
   : 'Corte · Enero a Diciembre 2026';
+
+const textoAcumulado = ultimoMes ? `a ${ultimoMes.toLowerCase()}` : 'a diciembre';
+const textoHasta = ultimoMes ? ` hasta ${ultimoMes.toLowerCase()}` : ' hasta diciembre';
+const textoCorteCubre = primeroMes && ultimoMes
+  ? `de ${primeroMes.toLowerCase()} a ${ultimoMes.toLowerCase()} de 2026`
+  : 'de enero a diciembre de 2026';
 ---
 
 <SidebarLayout title="Inicio · Gestión Diaria Promigas 2026" corteTexto={corteTexto}>
@@ -30,28 +39,12 @@ const corteTexto = mesesDisponibles.length > 0
         Gestión Diaria <span class="texto-brillo">Promigas</span> 2026
       </h1>
       <p class="relative mt-1 text-sm font-semibold text-white/80">
-        {(() => {
-          const mesesDisponibles = (metadatos.meses ?? []).filter(m => m !== 'SIN DATO');
-          if (mesesDisponibles.length > 0) {
-            const primero = mesesDisponibles[0];
-            const ultimo = mesesDisponibles[mesesDisponibles.length - 1];
-            return `Corte · ${primero} a ${ultimo} 2026`;
-          }
-          return 'Corte · Enero a Diciembre 2026';
-        })()}
+        {corteTexto}
       </p>
       <div class="relative mt-4 flex flex-wrap gap-2">
         <span class="inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-1.5 text-xs font-bold backdrop-blur">
           <span class="h-2 w-2 animate-pulse rounded-full bg-xuma-verde-claro"></span>
-          {(() => {
-            const mesesDisponibles = (metadatos.meses ?? []).filter(m => m !== 'SIN DATO');
-            if (mesesDisponibles.length > 0) {
-              const primero = mesesDisponibles[0];
-              const ultimo = mesesDisponibles[mesesDisponibles.length - 1];
-              return `Corte · ${primero} a ${ultimo} 2026`;
-            }
-            return 'Corte · Enero a Diciembre 2026';
-          })()}
+          {corteTexto}
         </span>
         <span class="inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-1.5 text-xs font-bold backdrop-blur">
           {fmt.format(total)} registros en base
@@ -64,26 +57,12 @@ const corteTexto = mesesDisponibles.length > 0
     <section class="grid items-center gap-8 lg:grid-cols-[1.05fr_0.95fr]">
       <div class="show fade-up" style="animation-delay:0.08s">
         <h2 class="text-xl font-extrabold md:text-2xl">
-          Acumulado <span class="texto-brillo">{(() => {
-            const mesesDisponibles = (metadatos.meses ?? []).filter(m => m !== 'SIN DATO');
-            if (mesesDisponibles.length > 0) {
-              const ultimo = mesesDisponibles[mesesDisponibles.length - 1];
-              return `a ${ultimo.toLowerCase()}`;
-            }
-            return 'a diciembre';
-          })()}</span>
+          Acumulado <span class="texto-brillo">{textoAcumulado}</span>
         </h2>
         <p class="mt-4 max-w-xl text-sm leading-relaxed text-tinta/65 md:text-base">
           Portal de la gestión diaria de <strong class="text-tinta">Promigas 2026</strong>:
           gaseras, aseguradoras, canales, productos y estados
-          <strong class="text-tinta">{(() => {
-            const mesesDisponibles = (metadatos.meses ?? []).filter(m => m !== 'SIN DATO');
-            if (mesesDisponibles.length > 0) {
-              const ultimo = mesesDisponibles[mesesDisponibles.length - 1];
-              return ` hasta ${ultimo.toLowerCase()}`;
-            }
-            return ' hasta diciembre';
-          })()}</strong>, con la identidad
+          <strong class="text-tinta">{textoHasta}</strong>, con la identidad
           visual de Xuma. Navega con la barra superior o con el botón de menú
           (☰) en pantallas pequeñas.
         </p>
@@ -110,15 +89,7 @@ const corteTexto = mesesDisponibles.length > 0
           <h2 class="text-lg font-bold text-tinta">¿Cómo leer este reporte?</h2>
           <p class="mt-2 text-xs leading-relaxed text-tinta/65 md:text-sm">
             Los datos viven en <code class="rounded-md bg-tinta/10 px-2 py-0.5">DataCenter_Promigas · reportes.reporte_promi</code>.
-            El corte cubre {(() => {
-              const mesesDisponibles = (metadatos.meses ?? []).filter(m => m !== 'SIN DATO');
-              if (mesesDisponibles.length > 0) {
-                const primero = mesesDisponibles[0].toLowerCase();
-                const ultimo = mesesDisponibles[mesesDisponibles.length - 1].toLowerCase();
-                return `de ${primero} a ${ultimo} de 2026`;
-              }
-              return 'de enero a diciembre de 2026';
-            })()} por fecha de ejecución. La barra de
+            El corte cubre {textoCorteCubre} por fecha de ejecución. La barra de
             navegación superior siempre está visible; en móvil se abre además el menú lateral con el botón ☰.
           </p>
         </div>
