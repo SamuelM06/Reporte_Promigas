@@ -2,7 +2,7 @@
 import { ruta } from '../lib/base';
 import SidebarLayout from '../layouts/SidebarLayout.astro';
 import FiltrosPanel from '../components/filtros/FiltrosPanel.astro';
-import { cargaSSR, filtrosPorDefecto, getMetadatos, getMensualPorAseguradora, getDashboardMensual, parseFiltros, METADATOS_VACIOS } from '../lib/query';
+import { cargaSSR, filtrosPorDefecto, getMetadatos, getMensualPorAseguradora, getDashboardMensual, getDetalleResultadosMensual, parseFiltros, METADATOS_VACIOS } from '../lib/query';
 import { KPI_COLORS, type KpiKey } from '../lib/kpi-colors';
 
 const f = { ...filtrosPorDefecto(), ...parseFiltros(Astro.url) };
@@ -11,6 +11,8 @@ const claveFiltros = JSON.stringify(f);
 const metadatos = await cargaSSR(`metadatos/${claveFiltros}`, getMetadatos(f), METADATOS_VACIOS, 300_000);
 const tablaMes: any[] = await cargaSSR(`mensual/${claveFiltros}`, getDashboardMensual(f), []);
 const mensual: any[] = await cargaSSR(`mensual-aseguradora/${claveFiltros}`, getMensualPorAseguradora(f), []);
+const detalleAptos: any[] = await cargaSSR(`detalle-aptos/${claveFiltros}`, getDetalleResultadosMensual(f, true), []);
+const detalleNoAptos: any[] = await cargaSSR(`detalle-noaptos/${claveFiltros}`, getDetalleResultadosMensual(f, false), []);
 const fmt = new Intl.NumberFormat('es-CO');
 
 const selMes = f.mes ?? [];
@@ -18,10 +20,12 @@ const selGas = f.gasera ?? [];
 const selAseg = f.aseguradora ?? [];
 const selCabina = f.cabina ?? [];
 const selEstado = f.estado ?? [];
+const selClasif = f.clasificacion ?? [];
 const gaseras = metadatos.gaseras ?? [];
 const aseguradoras = metadatos.aseguradoras ?? [];
 const cabinas = metadatos.cabinas ?? [];
 const estados = metadatos.estados ?? [];
+const clasificaciones = metadatos.clasificaciones ?? [];
 const mesesFiltro = (metadatos.meses ?? []).filter((m) => m !== 'SIN DATO');
 const totalBase = metadatos.total ?? 0;
 
@@ -87,6 +91,25 @@ const kpiMini = (['total', 'inbound', 'outbound', 'aptos', 'noAptos', 'retencion
   ...miniMap[k],
   cls: KPI_COLORS[k].miniCls,
 }));
+
+// --- Matriz estado × mes para las tablas de detalle (al estilo GasCaribe) ---
+const ORDEN_MES_DETALLE = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+const mesesDetalle = ORDEN_MES_DETALLE.filter((m) => detalleAptos.some((r) => r.mes === m) || detalleNoAptos.some((r) => r.mes === m));
+const pivotear = (filas: any[]) => {
+  const porEstado: Record<string, Record<string, number>> = {};
+  for (const r of filas) {
+    const e = r?.estado ?? 'SIN DATO';
+    (porEstado[e] ??= {})[r.mes] = Number(r.total ?? 0);
+  }
+  const rows = Object.entries(porEstado)
+    .map(([estado, porMes]) => ({ estado, porMes, total: Object.values(porMes).reduce((acc, v) => acc + v, 0) }))
+    .sort((a, b) => b.total - a.total);
+  const totalCol = Object.fromEntries(mesesDetalle.map((m) => [m, rows.reduce((s, r) => s + (r.porMes[m] ?? 0), 0)]));
+  const granTotal = rows.reduce((s, r) => s + r.total, 0);
+  return { rows, totalCol, granTotal };
+};
+const pivAptos = pivotear(detalleAptos);
+const pivNoAptos = pivotear(detalleNoAptos);
 ---
 
 <SidebarLayout title="Detalle · Gestión Diaria Promigas 2026" corteTexto={corteTexto}>
@@ -108,8 +131,8 @@ const kpiMini = (['total', 'inbound', 'outbound', 'aptos', 'noAptos', 'retencion
 
   <FiltrosPanel
     action={ruta('/detalle')}
-    opciones={{ mes: mesesFiltro, gasera: gaseras, aseguradora: aseguradoras, cabina: cabinas, estado: estados }}
-    actual={{ mes: selMes, gasera: selGas, aseguradora: selAseg, cabina: selCabina, estado: selEstado }}
+    opciones={{ mes: mesesFiltro, gasera: gaseras, aseguradora: aseguradoras, cabina: cabinas, estado: estados, clasificacion: clasificaciones }}
+    actual={{ mes: selMes, gasera: selGas, aseguradora: selAseg, cabina: selCabina, estado: selEstado, clasificacion: selClasif }}
     totalFiltrado={TT}
     totalBase={totalBase}
   />
@@ -157,6 +180,60 @@ const kpiMini = (['total', 'inbound', 'outbound', 'aptos', 'noAptos', 'retencion
       </tbody>
     </table>
     <p class="p-2 text-[11px] text-tinta/55">% Retención = Retenidos / Aptos × 100 · Aptos/No Aptos de la columna Clasificación · Mes = columna Mes de la base.</p>
+  </section>
+
+  <!-- Detalle de resultados Aptos (estado × mes) -->
+  <section class="glass mt-4 overflow-x-auto rounded-3xl p-3">
+    <h2 class="p-2 text-base font-bold">Detalle de resultados <span class="texto-brillo">Aptos</span> <span class="text-xs font-semibold text-tinta/55">(resultado × mes)</span></h2>
+    <table class="tbl-mes w-full min-w-[860px] text-left text-xs">
+      <thead><tr class="uppercase tracking-wider">
+        <th class="th-mes p-3">Resultado aptos</th>
+        {mesesDetalle.map((m) => <th class="p-3 text-right">{m.slice(0, 3)}</th>)}
+        <th class="th-tot p-3 text-right">Total</th>
+      </tr></thead>
+      <tbody>
+        {pivAptos.rows.map((r) => (
+          <tr>
+            <td class="c-ap p-3">{r.estado}</td>
+            {mesesDetalle.map((m) => <td class:list={['p-3 text-right', (r.porMes[m] ?? 0) === 0 && 'text-tinta/35']}>{fmt.format(r.porMes[m] ?? 0)}</td>)}
+            <td class="c-tot p-3 text-right">{fmt.format(r.total)}</td>
+          </tr>
+        ))}
+        <tr class="total-row">
+          <td class="p-3">TOTAL APTOS</td>
+          {mesesDetalle.map((m) => <td class="p-3 text-right">{fmt.format(pivAptos.totalCol[m] ?? 0)}</td>)}
+          <td class="p-3 text-right">{fmt.format(pivAptos.granTotal)}</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="p-2 text-[11px] text-tinta/55">Solo los 4 estados aptos de la columna Clasificación: <strong>Cancelado · Retenido · Cancelado + Venta · Cancelado + Reintegro</strong>.</p>
+  </section>
+
+  <!-- Detalle de resultados No Aptos (estado × mes) -->
+  <section class="glass mt-4 overflow-x-auto rounded-3xl p-3">
+    <h2 class="p-2 text-base font-bold">Detalle de resultados <span class="texto-brillo">No Aptos</span> <span class="text-xs font-semibold text-tinta/55">(resultado × mes)</span></h2>
+    <table class="tbl-mes w-full min-w-[860px] text-left text-xs">
+      <thead><tr class="uppercase tracking-wider">
+        <th class="th-no p-3">Resultado no aptos</th>
+        {mesesDetalle.map((m) => <th class="p-3 text-right">{m.slice(0, 3)}</th>)}
+        <th class="th-tot p-3 text-right">Total</th>
+      </tr></thead>
+      <tbody>
+        {pivNoAptos.rows.map((r) => (
+          <tr>
+            <td class="c-no p-3">{r.estado}</td>
+            {mesesDetalle.map((m) => <td class:list={['p-3 text-right', (r.porMes[m] ?? 0) === 0 && 'text-tinta/35']}>{fmt.format(r.porMes[m] ?? 0)}</td>)}
+            <td class="c-tot p-3 text-right">{fmt.format(r.total)}</td>
+          </tr>
+        ))}
+        <tr class="total-row">
+          <td class="p-3">TOTAL NO APTOS</td>
+          {mesesDetalle.map((m) => <td class="p-3 text-right">{fmt.format(pivNoAptos.totalCol[m] ?? 0)}</td>)}
+          <td class="p-3 text-right">{fmt.format(pivNoAptos.granTotal)}</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="p-2 text-[11px] text-tinta/55">Todo lo que no sea apto: <strong>No Contacto · No Apto · No Aplica · Cancelación Previa</strong> y demás no tipificados (columna Clasificación = NO APTO).</p>
   </section>
 
   <section class="glass mt-4 rounded-3xl p-5 md:p-8">

@@ -1,0 +1,92 @@
+---
+// Carrusel (marquee) de Promigas como empresa padre y sus 5 gaseras.
+// Sin JS: animación CSS pura, pausa al hover y se desactiva con
+// prefers-reduced-motion (queda desplazable a mano en ese caso).
+import { ruta } from '../../lib/base';
+
+const LOGOS = [
+  { logo: '/logos/gaseras/promigas.png', nombre: 'Promigas' },
+  { logo: '/logos/gaseras/caribe.png', nombre: 'GasCaribe' },
+  { logo: '/logos/gaseras/ceo.png', nombre: 'Ceo' },
+  { logo: '/logos/gaseras/gdo.png', nombre: 'Gdo' },
+  { logo: '/logos/gaseras/surtigas.png', nombre: 'Surtigas' },
+  { logo: '/logos/gaseras/efigas.png', nombre: 'Efigas' },
+];
+// Duplicado para que el loop sea perfecto (-50%).
+const doble = [...LOGOS, ...LOGOS];
+---
+
+<section class="logo-marquee" aria-label="Promigas y sus gaseras">
+  <p class="logo-marca"><span aria-hidden="true">▪</span> Promigas y sus gaseras</p>
+  <div class="marq">
+    <div class="marq-track">
+      {doble.map((l) => (
+        <span class="chip">
+          <img src={ruta(l.logo)} alt={`Logo ${l.nombre}`} loading="lazy" decoding="async" />
+        </span>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .logo-marquee {
+    border-radius: 1.5rem;
+    border: 1px solid rgba(18, 1, 128, 0.18);
+    background: linear-gradient(90deg, rgba(18, 1, 128, 0.08), rgba(0, 205, 147, 0.08));
+    padding: 0.6rem 0.9rem 0.7rem;
+    overflow: hidden;
+  }
+  .logo-marca {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(100, 116, 139, 0.95);
+    margin-bottom: 0.4rem;
+    padding-left: 0.15rem;
+  }
+  :global(.dark) .logo-marca { color: rgba(148, 163, 184, 0.85); }
+  .marq {
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+  }
+  .marq-track {
+    display: flex;
+    width: max-content;
+    align-items: center;
+    gap: 1.4rem;
+    animation: marq 42s linear infinite;
+  }
+  .marq:hover .marq-track { animation-play-state: paused; }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    /* Vidrio translúcido del mismo color del fondo (efecto blur sobresaliente) */
+    background-color: var(--cpanel-fondo);
+    background-image: var(--cglass-bg);
+    border: 1px solid var(--cglass-borde);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-radius: 0.9rem;
+    padding: 0.3rem 1rem;
+    box-shadow: 0 14px 34px -16px rgba(2, 6, 23, 0.6), 0 0 34px -18px rgba(90, 226, 128, 0.32);
+    white-space: nowrap;
+  }
+  .chip img {
+    height: 36px;
+    width: auto;
+    max-width: 150px;
+    object-fit: contain;
+  }
+  @keyframes marq {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .marq { overflow-x: auto; -webkit-mask-image: none; mask-image: none; }
+    .marq-track { animation: none; flex-wrap: wrap; width: 100%; justify-content: center; }
+  }
+</style>
