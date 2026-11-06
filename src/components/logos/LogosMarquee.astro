@@ -64,11 +64,15 @@ const doble = [...LOGOS, ...LOGOS];
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: #fff;
-    border: 1px solid rgba(2, 6, 23, 0.08);
+    /* Vidrio translúcido del mismo color del fondo (efecto blur sobresaliente) */
+    background-color: var(--cpanel-fondo);
+    background-image: var(--cglass-bg);
+    border: 1px solid var(--cglass-borde);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
     border-radius: 0.9rem;
     padding: 0.3rem 1rem;
-    box-shadow: 0 4px 16px rgba(2, 6, 23, 0.14);
+    box-shadow: 0 14px 34px -16px rgba(2, 6, 23, 0.6), 0 0 34px -18px rgba(90, 226, 128, 0.32);
     white-space: nowrap;
   }
   .chip img {

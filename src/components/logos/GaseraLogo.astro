@@ -41,10 +41,14 @@ const item = REGISTRO[clave] ?? { logo: '/logos/gaseras/promigas.png', nombre: '
     align-items: center;
     gap: 0.6rem;
     padding: 0.35rem 0.8rem;
-    background: #ffffff;
-    border: 1px solid rgba(2, 6, 23, 0.08);
+    /* Vidrio translúcido del mismo color del fondo (efecto blur sobresaliente) */
+    background-color: var(--cpanel-fondo);
+    background-image: var(--cglass-bg);
+    border: 1px solid var(--cglass-borde);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
     border-radius: 1rem;
-    box-shadow: 0 6px 22px rgba(2, 6, 23, 0.18);
+    box-shadow: 0 18px 42px -18px rgba(2, 6, 23, 0.6), 0 0 46px -20px rgba(0, 205, 147, 0.35);
   }
   .gasera-chip img {
     width: auto;
@@ -56,7 +60,7 @@ const item = REGISTRO[clave] ?? { logo: '/logos/gaseras/promigas.png', nombre: '
     font-weight: 800;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: #0f172a;
+    color: var(--color-tinta, #0f172a);
     white-space: nowrap;
   }
 </style>

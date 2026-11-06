@@ -3,7 +3,6 @@ import { ruta } from '../lib/base';
 import SidebarLayout from '../layouts/SidebarLayout.astro';
 import FiltrosPanel from '../components/filtros/FiltrosPanel.astro';
 import MensualChart from '../components/charts/MensualChart.astro';
-import GaseraLogo from '../components/logos/GaseraLogo.astro';
 import { FILTROS } from '../components/filtros/filtros';
 import { cargaSSR, filtrosPorDefecto, getDashboardMensual, getMetadatos, METADATOS_VACIOS, parseFiltros } from '../lib/query';
 
@@ -92,7 +91,6 @@ const resumen = (datos: any[]) => {
         <div class="flex flex-wrap items-center justify-between gap-2">
           <h2 class="flex items-center gap-3 text-lg font-extrabold md:text-xl">
             <span class="gas-num">{esEfigas ? '★' : String(i + 1).padStart(2, '0')}</span> {g}
-            <GaseraLogo gasera={g} alto={38} class="ml-1" />
           </h2>
           <div class="flex flex-wrap gap-2 text-xs font-bold">
             <span class="rounded-full bg-tinta/10 px-3 py-1">{fmt.format(r.total)} llamadas</span>
