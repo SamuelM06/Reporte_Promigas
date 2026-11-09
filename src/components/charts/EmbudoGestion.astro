@@ -295,8 +295,11 @@ const pctRetSobreTotal = (r: { llamadas: number; retenciones: number }) => r.lla
     overflow: visible;
     border-radius: 4px;
     box-shadow: 0 6px 18px -8px rgba(0,0,0,0.45);
-    min-width: 0;
+    min-width: 48px;
   }
+  .embudo-noaptas { min-width: 64px; }
+  .embudo-pct { min-width: 72px; }
+  .embudo-total { min-width: 0; }
   .embudo-bg {
     position: absolute; inset: 0; z-index: 0;
   }
