@@ -1,5 +1,5 @@
 ---
-// Embudo de gestión — versión horizontal por niveles (alineación final).
+// Embudo de gestión — silueta única, bordes alineados.
 // Layout: [etiquetas ~200px] [embudo flexible] [métricas ~220px].
 // Todo se calcula con las variables existentes; sin valores hardcodeados.
 interface Props {
@@ -65,10 +65,8 @@ const norm2 = (a: number, b: number) => {
 const { a: wIn, b: wOut } = norm2(pctInbound, pctOutbound);
 const { a: wApt, b: wNoA } = norm2(pctAptas, pctNoAptas);
 
-// Retenidos: ancho = ancho del bloque Aptas (alineado a la izquierda)
+// Retenidos: ancho = ancho del bloque Aptas
 const wRet = wApt;
-// % Retención: 70 % del trapecio de Retenidos
-const wPct = wRet * 0.7;
 
 // Tabla "Detalle por cabina"
 const filasCabina = [
@@ -108,7 +106,7 @@ const pctRetSobreTotal = (r: { llamadas: number; retenciones: number }) => r.lla
     </div>
     <div class="embudo-funnel-cell" style="grid-row:2; grid-column:2;">
       <div class="embudo-row embudo-row-cabina">
-        <div class="embudo-block embudo-inbound" style={`width:${wIn}%`}>
+        <div class="embudo-block embudo-inbound" style={`flex:${wIn} 1 0`}>
           <div class="embudo-bg"></div>
           <div class="embudo-content">
             <span class="embudo-nombre">INBOUND</span>
@@ -116,7 +114,7 @@ const pctRetSobreTotal = (r: { llamadas: number; retenciones: number }) => r.lla
             <span class="embudo-pct">{fmtPct(pctInbound)}</span>
           </div>
         </div>
-        <div class="embudo-block embudo-outbound" style={`width:${wOut}%`}>
+        <div class="embudo-block embudo-outbound" style={`flex:${wOut} 1 0`}>
           <div class="embudo-bg"></div>
           <div class="embudo-content">
             <span class="embudo-nombre">OUTBOUND</span>
@@ -134,7 +132,7 @@ const pctRetSobreTotal = (r: { llamadas: number; retenciones: number }) => r.lla
     </div>
     <div class="embudo-funnel-cell" style="grid-row:3; grid-column:2;">
       <div class="embudo-row embudo-row-clasif">
-        <div class="embudo-block embudo-aptas" style={`width:${wApt}%`}>
+        <div class="embudo-block embudo-aptas" style={`flex:${wApt} 1 0`}>
           <div class="embudo-bg"></div>
           <div class="embudo-content">
             <span class="embudo-nombre">APTAS</span>
@@ -142,7 +140,7 @@ const pctRetSobreTotal = (r: { llamadas: number; retenciones: number }) => r.lla
             <span class="embudo-pct">{fmtPct(pctAptas)}</span>
           </div>
         </div>
-        <div class="embudo-block embudo-noaptas" style={`width:${wNoA}%`}>
+        <div class="embudo-block embudo-noaptas" style={`flex:${wNoA} 1 0`}>
           <div class="embudo-bg"></div>
           <div class="embudo-content">
             <span class="embudo-nombre">NO APTAS</span>
@@ -157,27 +155,19 @@ const pctRetSobreTotal = (r: { llamadas: number; retenciones: number }) => r.lla
       <span class="embudo-metric-txt">aptas sin retener · {fmtPct(pctSinRetenerSobreAptas)} de las aptas</span>
     </div>
 
-    <!-- Fila 4: Retención (trapecio + % Retención anidado) -->
+    <!-- Fila 4: Retención (trapecio + nota a la derecha) -->
     <div class="embudo-label-cell" style="grid-row:4; grid-column:1;">
       <span class="embudo-label">Retención</span>
       <span class="embudo-sub">solo sobre las aptas</span>
     </div>
     <div class="embudo-funnel-cell" style="grid-row:4; grid-column:2;">
       <div class="embudo-row embudo-row-ret">
-        <div class="embudo-block embudo-retenidos" style={`width:${wRet}%`}>
-          <div class="embudo-bg embudo-bg-trap"></div>
+        <div class="embudo-block embudo-retenidos" style={`width:${wApt}%`}>
+          <div class="embudo-bg"></div>
           <div class="embudo-content">
             <span class="embudo-nombre">RETENCIONES</span>
             <span class="embudo-valor">{fmt.format(RET)}</span>
             <span class="embudo-pct">{fmtPct(pctAptas > 0 ? (RET / APT) * 100 : 0)} del total</span>
-          </div>
-          <div class="embudo-pct-block">
-            <div class="embudo-bg embudo-bg-trap"></div>
-            <div class="embudo-content">
-              <span class="embudo-nombre">% RETENCIÓN</span>
-              <span class="embudo-valor">{fmtPct(PCT)}</span>
-              <span class="embudo-pct">Ret / Aptas</span>
-            </div>
           </div>
         </div>
         <div class="embudo-noaptas-note">Las no aptas no generan retención.</div>
@@ -253,7 +243,6 @@ const pctRetSobreTotal = (r: { llamadas: number; retenciones: number }) => r.lla
     border-radius: 1.5rem;
     padding: 1rem 1.25rem;
     font-family: 'Raleway', 'Inter', system-ui, sans-serif;
-    box-shadow: 0 10px 30px -12px rgba(15, 23, 42, 0.12);
   }
   .embudo-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
   .embudo-titulo { font-size: 16px; font-weight: 800; color: var(--text-primary); margin: 0; }
@@ -268,6 +257,7 @@ const pctRetSobreTotal = (r: { llamadas: number; retenciones: number }) => r.lla
     background: var(--gap-color);
     border-radius: 8px;
     overflow: hidden;
+    --inset: 4%;
   }
   .embudo-label-cell {
     display: flex; flex-direction: column; align-items: flex-end; justify-content: center;
@@ -279,7 +269,7 @@ const pctRetSobreTotal = (r: { llamadas: number; retenciones: number }) => r.lla
   .embudo-funnel-cell { display: flex; flex-direction: column; gap: 3px; background: var(--gap-color); }
   .embudo-row { display: flex; gap: 3px; height: 72px; align-items: stretch; background: var(--gap-color); }
   .embudo-row-total { height: 78px; }
-  .embudo-row-pct { height: 64px; }
+  .embudo-row-ret { height: auto; min-height: 72px; }
 
   .embudo-block {
     position: relative;
@@ -289,6 +279,10 @@ const pctRetSobreTotal = (r: { llamadas: number; retenciones: number }) => r.lla
     box-sizing: border-box;
     border: 0;
     outline: 0;
+    box-shadow: none;
+    filter: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
   .embudo-bg {
     position: absolute; inset: 0; z-index: 0;
@@ -315,19 +309,19 @@ const pctRetSobreTotal = (r: { llamadas: number; retenciones: number }) => r.lla
 
   /* colores de fondo por figura (en la capa .embudo-bg) */
   .embudo-total .embudo-bg { background: linear-gradient(135deg, #3b82f6, #2563eb); border-radius: 10px 10px 0 0; }
-  .embudo-inbound .embudo-bg { background: linear-gradient(135deg, #8b5cf6, #7c3aed); clip-path: polygon(0 0, 100% 0, 100% 100%, 2% 100%); }
-  .embudo-outbound .embudo-bg { background: linear-gradient(135deg, #06b6d4, #0891b2); clip-path: polygon(0 0, 100% 0, 98% 100%, 0 100%); }
-  .embudo-aptas .embudo-bg { background: linear-gradient(135deg, #10a37f, #0f7a58); clip-path: polygon(0 0, 100% 0, 100% 100%, 2% 100%); }
-  .embudo-noaptas .embudo-bg { background: linear-gradient(135deg, #d97706, #b45309); clip-path: polygon(0 0, 100% 0, 98% 100%, 0 100%); }
-  .embudo-retenidos { display: flex; flex-direction: column; gap: 3px; background: transparent; }
+  .embudo-inbound .embudo-bg { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+  .embudo-outbound .embudo-bg { background: linear-gradient(135deg, #06b6d4, #0891b2); }
+  .embudo-aptas .embudo-bg { background: linear-gradient(135deg, #10a37f, #0f7a58); }
+  .embudo-noaptas .embudo-bg { background: linear-gradient(135deg, #d97706, #b45309); }
+  .embudo-retenidos { display: flex; flex-direction: column; gap: 3px; background: transparent; margin-left: calc(var(--inset) / 4); }
   .embudo-retenidos .embudo-bg { background: linear-gradient(135deg, #0f7a58, #065f46); clip-path: polygon(0 0, 100% 0, 85% 100%, 15% 100%); }
-  .embudo-pct-block { position: relative; width: 70%; margin-inline: auto; height: 64px; overflow: visible; border-radius: 4px; box-sizing: border-box; border: 0; outline: 0; }
-  .embudo-pct-block .embudo-bg { background: linear-gradient(135deg, #2563eb, #1e40af); clip-path: polygon(0 0, 100% 0, 85% 100%, 15% 100%); }
-  .embudo-total .embudo-bg { background: linear-gradient(135deg, #3b82f6, #2563eb); border-radius: 10px 10px 0 0; }
   .embudo-content-total { flex-direction: row; gap: 12px; }
 
-  .embudo-trap { position: relative; height: 72px; overflow: visible; border-radius: 4px; box-sizing: border-box; border: 0; outline: 0; }
-  .embudo-pct-block .embudo-content { height: 100%; }
+  /* silueta única: clip-path en la FILA completa (no en cada bloque) */
+  .embudo-row-cabina { clip-path: polygon(0 0, 100% 0, calc(100% - var(--inset)/4) 100%, calc(var(--inset)/4) 100%); }
+  .embudo-row-clasif { clip-path: polygon(calc(var(--inset)/4) 0, calc(100% - var(--inset)/4) 0, calc(100% - var(--inset)/2) 100%, calc(var(--inset)/2) 100%); }
+
+  .embudo-trap { position: relative; height: 72px; overflow: visible; border-radius: 4px; box-sizing: border-box; border: 0; outline: 0; box-shadow: none; filter: none; }
 
   .embudo-noaptas-note {
     display: flex; align-items: center;
@@ -370,7 +364,6 @@ const pctRetSobreTotal = (r: { llamadas: number; retenciones: number }) => r.lla
     .embudo-nombre { font-size: clamp(8px, 2vw, 10px); }
     .embudo-row { height: 62px; }
     .embudo-row-total { height: 68px; }
-    .embudo-row-pct { height: 56px; }
   }
   /* Prevención de recorte de texto y selección azul */
   .embudo-content span { white-space: nowrap; background: transparent; -webkit-background-clip: border-box; background-clip: border-box; user-select: none; padding: 0 4px; }
