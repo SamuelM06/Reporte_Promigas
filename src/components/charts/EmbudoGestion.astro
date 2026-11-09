@@ -87,9 +87,8 @@ const pctRetSobreTotal = (r: { llamadas: number; retenciones: number }) => r.lla
   </div>
 
   <!-- Frase generada con variables -->
-  <p class="embudo-frase">
-    De <strong>{fmt.format(T)}</strong> llamadas, <strong>{fmt.format(APT)}</strong> fueron aptas y <strong>{fmt.format(RET)}</strong> se retuvieron.
-  </p>
+  <!-- (eliminada a petición del usuario) -->
+
 
   <!-- Layout 3 columnas -->
   <div class="embudo-grid">
@@ -245,7 +244,7 @@ const pctRetSobreTotal = (r: { llamadas: number; retenciones: number }) => r.lla
     --text-secondary: #475569;
     --text-muted: #64748b;
     --border: #e2e8f0;
-    --gap-color: #ffffff;
+    --gap-color: #e2e8f0;
     --amarillo-aptas: #b45309;
   }
   :global(.dark) {
@@ -264,6 +263,7 @@ const pctRetSobreTotal = (r: { llamadas: number; retenciones: number }) => r.lla
     border-radius: 1.5rem;
     padding: 1rem 1.25rem;
     font-family: 'Raleway', 'Inter', system-ui, sans-serif;
+    box-shadow: 0 10px 30px -12px rgba(15, 23, 42, 0.12);
   }
   .embudo-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
   .embudo-titulo { font-size: 16px; font-weight: 800; color: var(--text-primary); margin: 0; }
