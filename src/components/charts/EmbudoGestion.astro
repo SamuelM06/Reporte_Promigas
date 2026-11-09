@@ -1,11 +1,6 @@
 ---
-// Embudo de gestión — versión horizontal por niveles (solicitud del usuario).
-// Estructura: [etiquetas ~200px] [embudo flexible] [métricas ~220px].
-// Nivel 0: Total general (barra ancha)
-// Nivel 1: Cabina — Inbound + Outbound lado a lado
-// Nivel 2: Clasificación — Aptas + No aptas lado a lado
-// Nivel 3: Retenidos (trapecio, centrado bajo Aptas)
-// Nivel 4: % Retención (trapecio pequeño, centrado bajo Retenidos)
+// Embudo de gestión — versión horizontal por niveles (según especificación).
+// Layout: [etiquetas ~200px] [embudo flexible] [métricas ~220px].
 // Todo se calcula con las variables existentes; sin valores hardcodeados.
 interface Props {
   total: number;
@@ -29,22 +24,23 @@ const {
 } = Astro.props;
 
 const fmt = new Intl.NumberFormat('es-CO');
-const nf1 = (v: number) => new Intl.NumberFormat('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(v);
+const fmtPct = (v: number) => new Intl.NumberFormat('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(v) + ' %';
 const n = (v: number | undefined) => Number(v ?? 0) || 0;
 
 const T = n(total);
 const IN = n(inbound);
 const OUT = n(outbound);
 const APT = n(aptas);
-const NOAP = n(noAptas);
+// Respaldo para el bug de mapeo: si noAptas llega 0/undefined, derivarla
+const NOAP = noAptas != null ? n(noAptas) : Math.max(0, T - APT);
 const RET = n(retenciones);
 const PCT = n(pct);
 
 const APT_IN = n(inboundAptas);
-const NOAP_IN = n(inboundNoAptas);
+const NOAP_IN = inboundNoAptas != null ? n(inboundNoAptas) : Math.max(0, IN - APT_IN);
 const RET_IN = n(inboundRetenciones);
 const APT_OUT = n(outboundAptas);
-const NOAP_OUT = n(outboundNoAptas);
+const NOAP_OUT = outboundNoAptas != null ? n(outboundNoAptas) : Math.max(0, OUT - APT_OUT);
 const RET_OUT = n(outboundRetenciones);
 
 // Derivados (protegidos contra división por 0)
@@ -57,25 +53,22 @@ const pctSinRetenerSobreAptas = APT > 0 ? (aptasSinRetener / APT) * 100 : 0;
 const tasaRetencion = APT > 0 ? (RET / APT) * 100 : 0;
 const retencionSobreTotal = T > 0 ? (RET / T) * 100 : 0;
 
-// Mínimo ~8% para que un bloque muy pequeño siga mostrando texto
-const minPct = 8;
-const wIn  = Math.max(minPct, pctInbound);
-const wOut = Math.max(minPct, pctOutbound);
-// Normalizar para que sumen 100
-const sumIO = wIn + wOut;
-const normIn = sumIO > 0 ? (wIn / sumIO) * 100 : 50;
-const normOut = sumIO > 0 ? (wOut / sumIO) * 100 : 50;
+// Mínimo ~10 % solo si el valor es mayor a 0 pero muy pequeño; normalizado a 100
+const minBlock = 10;
+const norm2 = (a: number, b: number) => {
+  const ra = a > 0 ? Math.max(minBlock, a) : 0;
+  const rb = b > 0 ? Math.max(minBlock, b) : 0;
+  const s = ra + rb;
+  if (s <= 0) return { a: 50, b: 50 };
+  return { a: (ra / s) * 100, b: (rb / s) * 100 };
+};
+const { a: wIn, b: wOut } = norm2(pctInbound, pctOutbound);
+const { a: wApt, b: wNoA } = norm2(pctAptas, pctNoAptas);
 
-const wApt = Math.max(minPct, pctAptas);
-const wNoA = Math.max(minPct, pctNoAptas);
-const sumAN = wApt + wNoA;
-const normApt = sumAN > 0 ? (wApt / sumAN) * 100 : 50;
-const normNoA = sumAN > 0 ? (wNoA / sumAN) * 100 : 50;
-
-// Retenidos: ancho = pctAptas% (alineado a la izquierda, bajo Aptas)
-const wRet = Math.max(minPct, pctAptas);
-// % Retención: más pequeño, centrado bajo Retenidos
-const wPct = Math.max(18, wRet * 0.55);
+// Retenidos: ancho = ancho del bloque Aptas (alineado a la izquierda)
+const wRet = wApt;
+// % Retención: 70 % del trapecio de Retenidos
+const wPct = wRet * 0.7;
 
 // Tabla "Detalle por cabina"
 const filasCabina = [
@@ -85,21 +78,12 @@ const filasCabina = [
 ];
 const pctRetSobreAptas = (r: { aptas: number; retenciones: number }) => r.aptas > 0 ? (r.retenciones / r.aptas) * 100 : 0;
 const pctRetSobreTotal = (r: { llamadas: number; retenciones: number }) => r.llamadas > 0 ? (r.retenciones / r.llamadas) * 100 : 0;
-
-// Iconos (Lucide, stroke)
-const icPhone = '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.9a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>';
-const icCheck = '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>';
-const icX = '<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>';
-const icShield = '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1 1 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>';
-const icPct = '<line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>';
 ---
-<section class="embudo-card glass mt-3 rounded-3xl p-4 md:p-5">
+<section class="embudo-card">
   <!-- Encabezado -->
-  <div class="flex flex-wrap items-center justify-between gap-2">
-    <h2 class="flex items-center gap-2 text-base font-bold md:text-lg">
-      Embudo de gestión
-    </h2>
-    <p class="text-[11px] font-semibold text-tinta/60 md:text-xs">Total → Aptas → Retenciones</p>
+  <div class="embudo-head">
+    <h2 class="embudo-titulo">Embudo de gestión</h2>
+    <p class="embudo-subtitulo">Total → Aptas → Retenciones</p>
   </div>
 
   <!-- Frase generada con variables -->
@@ -109,110 +93,111 @@ const icPct = '<line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r=
 
   <!-- Layout 3 columnas -->
   <div class="embudo-grid">
-    <!-- Columna izquierda: etiquetas -->
-    <div class="embudo-labels">
-      <div class="embudo-label-row" style="grid-row: 2;">
-        <span class="embudo-label">Cabina</span>
-        <span class="embudo-sub">inbound + outbound</span>
-      </div>
-      <div class="embudo-label-row" style="grid-row: 3;">
-        <span class="embudo-label">Clasificación</span>
-        <span class="embudo-sub">aptas + no aptas</span>
-      </div>
-      <div class="embudo-label-row" style="grid-row: 4;">
-        <span class="embudo-label">Retención</span>
-        <span class="embudo-sub">solo sobre las aptas</span>
+    <!-- Fila 1: Total -->
+    <div class="embudo-funnel-cell" style="grid-row:1; grid-column:2;">
+      <div class="embudo-row embudo-row-total">
+        <div class="embudo-block embudo-total" style="width:100%">
+          <div class="embudo-bg"></div>
+          <div class="embudo-content embudo-content-total">
+            <span class="embudo-nombre">TOTAL DE LLAMADAS</span>
+            <span class="embudo-valor">{fmt.format(T)}</span>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- Columna central: embudo -->
-    <div class="embudo-funnel">
-      <!-- Fila 0: Total -->
-      <div class="embudo-row embudo-row-total embudo-total" style={`width:100%`}>
-        <div class="embudo-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" set:html={icPhone} /></div>
-        <div class="embudo-text">
-          <span class="embudo-nombre">TOTAL DE LLAMADAS</span>
-          <span class="embudo-valor">{fmt.format(T)}</span>
-          <span class="embudo-pct">100 %</span>
-        </div>
-      </div>
-
-      <!-- Fila 1: Cabina (Inbound + Outbound) -->
+    <!-- Fila 2: Cabina -->
+    <div class="embudo-label-cell" style="grid-row:2; grid-column:1;">
+      <span class="embudo-label">Cabina</span>
+      <span class="embudo-sub">inbound + outbound</span>
+    </div>
+    <div class="embudo-funnel-cell" style="grid-row:2; grid-column:2;">
       <div class="embudo-row embudo-row-cabina">
-        <div class="embudo-block embudo-inbound" style={`width:${normIn}%`}>
-          <div class="embudo-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" set:html={icPhone} /></div>
-          <div class="embudo-text">
+        <div class="embudo-block embudo-inbound" style={`width:${wIn}%`}>
+          <div class="embudo-bg"></div>
+          <div class="embudo-content">
             <span class="embudo-nombre">INBOUND</span>
             <span class="embudo-valor">{fmt.format(IN)}</span>
-            <span class="embudo-pct">{nf1(pctInbound)} %</span>
+            <span class="embudo-pct">{fmtPct(pctInbound)}</span>
           </div>
         </div>
-        <div class="embudo-block embudo-outbound" style={`width:${normOut}%`}>
-          <div class="embudo-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" set:html={icPhone} /></div>
-          <div class="embudo-text">
+        <div class="embudo-block embudo-outbound" style={`width:${wOut}%`}>
+          <div class="embudo-bg"></div>
+          <div class="embudo-content">
             <span class="embudo-nombre">OUTBOUND</span>
             <span class="embudo-valor">{fmt.format(OUT)}</span>
-            <span class="embudo-pct">{nf1(pctOutbound)} %</span>
+            <span class="embudo-pct">{fmtPct(pctOutbound)}</span>
           </div>
         </div>
       </div>
+    </div>
 
-      <!-- Fila 2: Clasificación (Aptas + No aptas) -->
+    <!-- Fila 3: Clasificación -->
+    <div class="embudo-label-cell" style="grid-row:3; grid-column:1;">
+      <span class="embudo-label">Clasificación</span>
+      <span class="embudo-sub">aptas + no aptas</span>
+    </div>
+    <div class="embudo-funnel-cell" style="grid-row:3; grid-column:2;">
       <div class="embudo-row embudo-row-clasif">
-        <div class="embudo-block embudo-aptas" style={`width:${normApt}%`}>
-          <div class="embudo-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" set:html={icCheck} /></div>
-          <div class="embudo-text">
+        <div class="embudo-block embudo-aptas" style={`width:${wApt}%`}>
+          <div class="embudo-bg"></div>
+          <div class="embudo-content">
             <span class="embudo-nombre">APTAS</span>
             <span class="embudo-valor">{fmt.format(APT)}</span>
-            <span class="embudo-pct">{nf1(pctAptas)} %</span>
+            <span class="embudo-pct">{fmtPct(pctAptas)}</span>
           </div>
         </div>
-        <div class="embudo-block embudo-noaptas" style={`width:${normNoA}%`}>
-          <div class="embudo-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" set:html={icX} /></div>
-          <div class="embudo-text">
+        <div class="embudo-block embudo-noaptas" style={`width:${wNoA}%`}>
+          <div class="embudo-bg"></div>
+          <div class="embudo-content">
             <span class="embudo-nombre">NO APTAS</span>
             <span class="embudo-valor">{fmt.format(NOAP)}</span>
-            <span class="embudo-pct">{nf1(pctNoAptas)} %</span>
+            <span class="embudo-pct">{fmtPct(pctNoAptas)}</span>
           </div>
         </div>
       </div>
+    </div>
+    <div class="embudo-metric-cell" style="grid-row:3; grid-column:3;">
+      <span class="embudo-metric-valor embudo-metric-amarillo">{fmt.format(aptasSinRetener)}</span>
+      <span class="embudo-metric-txt">aptas sin retener · {fmtPct(pctSinRetenerSobreAptas)} de las aptas</span>
+    </div>
 
-      <!-- Fila 3: Retenidos (trapecio, centrado bajo Aptas) -->
+    <!-- Fila 4: Retención -->
+    <div class="embudo-label-cell" style="grid-row:4; grid-column:1;">
+      <span class="embudo-label">Retención</span>
+      <span class="embudo-sub">solo sobre las aptas</span>
+    </div>
+    <div class="embudo-funnel-cell" style="grid-row:4; grid-column:2;">
       <div class="embudo-row embudo-row-ret">
-        <div class="embudo-block embudo-retenidos" style={`width:${wRet}%`}>
-          <div class="embudo-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" set:html={icShield} /></div>
-          <div class="embudo-text">
+        <div class="embudo-block embudo-retenidos" style={`width:${wApt}%`}>
+          <div class="embudo-bg embudo-bg-trap"></div>
+          <div class="embudo-content">
             <span class="embudo-nombre">RETENCIONES</span>
             <span class="embudo-valor">{fmt.format(RET)}</span>
-            <span class="embudo-pct">{nf1(pctAptas > 0 ? (RET / APT) * 100 : 0)} % del total</span>
+            <span class="embudo-pct">{fmtPct(pctAptas > 0 ? (RET / APT) * 100 : 0)} del total</span>
           </div>
         </div>
+        <div class="embudo-noaptas-note">Las no aptas no generan retención.</div>
       </div>
+    </div>
+    <div class="embudo-metric-cell" style="grid-row:4; grid-column:3;">
+      <span class="embudo-metric-valor">{fmtPct(tasaRetencion)}</span>
+      <span class="embudo-metric-txt">tasa de retención (retenciones ÷ aptas)</span>
+      <span class="embudo-metric-valor embudo-metric-small">{fmtPct(retencionSobreTotal)}</span>
+      <span class="embudo-metric-txt">sobre el total de llamadas</span>
+    </div>
 
-      <!-- Fila 4: % Retención (trapecio pequeño) -->
+    <!-- Fila 5: % Retención -->
+    <div class="embudo-funnel-cell" style="grid-row:5; grid-column:2;">
       <div class="embudo-row embudo-row-pct">
         <div class="embudo-block embudo-pct" style={`width:${wPct}%`}>
-          <div class="embudo-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" set:html={icPct} /></div>
-          <div class="embudo-text">
+          <div class="embudo-bg embudo-bg-trap"></div>
+          <div class="embudo-content">
             <span class="embudo-nombre">% RETENCIÓN</span>
-            <span class="embudo-valor">{nf1(PCT)} %</span>
+            <span class="embudo-valor">{fmtPct(PCT)}</span>
             <span class="embudo-pct">Ret / Aptas</span>
           </div>
         </div>
-      </div>
-    </div>
-
-    <!-- Columna derecha: métricas -->
-    <div class="embudo-metrics">
-      <div class="embudo-metric-row" style="grid-row: 3;">
-        <span class="embudo-metric-valor embudo-metric-amarillo">{fmt.format(aptasSinRetener)}</span>
-        <span class="embudo-metric-txt">aptas sin retener · {nf1(pctSinRetenerSobreAptas)} % de las aptas</span>
-      </div>
-      <div class="embudo-metric-row embudo-metric-ret" style="grid-row: 4;">
-        <span class="embudo-metric-valor">{nf1(tasaRetencion)}</span>
-        <span class="embudo-metric-txt">tasa de retención (retenciones ÷ aptas)</span>
-        <span class="embudo-metric-valor embudo-metric-small">{nf1(retencionSobreTotal)}</span>
-        <span class="embudo-metric-txt">sobre el total de llamadas</span>
       </div>
     </div>
   </div>
@@ -243,8 +228,8 @@ const icPct = '<line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r=
             <td>{fmt.format(r.aptas)}</td>
             <td>{fmt.format(r.noAptas)}</td>
             <td>{fmt.format(r.retenciones)}</td>
-            <td>{nf1(pctRetSobreAptas(r))} %</td>
-            <td>{nf1(pctRetSobreTotal(r))} %</td>
+            <td>{fmtPct(pctRetSobreAptas(r))}</td>
+            <td>{fmtPct(pctRetSobreTotal(r))}</td>
           </tr>
         ))}
       </tbody>
@@ -253,101 +238,144 @@ const icPct = '<line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r=
 </section>
 
 <style>
-  .embudo-card { font-family: 'Raleway', 'Inter', system-ui, sans-serif; }
-  .embudo-frase { text-align: center; font-size: 13px; color: rgba(226,232,240,0.7); margin: 8px 0 14px; }
-  .embudo-frase strong { color: #f8fafc; font-weight: 800; }
+  /* Variables de tema (mecanismo existente: clase .dark) */
+  :global(:root) {
+    --card-bg: #ffffff;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #64748b;
+    --border: #e2e8f0;
+    --gap-color: #ffffff;
+    --amarillo-aptas: #b45309;
+  }
+  :global(.dark) {
+    --card-bg: #1c1f3a;
+    --text-primary: #ffffff;
+    --text-secondary: #cbd5e1;
+    --text-muted: #94a3b8;
+    --border: rgba(255, 255, 255, 0.1);
+    --gap-color: #1c1f3a;
+    --amarillo-aptas: #fcd34d;
+  }
+
+  .embudo-card {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 1.5rem;
+    padding: 1rem 1.25rem;
+    font-family: 'Raleway', 'Inter', system-ui, sans-serif;
+  }
+  .embudo-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+  .embudo-titulo { font-size: 16px; font-weight: 800; color: var(--text-primary); margin: 0; }
+  .embudo-subtitulo { font-size: 11px; font-weight: 600; color: var(--text-muted); margin: 0; }
+  .embudo-frase { text-align: center; font-size: 13px; color: var(--text-secondary); margin: 10px 0 14px; }
+  .embudo-frase strong { color: var(--text-primary); font-weight: 800; }
 
   .embudo-grid {
     display: grid;
-    grid-template-columns: 170px 1fr 210px;
+    grid-template-columns: 200px 1fr 220px;
     grid-template-rows: auto auto auto auto auto;
-    gap: 6px 14px;
+    gap: 3px 14px;
     align-items: center;
   }
-  .embudo-labels { display: contents; }
-  .embudo-label-row {
+  .embudo-label-cell {
     display: flex; flex-direction: column; align-items: flex-end; justify-content: center;
     text-align: right; padding-right: 6px;
   }
-  .embudo-label { font-size: 13px; font-weight: 800; color: #f1f5f9; letter-spacing: 0.02em; }
-  .embudo-sub { font-size: 10px; color: rgba(148,163,184,0.85); margin-top: 2px; }
+  .embudo-label { font-size: 13px; font-weight: 800; color: var(--text-primary); letter-spacing: 0.02em; }
+  .embudo-sub { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
 
-  .embudo-funnel { grid-column: 2; display: flex; flex-direction: column; gap: 3px; }
+  .embudo-funnel-cell { display: flex; flex-direction: column; gap: 3px; }
   .embudo-row { display: flex; gap: 3px; height: 72px; align-items: stretch; }
-  .embudo-row-total { height: 78px; border-radius: 10px 10px 4px 4px; }
-  .embudo-row-pct { height: 64px; }
+  .embudo-row-total { height: 78px; }
+  .embudo-row-pct { height: 64px; justify-content: center; }
 
   .embudo-block {
     position: relative;
-    display: flex; align-items: center; justify-content: center; gap: 8px;
-    border-radius: 6px;
+    overflow: visible;
+    border-radius: 4px;
     box-shadow: 0 6px 18px -8px rgba(0,0,0,0.45);
-    overflow: hidden;
-    transition: filter .2s ease;
+    min-width: 0;
   }
-  .embudo-block:hover { filter: brightness(1.08); }
-
-  /* clip-paths por fila */
-  .embudo-row-total .embudo-block { border-radius: 10px 10px 4px 4px; }
-  .embudo-row-cabina .embudo-inbound { clip-path: polygon(0 0, 100% 0, 100% 100%, 1% 100%); }
-  .embudo-row-cabina .embudo-outbound { clip-path: polygon(0 0, 100% 0, 99% 100%, 0 100%); }
-  .embudo-row-clasif .embudo-aptas { clip-path: polygon(0 0, 100% 0, 100% 100%, 1% 100%); }
-  .embudo-row-clasif .embudo-noaptas { clip-path: polygon(0 0, 100% 0, 90% 100%, 0 100%); }
-  .embudo-retenidos { clip-path: polygon(0 0, 100% 0, 80% 100%, 20% 100%); }
-  .embudo-pct { clip-path: polygon(0 0, 100% 0, 85% 100%, 15% 100%); }
-
-  /* colores */
-  .embudo-total { background: linear-gradient(135deg, #3b82f6, #2563eb); }
-  .embudo-inbound { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
-  .embudo-outbound { background: linear-gradient(135deg, #06b6d4, #0891b2); }
-  .embudo-aptas { background: linear-gradient(135deg, #10a37f, #0f7a58); }
-  .embudo-noaptas { background: linear-gradient(135deg, #d97706, #b45309); }
-  .embudo-retenidos { background: linear-gradient(135deg, #0f7a58, #065f46); }
-  .embudo-pct { background: linear-gradient(135deg, #2563eb, #1e40af); }
-
-  .embudo-chip {
-    width: 30px; height: 30px; border-radius: 50%;
-    background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.28);
-    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  .embudo-bg {
+    position: absolute; inset: 0; z-index: 0;
   }
-  .embudo-chip svg { width: 16px; height: 16px; stroke: #fff; }
+  .embudo-content {
+    position: relative; z-index: 1;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 100%; padding: 0 4px;
+    white-space: nowrap;
+    background: transparent;
+    -webkit-background-clip: border-box;
+    background-clip: border-box;
+    user-select: none;
+    line-height: 1.15;
+  }
+  /* textos dentro de figuras saturadas: blancos en ambos temas */
+  .embudo-content .embudo-nombre { color: #ffffff; }
+  .embudo-content .embudo-valor { color: #ffffff; }
+  .embudo-content .embudo-pct { color: rgba(255,255,255,0.88); }
 
-  .embudo-text { display: flex; flex-direction: column; align-items: center; line-height: 1.05; }
-  .embudo-nombre { font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.92); }
-  .embudo-valor { font-size: 24px; font-weight: 800; color: #fff; margin-top: 2px; font-variant-numeric: tabular-nums; }
-  .embudo-pct { font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.85); margin-top: 2px; }
+  .embudo-nombre { font-size: clamp(9px, 0.8vw, 11px); font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+  .embudo-valor { font-size: clamp(18px, 2vw, 26px); font-weight: 800; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .embudo-pct { font-size: clamp(9px, 0.75vw, 10px); font-weight: 600; margin-top: 2px; }
 
-  .embudo-metrics { grid-column: 3; display: contents; }
-  .embudo-metric-row {
+  /* colores de fondo por figura (en la capa .embudo-bg) */
+  .embudo-total .embudo-bg { background: linear-gradient(135deg, #3b82f6, #2563eb); border-radius: 10px 10px 0 0; }
+  .embudo-inbound .embudo-bg { background: linear-gradient(135deg, #8b5cf6, #7c3aed); clip-path: polygon(0 0, 100% 0, 100% 100%, 1% 100%); }
+  .embudo-outbound .embudo-bg { background: linear-gradient(135deg, #06b6d4, #0891b2); clip-path: polygon(0 0, 100% 0, 99% 100%, 0 100%); }
+  .embudo-aptas .embudo-bg { background: linear-gradient(135deg, #10a37f, #0f7a58); clip-path: polygon(0 0, 100% 0, 100% 100%, 1% 100%); }
+  .embudo-noaptas .embudo-bg { background: linear-gradient(135deg, #d97706, #b45309); clip-path: polygon(0 0, 100% 0, 90% 100%, 0 100%); }
+  .embudo-retenidos .embudo-bg { background: linear-gradient(135deg, #0f7a58, #065f46); clip-path: polygon(0 0, 100% 0, 85% 100%, 15% 100%); }
+  .embudo-pct .embudo-bg { background: linear-gradient(135deg, #2563eb, #1e40af); clip-path: polygon(0 0, 100% 0, 85% 100%, 15% 100%); }
+
+  .embudo-content-total { flex-direction: row; gap: 12px; }
+
+  .embudo-noaptas-note {
+    display: flex; align-items: center;
+    font-size: 10px; color: var(--text-muted);
+    border-left: 1px dotted var(--border);
+    padding-left: 8px; margin-left: 4px;
+    white-space: nowrap; user-select: none;
+    flex: 1 1 auto; min-width: 0;
+  }
+
+  .embudo-metric-cell {
     display: flex; flex-direction: column; justify-content: center; gap: 2px;
     padding-left: 8px;
   }
-  .embudo-metric-valor { font-size: 22px; font-weight: 800; color: #f8fafc; font-variant-numeric: tabular-nums; line-height: 1; }
-  .embudo-metric-amarillo { color: #fcd34d; }
+  .embudo-metric-valor { font-size: 20px; font-weight: 800; color: var(--text-primary); font-variant-numeric: tabular-nums; line-height: 1; }
+  .embudo-metric-amarillo { color: var(--amarillo-aptas); }
   .embudo-metric-small { font-size: 16px; margin-top: 6px; }
-  .embudo-metric-txt { font-size: 10px; color: rgba(148,163,184,0.9); margin-top: 2px; line-height: 1.2; }
+  .embudo-metric-txt { font-size: 10px; color: var(--text-muted); margin-top: 2px; line-height: 1.2; }
 
   /* Tabla Detalle por cabina */
-  .embudo-tabla { margin-top: 16px; border-top: 1px solid rgba(148,163,184,0.18); padding-top: 12px; }
-  .embudo-tabla-titulo { font-size: 10px; font-weight: 800; letter-spacing: 0.18em; color: rgba(148,163,184,0.85); margin-bottom: 8px; }
+  .embudo-tabla { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px; }
+  .embudo-tabla-titulo { font-size: 10px; font-weight: 800; letter-spacing: 0.18em; color: var(--text-muted); margin-bottom: 8px; }
   .embudo-tbl { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12px; font-variant-numeric: tabular-nums; }
-  .embudo-tbl th { font-size: 9px; font-weight: 800; letter-spacing: 0.08em; color: rgba(148,163,184,0.85); padding: 6px 8px; text-align: right; border-bottom: 1px solid rgba(148,163,184,0.18); }
+  .embudo-tbl th { font-size: 9px; font-weight: 800; letter-spacing: 0.08em; color: var(--text-muted); padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--border); background: transparent; }
   .embudo-tbl th:first-child { text-align: left; }
-  .embudo-tbl td { padding: 8px; text-align: right; border-bottom: 1px solid rgba(148,163,184,0.08); color: #e2e8f0; }
-  .embudo-tbl td:first-child { text-align: left; font-weight: 700; display: flex; align-items: center; gap: 6px; }
-  .embudo-tbl .embudo-tbl-total td { font-weight: 800; color: #f8fafc; border-top: 1px solid rgba(148,163,184,0.25); }
+  .embudo-tbl td { padding: 8px; text-align: right; border-bottom: 1px solid var(--border); color: var(--text-secondary); background: transparent; }
+  .embudo-tbl td:first-child { text-align: left; font-weight: 700; display: flex; align-items: center; gap: 6px; color: var(--text-primary); }
+  .embudo-tbl .embudo-tbl-total td { font-weight: 800; color: var(--text-primary); border-top: 1px solid var(--border); }
   .embudo-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 
   /* Responsive */
   @media (max-width: 900px) {
     .embudo-grid { grid-template-columns: 1fr; }
-    .embudo-labels { display: none; }
-    .embudo-metrics { grid-column: 1; display: block; margin-top: 10px; }
-    .embudo-metric-row { flex-direction: row; flex-wrap: wrap; gap: 8px 16px; }
+    .embudo-label-cell { display: none; }
+    .embudo-metric-cell { grid-column: 1; display: block; margin-top: 10px; padding-left: 0; }
+    .embudo-noaptas-note { display: none; }
   }
   @media (max-width: 480px) {
-    .embudo-valor { font-size: 18px; }
-    .embudo-nombre { font-size: 9px; }
+    .embudo-valor { font-size: clamp(16px, 4vw, 20px); }
+    .embudo-nombre { font-size: clamp(8px, 2vw, 10px); }
     .embudo-row { height: 62px; }
+    .embudo-row-total { height: 68px; }
+    .embudo-row-pct { height: 56px; }
   }
+  /* Prevención de recorte de texto y selección azul */
+  .embudo-content span { white-space: nowrap; background: transparent; -webkit-background-clip: border-box; background-clip: border-box; user-select: none; padding: 0 4px; }
+  .embudo-content span::selection { background: transparent; color: inherit; }
+  :global(::selection) { background: rgba(59,130,246,0.3); }
 </style>
