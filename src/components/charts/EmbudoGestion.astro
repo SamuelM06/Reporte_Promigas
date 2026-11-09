@@ -1,243 +1,353 @@
 ---
-// Embudo de gestión reestructurado (solicitud del usuario):
-// Nivel 1: Total general (ancho completo)
-// Nivel 2: Aptos (izq, ~83%) + No aptos (der, ~17%) lado a lado
-// Nivel 3: Retenidos (centrado bajo Aptos)
-// Nivel 4: % Retención (centrado bajo Retenidos)
-// Sin bloques flotantes; silueta continua de embudo, grande y protagonista.
+// Embudo de gestión — versión horizontal por niveles (solicitud del usuario).
+// Estructura: [etiquetas ~200px] [embudo flexible] [métricas ~220px].
+// Nivel 0: Total general (barra ancha)
+// Nivel 1: Cabina — Inbound + Outbound lado a lado
+// Nivel 2: Clasificación — Aptas + No aptas lado a lado
+// Nivel 3: Retenidos (trapecio, centrado bajo Aptas)
+// Nivel 4: % Retención (trapecio pequeño, centrado bajo Retenidos)
+// Todo se calcula con las variables existentes; sin valores hardcodeados.
 interface Props {
   total: number;
   inbound: number;
   outbound: number;
-  aptos: number;
-  noAptos: number;
+  aptas: number;
+  noAptas: number;
   retenciones: number;
   pct: number;
+  inboundAptas?: number;
+  inboundNoAptas?: number;
+  inboundRetenciones?: number;
+  outboundAptas?: number;
+  outboundNoAptas?: number;
+  outboundRetenciones?: number;
 }
-const { total, inbound, outbound, aptos, noAptos, retenciones, pct } = Astro.props;
+const {
+  total, inbound, outbound, aptas, noAptas, retenciones, pct,
+  inboundAptas, inboundNoAptas, inboundRetenciones,
+  outboundAptas, outboundNoAptas, outboundRetenciones,
+} = Astro.props;
+
 const fmt = new Intl.NumberFormat('es-CO');
+const nf1 = (v: number) => new Intl.NumberFormat('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(v);
 const n = (v: number | undefined) => Number(v ?? 0) || 0;
 
 const T = n(total);
-const A = n(aptos);
-const NA = n(noAptos);
-const R = n(retenciones);
-const PCT = pct;
+const IN = n(inbound);
+const OUT = n(outbound);
+const APT = n(aptas);
+const NOAP = n(noAptas);
+const RET = n(retenciones);
+const PCT = n(pct);
 
-const pctA = T > 0 ? (A / T) * 100 : 0;
-const pctNA = T > 0 ? (NA / T) * 100 : 0;
-const pctR = T > 0 ? (R / T) * 100 : 0;
+const APT_IN = n(inboundAptas);
+const NOAP_IN = n(inboundNoAptas);
+const RET_IN = n(inboundRetenciones);
+const APT_OUT = n(outboundAptas);
+const NOAP_OUT = n(outboundNoAptas);
+const RET_OUT = n(outboundRetenciones);
 
-// Geometría del embudo
-const svgWidth = 320;
-const maxW = 272;          // ancho del nivel 1 (Total general)
-const gapX = 6;            // separación entre Aptos y No aptos
-const gapY = 10;           // separación vertical entre niveles
-const H1 = 74;             // alto nivel 1
-const H2 = 68;             // alto nivel 2 (Aptos/No aptos)
-const H3 = 62;             // alto nivel 3 (Retenidos)
-const H4 = 56;             // alto nivel 4 (% Retención)
-const taper = 0.94;        // factor de estrechamiento por nivel
+// Derivados (protegidos contra división por 0)
+const pctInbound  = T > 0 ? (IN / T) * 100 : 0;
+const pctOutbound = T > 0 ? (OUT / T) * 100 : 0;
+const pctAptas    = T > 0 ? (APT / T) * 100 : 0;
+const pctNoAptas  = T > 0 ? (NOAP / T) * 100 : 0;
+const aptasSinRetener = Math.max(0, APT - RET);
+const pctSinRetenerSobreAptas = APT > 0 ? (aptasSinRetener / APT) * 100 : 0;
+const tasaRetencion = APT > 0 ? (RET / APT) * 100 : 0;
+const retencionSobreTotal = T > 0 ? (RET / T) * 100 : 0;
 
-// Nivel 1: Total general
-const L1 = { top: maxW, bottom: Math.round(maxW * taper), h: H1, x: 0, y: 0 };
+// Mínimo ~8% para que un bloque muy pequeño siga mostrando texto
+const minPct = 8;
+const wIn  = Math.max(minPct, pctInbound);
+const wOut = Math.max(minPct, pctOutbound);
+// Normalizar para que sumen 100
+const sumIO = wIn + wOut;
+const normIn = sumIO > 0 ? (wIn / sumIO) * 100 : 50;
+const normOut = sumIO > 0 ? (wOut / sumIO) * 100 : 50;
 
-// Nivel 2: Aptos + No aptos lado a lado, mismo ancho combinado que L1.bottom
-const availW = L1.bottom;
-let aptosW = Math.max(130, Math.round(availW * (pctA / 100)));
-let noAptosW = Math.max(52, Math.round(availW * (pctNA / 100)));
-// Ajustar para que aptosW + gapX + noAptosW = availW
-const sum2 = aptosW + gapX + noAptosW;
-if (sum2 !== availW) {
-  const diff = availW - sum2;
-  aptosW = aptosW + diff; // absorber la diferencia en Aptos
-}
-const L2 = {
-  aptos: { top: aptosW, bottom: Math.round(aptosW * taper), h: H2, x: 0, y: L1.h + gapY },
-  noAptos: { top: noAptosW, bottom: Math.round(noAptosW * taper), h: H2, x: aptosW + gapX, y: L1.h + gapY },
-};
+const wApt = Math.max(minPct, pctAptas);
+const wNoA = Math.max(minPct, pctNoAptas);
+const sumAN = wApt + wNoA;
+const normApt = sumAN > 0 ? (wApt / sumAN) * 100 : 50;
+const normNoA = sumAN > 0 ? (wNoA / sumAN) * 100 : 50;
 
-// Nivel 3: Retenidos, centrado bajo el bloque Aptos
-const aptosCenterX = L2.aptos.x + L2.aptos.top / 2;
-const retW = Math.max(86, Math.round(L2.aptos.top * (R / Math.max(A, 1))));
-const L3 = { top: retW, bottom: Math.round(retW * taper), h: H3, x: Math.round(aptosCenterX - retW / 2), y: L2.aptos.y + H2 + gapY };
+// Retenidos: ancho = pctAptas% (alineado a la izquierda, bajo Aptas)
+const wRet = Math.max(minPct, pctAptas);
+// % Retención: más pequeño, centrado bajo Retenidos
+const wPct = Math.max(18, wRet * 0.55);
 
-// Nivel 4: % Retención, centrado bajo Retenidos
-const retCenterX = L3.x + L3.top / 2;
-const pctW = Math.max(74, Math.round(L3.top * 0.86));
-const L4 = { top: pctW, bottom: Math.round(pctW * taper), h: H4, x: Math.round(retCenterX - pctW / 2), y: L3.y + H3 + gapY };
+// Tabla "Detalle por cabina"
+const filasCabina = [
+  { label: 'Inbound', color: '#8b5cf6', llamadas: IN, aptas: APT_IN, noAptas: NOAP_IN, retenciones: RET_IN },
+  { label: 'Outbound', color: '#06b6d4', llamadas: OUT, aptas: APT_OUT, noAptas: NOAP_OUT, retenciones: RET_OUT },
+  { label: 'Total', color: '#3b82f6', llamadas: T, aptas: APT, noAptas: NOAP, retenciones: RET },
+];
+const pctRetSobreAptas = (r: { aptas: number; retenciones: number }) => r.aptas > 0 ? (r.retenciones / r.aptas) * 100 : 0;
+const pctRetSobreTotal = (r: { llamadas: number; retenciones: number }) => r.llamadas > 0 ? (r.retenciones / r.llamadas) * 100 : 0;
 
-const svgHeight = L4.y + H4 + 18;
-const offsetX = (svgWidth - maxW) / 2;
-
-// Helper: trapezoide centrado (topW arriba, bottomW abajo, centrado en x+width/2)
-function trap(x: number, y: number, topW: number, bottomW: number, h: number, r = 10): string {
-  const cx = x + topW / 2;
-  const topL = cx - topW / 2;
-  const topR = cx + topW / 2;
-  const botL = cx - bottomW / 2;
-  const botR = cx + bottomW / 2;
-  // path con esquinas redondeadas aproximadas vía rect? Usamos polygon simple + rx en rect overlay no. Usamos path con arcs.
-  return `M ${topL + r} ${y} L ${topR - r} ${y} Q ${topR} ${y} ${topR} ${y + r} L ${botR} ${y + h - r} Q ${botR} ${y + h} ${botR - r} ${y + h} L ${botL + r} ${y + h} Q ${botL} ${y + h} ${botL} ${y + h - r} L ${topL} ${y + r} Q ${topL} ${y} ${topL + r} ${y} Z`;
-}
-
-// Iconos (Lucide, stroke 1.6, ~22-24px) — se dibujan dentro de cada nivel
-const iconPhone = '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.9a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/><path d="M14.05 2.5a9 9 0 0 1 7.45 7.45"/><path d="M14.05 6.3a5.2 5.2 0 0 1 3.6 3.63"/>';
-const iconCheck = '<circle cx="12" cy="12" r="10"/><path d="m8.5 12.5 2.5 2.5 5-6"/>';
-const iconX = '<circle cx="12" cy="12" r="10"/><path d="m9.5 9.5 5 5"/><path d="m14.5 9.5-5 5"/>';
-const iconShield = '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1 1 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12.5 2.2 2.2 4.4-4.5"/>';
-const iconPct = '<line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>';
-
-// Detalles de la gestión (panel derecho)
-const pctFila = (v: number) => (T > 0 ? (n(v) / T) * 100 : 0);
-const shareIn = pctFila(inbound);
-const shareOut = pctFila(outbound);
-const shareAptos = pctFila(aptos);
-const shareNoAptos = pctFila(noAptos);
+// Iconos (Lucide, stroke)
+const icPhone = '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.9a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>';
+const icCheck = '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>';
+const icX = '<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>';
+const icShield = '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1 1 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>';
+const icPct = '<line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>';
 ---
-<section class="glass mt-3 rounded-3xl p-4 md:p-5">
+<section class="embudo-card glass mt-3 rounded-3xl p-4 md:p-5">
+  <!-- Encabezado -->
   <div class="flex flex-wrap items-center justify-between gap-2">
     <h2 class="flex items-center gap-2 text-base font-bold md:text-lg">
-      <span class="kpi-ico kpi-ico-sm" style="background:linear-gradient(135deg,#120180,#3d22c8)">▾</span>
       Embudo de gestión
     </h2>
-    <p class="text-[11px] font-semibold text-tinta/60 md:text-xs">Total general → Aptos / No aptos → Retenidos → % Retención</p>
+    <p class="text-[11px] font-semibold text-tinta/60 md:text-xs">Total → Aptas → Retenciones</p>
   </div>
 
-  <div class="mt-3 grid items-start gap-4 md:grid-cols-[auto_1fr]">
-    <!-- SVG del embudo -->
-    <div class="mx-auto w-full max-w-sm md:mx-0 md:w-[320px]">
-      <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} preserveAspectRatio="xMidYMid meet" class="w-full h-auto" role="img" aria-label="Embudo de gestión">
-        <defs>
-          <linearGradient id="pctGradPromi" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stop-color="#1e40af" />
-            <stop offset="100%" stop-color="#3b82f6" />
-          </linearGradient>
-        </defs>
-        <g transform={`translate(${offsetX}, 4)`}>
-          <!-- Nivel 1: Total general -->
-          <g>
-            <title>{`Total general: ${fmt.format(T)} (100%)`}</title>
-            <path d={trap(L1.x, L1.y, L1.top, L1.bottom, L1.h)} fill="#120180" fill-opacity="0.9" stroke="rgba(255,255,255,0.14)" stroke-width="0.5" />
-            <g transform={`translate(${L1.x + 16}, ${L1.y + 12})`}>
-              <circle cx="11" cy="11" r="11" fill="rgba(255,255,255,0.18)" stroke="rgba(255,255,255,0.28)" stroke-width="0.6" />
-              <g transform="translate(11,11) scale(0.9) translate(-12,-12)" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round" set:html={iconPhone} />
-            </g>
-            <text x={L1.x + L1.top / 2} y={L1.y + L1.h / 2 - 11} text-anchor="middle" dominant-baseline="central" font-size="9" font-weight="700" fill="white" style="text-shadow:0 1px 2px rgba(0,0,0,.45)">Total general</text>
-            <text x={L1.x + L1.top / 2} y={L1.y + L1.h / 2 + 4} text-anchor="middle" dominant-baseline="central" font-size="24" font-weight="800" fill="white" style="text-shadow:0 1px 2px rgba(0,0,0,.45)">{fmt.format(T)}</text>
-            <text x={L1.x + L1.top / 2} y={L1.y + L1.h / 2 + 20} text-anchor="middle" dominant-baseline="central" font-size="8" font-weight="600" fill="rgba(255,255,255,0.9)" style="text-shadow:0 1px 2px rgba(0,0,0,.45)">100% del total</text>
-          </g>
+  <!-- Frase generada con variables -->
+  <p class="embudo-frase">
+    De <strong>{fmt.format(T)}</strong> llamadas, <strong>{fmt.format(APT)}</strong> fueron aptas y <strong>{fmt.format(RET)}</strong> se retuvieron.
+  </p>
 
-          <!-- Nivel 2: Aptos (izq) + No aptos (der) -->
-          <g>
-            <title>{`Aptos: ${fmt.format(A)} (${pctA.toFixed(1)}%)`}</title>
-            <path d={trap(L2.aptos.x, L2.aptos.y, L2.aptos.top, L2.aptos.bottom, L2.aptos.h)} fill="#0d9488" fill-opacity="0.9" stroke="rgba(255,255,255,0.14)" stroke-width="0.5" />
-            <g transform={`translate(${L2.aptos.x + 12}, ${L2.aptos.y + 10})`}>
-              <circle cx="11" cy="11" r="11" fill="rgba(255,255,255,0.18)" stroke="rgba(255,255,255,0.28)" stroke-width="0.6" />
-              <g transform="translate(11,11) scale(0.85) translate(-12,-12)" stroke="white" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round" set:html={iconCheck} />
-            </g>
-            <text x={L2.aptos.x + L2.aptos.top / 2} y={L2.aptos.y + L2.aptos.h / 2 - 10} text-anchor="middle" dominant-baseline="central" font-size="9" font-weight="700" fill="white" style="text-shadow:0 1px 2px rgba(0,0,0,.45)">Aptos</text>
-            <text x={L2.aptos.x + L2.aptos.top / 2} y={L2.aptos.y + L2.aptos.h / 2 + 4} text-anchor="middle" dominant-baseline="central" font-size="22" font-weight="800" fill="white" style="text-shadow:0 1px 2px rgba(0,0,0,.45)">{fmt.format(A)}</text>
-            <text x={L2.aptos.x + L2.aptos.top / 2} y={L2.aptos.y + L2.aptos.h / 2 + 18} text-anchor="middle" dominant-baseline="central" font-size="7.5" font-weight="600" fill="rgba(255,255,255,0.9)" style="text-shadow:0 1px 2px rgba(0,0,0,.45)">{pctA.toFixed(1)}% del total</text>
-          </g>
-          <g>
-            <title>{`No aptos: ${fmt.format(NA)} (${pctNA.toFixed(1)}%)`}</title>
-            <path d={trap(L2.noAptos.x, L2.noAptos.y, L2.noAptos.top, L2.noAptos.bottom, L2.noAptos.h)} fill="#f43f5e" fill-opacity="0.9" stroke="rgba(255,255,255,0.14)" stroke-width="0.5" />
-            <g transform={`translate(${L2.noAptos.x + Math.max(4, (L2.noAptos.top - 22) / 2)}, ${L2.noAptos.y + 10})`}>
-              <circle cx="11" cy="11" r="11" fill="rgba(255,255,255,0.18)" stroke="rgba(255,255,255,0.28)" stroke-width="0.6" />
-              <g transform="translate(11,11) scale(0.85) translate(-12,-12)" stroke="white" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round" set:html={iconX} />
-            </g>
-            <text x={L2.noAptos.x + L2.noAptos.top / 2} y={L2.noAptos.y + L2.noAptos.h / 2 - 10} text-anchor="middle" dominant-baseline="central" font-size="8.5" font-weight="700" fill="white" style="text-shadow:0 1px 2px rgba(0,0,0,.45)">No aptos</text>
-            <text x={L2.noAptos.x + L2.noAptos.top / 2} y={L2.noAptos.y + L2.noAptos.h / 2 + 4} text-anchor="middle" dominant-baseline="central" font-size="16" font-weight="800" fill="white" style="text-shadow:0 1px 2px rgba(0,0,0,.45)">{fmt.format(NA)}</text>
-            <text x={L2.noAptos.x + L2.noAptos.top / 2} y={L2.noAptos.y + L2.noAptos.h / 2 + 18} text-anchor="middle" dominant-baseline="central" font-size="7" font-weight="600" fill="rgba(255,255,255,0.9)" style="text-shadow:0 1px 2px rgba(0,0,0,.45)">{pctNA.toFixed(1)}%</text>
-          </g>
-
-          <!-- Nivel 3: Retenidos (centrado bajo Aptos) -->
-          <g>
-            <title>{`Retenidos: ${fmt.format(R)} (${pctR.toFixed(1)}% del total)`}</title>
-            <path d={trap(L3.x, L3.y, L3.top, L3.bottom, L3.h)} fill="#2563eb" fill-opacity="0.9" stroke="rgba(255,255,255,0.14)" stroke-width="0.5" />
-            <g transform={`translate(${L3.x + (L3.top - 22) / 2}, ${L3.y + 8})`}>
-              <circle cx="11" cy="11" r="11" fill="rgba(255,255,255,0.18)" stroke="rgba(255,255,255,0.28)" stroke-width="0.6" />
-              <g transform="translate(11,11) scale(0.85) translate(-12,-12)" stroke="white" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round" set:html={iconShield} />
-            </g>
-            <text x={L3.x + L3.top / 2} y={L3.y + L3.h / 2 - 6} text-anchor="middle" dominant-baseline="central" font-size="8.5" font-weight="700" fill="white" style="text-shadow:0 1px 2px rgba(0,0,0,.45)">Retenidos</text>
-            <text x={L3.x + L3.top / 2} y={L3.y + L3.h / 2 + 8} text-anchor="middle" dominant-baseline="central" font-size="20" font-weight="800" fill="white" style="text-shadow:0 1px 2px rgba(0,0,0,.45)">{fmt.format(R)}</text>
-            <text x={L3.x + L3.top / 2} y={L3.y + L3.h / 2 + 22} text-anchor="middle" dominant-baseline="central" font-size="7" font-weight="600" fill="rgba(255,255,255,0.9)" style="text-shadow:0 1px 2px rgba(0,0,0,.45)">{pctR.toFixed(1)}% del total</text>
-          </g>
-
-          <!-- Nivel 4: % Retención (centrado bajo Retenidos) -->
-          <g>
-            <path d={trap(L4.x, L4.y, L4.top, L4.bottom, L4.h)} fill="url(#pctGradPromi)" stroke="rgba(255,255,255,0.18)" stroke-width="0.5" />
-            <g transform={`translate(${L4.x + (L4.top - 22) / 2}, ${L4.y + 6})`}>
-              <circle cx="11" cy="11" r="11" fill="rgba(255,255,255,0.18)" stroke="rgba(255,255,255,0.28)" stroke-width="0.6" />
-              <g transform="translate(11,11) scale(0.85) translate(-12,-12)" stroke="white" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round" set:html={iconPct} />
-            </g>
-            <text x={L4.x + L4.top / 2} y={L4.y + L4.h / 2 - 4} text-anchor="middle" dominant-baseline="central" font-size="7.5" font-weight="700" fill="rgba(255,255,255,0.92)">% Retención</text>
-            <text x={L4.x + L4.top / 2} y={L4.y + L4.h / 2 + 9} text-anchor="middle" dominant-baseline="central" font-size="15" font-weight="800" fill="#fff">{PCT.toFixed(1)}%</text>
-          </g>
-        </g>
-      </svg>
+  <!-- Layout 3 columnas -->
+  <div class="embudo-grid">
+    <!-- Columna izquierda: etiquetas -->
+    <div class="embudo-labels">
+      <div class="embudo-label-row" style="grid-row: 2;">
+        <span class="embudo-label">Cabina</span>
+        <span class="embudo-sub">inbound + outbound</span>
+      </div>
+      <div class="embudo-label-row" style="grid-row: 3;">
+        <span class="embudo-label">Clasificación</span>
+        <span class="embudo-sub">aptas + no aptas</span>
+      </div>
+      <div class="embudo-label-row" style="grid-row: 4;">
+        <span class="embudo-label">Retención</span>
+        <span class="embudo-sub">solo sobre las aptas</span>
+      </div>
     </div>
 
-    <!-- Panel de detalles (derecha) -->
-    <div class="w-full space-y-2">
-      <ul class="grid grid-cols-2 gap-1.5 text-[11px] sm:grid-cols-3 lg:grid-cols-6 md:grid-cols-3">
-        {[
-          { label: 'Total general', value: T, color: '#120180', pct: 100 },
-          { label: 'Inbound', value: n(inbound), color: '#8b5cf6', pct: shareIn },
-          { label: 'Outbound', value: n(outbound), color: '#06b6d4', pct: shareOut },
-          { label: 'Aptos', value: A, color: '#0d9488', pct: shareAptos },
-          { label: 'No aptos', value: NA, color: '#f43f5e', pct: shareNoAptos },
-          { label: 'Retenidos', value: R, color: '#2563eb', pct: pctR },
-        ].map((s) => (
-          <li class="rounded-xl border border-tinta/10 bg-tinta/5 px-2 py-1.5">
-            <span class="flex items-center gap-1.5 font-bold text-tinta/80">
-              <span class="inline-block h-2.5 w-2.5 shrink-0 rounded-sm" style={`background:${s.color}`}></span>
-              <span class="truncate">{s.label}</span>
-            </span>
-            <span class="mt-0.5 block text-sm font-extrabold tabular-nums leading-tight text-tinta">{fmt.format(s.value)}</span>
-            <span class="block text-[10px] font-semibold tabular-nums text-tinta/55">{s.pct.toFixed(1)}% del total</span>
-          </li>
-        ))}
-      </ul>
+    <!-- Columna central: embudo -->
+    <div class="embudo-funnel">
+      <!-- Fila 0: Total -->
+      <div class="embudo-row embudo-row-total embudo-total" style={`width:100%`}>
+        <div class="embudo-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" set:html={icPhone} /></div>
+        <div class="embudo-text">
+          <span class="embudo-nombre">TOTAL DE LLAMADAS</span>
+          <span class="embudo-valor">{fmt.format(T)}</span>
+          <span class="embudo-pct">100 %</span>
+        </div>
+      </div>
 
-      <div class="rounded-2xl border border-tinta/10 bg-tinta/5 p-3 md:p-4">
-        <p class="text-[10px] font-bold uppercase tracking-widest text-tinta/55">Detalles de la gestión</p>
-        <div class="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px] sm:grid-cols-2 lg:grid-cols-4">
-          <div>
-            <span class="text-tinta/60">Share inbound</span>
-            <p class="font-extrabold tabular-nums">{shareIn.toFixed(1)}% <span class="font-semibold text-tinta/50">({fmt.format(n(inbound))})</span></p>
-          </div>
-          <div>
-            <span class="text-tinta/60">Share outbound</span>
-            <p class="font-extrabold tabular-nums">{shareOut.toFixed(1)}% <span class="font-semibold text-tinta/50">({fmt.format(n(outbound))})</span></p>
-          </div>
-          <div>
-            <span class="text-tinta/60">Aptas sobre total</span>
-            <p class="font-extrabold tabular-nums text-teal-700 dark:text-teal-400">{shareAptos.toFixed(1)}% <span class="font-semibold text-tinta/50">({fmt.format(A)})</span></p>
-          </div>
-          <div>
-            <span class="text-tinta/60">No aptas sobre total</span>
-            <p class="font-extrabold tabular-nums text-rose-600 dark:text-rose-400">{shareNoAptos.toFixed(1)}% <span class="font-semibold text-tinta/50">({fmt.format(NA)})</span></p>
+      <!-- Fila 1: Cabina (Inbound + Outbound) -->
+      <div class="embudo-row embudo-row-cabina">
+        <div class="embudo-block embudo-inbound" style={`width:${normIn}%`}>
+          <div class="embudo-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" set:html={icPhone} /></div>
+          <div class="embudo-text">
+            <span class="embudo-nombre">INBOUND</span>
+            <span class="embudo-valor">{fmt.format(IN)}</span>
+            <span class="embudo-pct">{nf1(pctInbound)} %</span>
           </div>
         </div>
-        <div class="mt-3 flex flex-col gap-2 border-t border-tinta/10 pt-3 sm:flex-row sm:items-center sm:justify-between">
-          <div class="text-[11px] text-tinta/60">
-            Retenidos = <span class="font-bold text-tinta/85">RETENIDO + CANCELADO + VENTA</span><br />
-            Base de retención: <span class="font-bold text-tinta/85">solo Aptas</span>
+        <div class="embudo-block embudo-outbound" style={`width:${normOut}%`}>
+          <div class="embudo-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" set:html={icPhone} /></div>
+          <div class="embudo-text">
+            <span class="embudo-nombre">OUTBOUND</span>
+            <span class="embudo-valor">{fmt.format(OUT)}</span>
+            <span class="embudo-pct">{nf1(pctOutbound)} %</span>
           </div>
-          <div class="flex items-center gap-3 rounded-xl border border-blue-600/20 bg-blue-600/10 px-3 py-2">
-            <div class="text-right">
-              <p class="text-[10px] font-bold uppercase tracking-widest text-blue-700 dark:text-blue-300">% Retención</p>
-              <p class="text-xl font-extrabold tabular-nums leading-none text-blue-700 dark:text-blue-300">{PCT.toFixed(1)}%</p>
-            </div>
-            <div class="text-[10px] font-semibold leading-tight text-tinta/60">
-              {fmt.format(R)} retenidos<br />
-              de {fmt.format(A)} aptas
-            </div>
+        </div>
+      </div>
+
+      <!-- Fila 2: Clasificación (Aptas + No aptas) -->
+      <div class="embudo-row embudo-row-clasif">
+        <div class="embudo-block embudo-aptas" style={`width:${normApt}%`}>
+          <div class="embudo-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" set:html={icCheck} /></div>
+          <div class="embudo-text">
+            <span class="embudo-nombre">APTAS</span>
+            <span class="embudo-valor">{fmt.format(APT)}</span>
+            <span class="embudo-pct">{nf1(pctAptas)} %</span>
+          </div>
+        </div>
+        <div class="embudo-block embudo-noaptas" style={`width:${normNoA}%`}>
+          <div class="embudo-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" set:html={icX} /></div>
+          <div class="embudo-text">
+            <span class="embudo-nombre">NO APTAS</span>
+            <span class="embudo-valor">{fmt.format(NOAP)}</span>
+            <span class="embudo-pct">{nf1(pctNoAptas)} %</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fila 3: Retenidos (trapecio, centrado bajo Aptas) -->
+      <div class="embudo-row embudo-row-ret">
+        <div class="embudo-block embudo-retenidos" style={`width:${wRet}%`}>
+          <div class="embudo-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" set:html={icShield} /></div>
+          <div class="embudo-text">
+            <span class="embudo-nombre">RETENCIONES</span>
+            <span class="embudo-valor">{fmt.format(RET)}</span>
+            <span class="embudo-pct">{nf1(pctAptas > 0 ? (RET / APT) * 100 : 0)} % del total</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fila 4: % Retención (trapecio pequeño) -->
+      <div class="embudo-row embudo-row-pct">
+        <div class="embudo-block embudo-pct" style={`width:${wPct}%`}>
+          <div class="embudo-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" set:html={icPct} /></div>
+          <div class="embudo-text">
+            <span class="embudo-nombre">% RETENCIÓN</span>
+            <span class="embudo-valor">{nf1(PCT)} %</span>
+            <span class="embudo-pct">Ret / Aptas</span>
           </div>
         </div>
       </div>
     </div>
+
+    <!-- Columna derecha: métricas -->
+    <div class="embudo-metrics">
+      <div class="embudo-metric-row" style="grid-row: 3;">
+        <span class="embudo-metric-valor embudo-metric-amarillo">{fmt.format(aptasSinRetener)}</span>
+        <span class="embudo-metric-txt">aptas sin retener · {nf1(pctSinRetenerSobreAptas)} % de las aptas</span>
+      </div>
+      <div class="embudo-metric-row embudo-metric-ret" style="grid-row: 4;">
+        <span class="embudo-metric-valor">{nf1(tasaRetencion)}</span>
+        <span class="embudo-metric-txt">tasa de retención (retenciones ÷ aptas)</span>
+        <span class="embudo-metric-valor embudo-metric-small">{nf1(retencionSobreTotal)}</span>
+        <span class="embudo-metric-txt">sobre el total de llamadas</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabla "Detalle por cabina" -->
+  <div class="embudo-tabla">
+    <div class="embudo-tabla-titulo">DETALLE POR CABINA</div>
+    <table class="embudo-tbl">
+      <thead>
+        <tr>
+          <th>DETALLE POR CABINA</th>
+          <th>LLAMADAS</th>
+          <th>APTAS</th>
+          <th>NO APTAS</th>
+          <th>RETENCIONES</th>
+          <th>% RET. S/ APTAS</th>
+          <th>% RET. S/ TOTAL</th>
+        </tr>
+      </thead>
+      <tbody>
+        {filasCabina.map((r, i) => (
+          <tr class={i === 2 ? 'embudo-tbl-total' : ''}>
+            <td>
+              <span class="embudo-dot" style={`background:${r.color}`}></span>
+              {r.label}
+            </td>
+            <td>{fmt.format(r.llamadas)}</td>
+            <td>{fmt.format(r.aptas)}</td>
+            <td>{fmt.format(r.noAptas)}</td>
+            <td>{fmt.format(r.retenciones)}</td>
+            <td>{nf1(pctRetSobreAptas(r))} %</td>
+            <td>{nf1(pctRetSobreTotal(r))} %</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   </div>
 </section>
+
+<style>
+  .embudo-card { font-family: 'Raleway', 'Inter', system-ui, sans-serif; }
+  .embudo-frase { text-align: center; font-size: 13px; color: rgba(226,232,240,0.7); margin: 8px 0 14px; }
+  .embudo-frase strong { color: #f8fafc; font-weight: 800; }
+
+  .embudo-grid {
+    display: grid;
+    grid-template-columns: 170px 1fr 210px;
+    grid-template-rows: auto auto auto auto auto;
+    gap: 6px 14px;
+    align-items: center;
+  }
+  .embudo-labels { display: contents; }
+  .embudo-label-row {
+    display: flex; flex-direction: column; align-items: flex-end; justify-content: center;
+    text-align: right; padding-right: 6px;
+  }
+  .embudo-label { font-size: 13px; font-weight: 800; color: #f1f5f9; letter-spacing: 0.02em; }
+  .embudo-sub { font-size: 10px; color: rgba(148,163,184,0.85); margin-top: 2px; }
+
+  .embudo-funnel { grid-column: 2; display: flex; flex-direction: column; gap: 3px; }
+  .embudo-row { display: flex; gap: 3px; height: 72px; align-items: stretch; }
+  .embudo-row-total { height: 78px; border-radius: 10px 10px 4px 4px; }
+  .embudo-row-pct { height: 64px; }
+
+  .embudo-block {
+    position: relative;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    border-radius: 6px;
+    box-shadow: 0 6px 18px -8px rgba(0,0,0,0.45);
+    overflow: hidden;
+    transition: filter .2s ease;
+  }
+  .embudo-block:hover { filter: brightness(1.08); }
+
+  /* clip-paths por fila */
+  .embudo-row-total .embudo-block { border-radius: 10px 10px 4px 4px; }
+  .embudo-row-cabina .embudo-inbound { clip-path: polygon(0 0, 100% 0, 100% 100%, 1% 100%); }
+  .embudo-row-cabina .embudo-outbound { clip-path: polygon(0 0, 100% 0, 99% 100%, 0 100%); }
+  .embudo-row-clasif .embudo-aptas { clip-path: polygon(0 0, 100% 0, 100% 100%, 1% 100%); }
+  .embudo-row-clasif .embudo-noaptas { clip-path: polygon(0 0, 100% 0, 90% 100%, 0 100%); }
+  .embudo-retenidos { clip-path: polygon(0 0, 100% 0, 80% 100%, 20% 100%); }
+  .embudo-pct { clip-path: polygon(0 0, 100% 0, 85% 100%, 15% 100%); }
+
+  /* colores */
+  .embudo-total { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+  .embudo-inbound { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+  .embudo-outbound { background: linear-gradient(135deg, #06b6d4, #0891b2); }
+  .embudo-aptas { background: linear-gradient(135deg, #10a37f, #0f7a58); }
+  .embudo-noaptas { background: linear-gradient(135deg, #d97706, #b45309); }
+  .embudo-retenidos { background: linear-gradient(135deg, #0f7a58, #065f46); }
+  .embudo-pct { background: linear-gradient(135deg, #2563eb, #1e40af); }
+
+  .embudo-chip {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.28);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .embudo-chip svg { width: 16px; height: 16px; stroke: #fff; }
+
+  .embudo-text { display: flex; flex-direction: column; align-items: center; line-height: 1.05; }
+  .embudo-nombre { font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.92); }
+  .embudo-valor { font-size: 24px; font-weight: 800; color: #fff; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .embudo-pct { font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.85); margin-top: 2px; }
+
+  .embudo-metrics { grid-column: 3; display: contents; }
+  .embudo-metric-row {
+    display: flex; flex-direction: column; justify-content: center; gap: 2px;
+    padding-left: 8px;
+  }
+  .embudo-metric-valor { font-size: 22px; font-weight: 800; color: #f8fafc; font-variant-numeric: tabular-nums; line-height: 1; }
+  .embudo-metric-amarillo { color: #fcd34d; }
+  .embudo-metric-small { font-size: 16px; margin-top: 6px; }
+  .embudo-metric-txt { font-size: 10px; color: rgba(148,163,184,0.9); margin-top: 2px; line-height: 1.2; }
+
+  /* Tabla Detalle por cabina */
+  .embudo-tabla { margin-top: 16px; border-top: 1px solid rgba(148,163,184,0.18); padding-top: 12px; }
+  .embudo-tabla-titulo { font-size: 10px; font-weight: 800; letter-spacing: 0.18em; color: rgba(148,163,184,0.85); margin-bottom: 8px; }
+  .embudo-tbl { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .embudo-tbl th { font-size: 9px; font-weight: 800; letter-spacing: 0.08em; color: rgba(148,163,184,0.85); padding: 6px 8px; text-align: right; border-bottom: 1px solid rgba(148,163,184,0.18); }
+  .embudo-tbl th:first-child { text-align: left; }
+  .embudo-tbl td { padding: 8px; text-align: right; border-bottom: 1px solid rgba(148,163,184,0.08); color: #e2e8f0; }
+  .embudo-tbl td:first-child { text-align: left; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+  .embudo-tbl .embudo-tbl-total td { font-weight: 800; color: #f8fafc; border-top: 1px solid rgba(148,163,184,0.25); }
+  .embudo-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .embudo-grid { grid-template-columns: 1fr; }
+    .embudo-labels { display: none; }
+    .embudo-metrics { grid-column: 1; display: block; margin-top: 10px; }
+    .embudo-metric-row { flex-direction: row; flex-wrap: wrap; gap: 8px 16px; }
+  }
+  @media (max-width: 480px) {
+    .embudo-valor { font-size: 18px; }
+    .embudo-nombre { font-size: 9px; }
+    .embudo-row { height: 62px; }
+  }
+</style>

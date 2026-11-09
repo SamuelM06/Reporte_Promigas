@@ -15,6 +15,8 @@ const fmt = new Intl.NumberFormat('es-CO');
 
 const tot = (k: string) => mensual.reduce((s: number, r: any) => s + Number(r[k] ?? 0), 0);
 const T = tot('total'), INB = tot('inbound'), OUT = tot('outbound'), RET = tot('retenidos'), APT = tot('aptos'), NOAP = tot('noAptos');
+const INB_APT = tot('inboundAptas'), INB_NOAP = tot('inboundNoAptas'), INB_RET = tot('inboundRetenciones');
+const OUT_APT = tot('outboundAptas'), OUT_NOAP = tot('outboundNoAptas'), OUT_RET = tot('outboundRetenciones');
 const PCT = APT > 0 ? Math.round((RET / APT) * 1000) / 10 : 0;
 
 const selMes = f.mes ?? [];
@@ -201,7 +203,7 @@ const kpis: KpiCard[] = (['total', 'inbound', 'outbound', 'aptos', 'noAptos', 'r
   </section>
 
   <!-- Embudo de gestión (no afecta el gráfico principal) -->
-  <EmbudoGestion total={T} inbound={INB} outbound={OUT} aptos={APT} noAptos={NOAP} retenciones={RET} pct={PCT} />
+  <EmbudoGestion total={T} inbound={INB} outbound={OUT} aptas={APT} noAptas={NOAP} retenciones={RET} pct={PCT} inboundAptas={INB_APT} inboundNoAptas={INB_NOAP} inboundRetenciones={INB_RET} outboundAptas={OUT_APT} outboundNoAptas={OUT_NOAP} outboundRetenciones={OUT_RET} />
 
   <style>
     /* Entrada escalonada de las tarjetas KPI.

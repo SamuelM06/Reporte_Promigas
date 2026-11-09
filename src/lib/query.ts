@@ -293,6 +293,13 @@ export interface FilaDashboardMensual {
   aptos: number;
   noAptos: number;
   pct: number;
+  // Desglose por cabina (para el embudo y la tabla "Detalle por cabina")
+  inboundAptas: number;
+  inboundNoAptas: number;
+  inboundRetenciones: number;
+  outboundAptas: number;
+  outboundNoAptas: number;
+  outboundRetenciones: number;
 }
 
 export async function getDashboardMensual(f: Filtros): Promise<FilaDashboardMensual[]> {
@@ -306,7 +313,13 @@ export async function getDashboardMensual(f: Filtros): Promise<FilaDashboardMens
       COUNT(*) FILTER (WHERE cabina_norm = 'OUTBOUND')::int AS outbound,
       COUNT(*) FILTER (WHERE ${RETENIDOS_SQL})::int AS retenidos,
       COUNT(*) FILTER (WHERE ${aptosSql})::int AS aptos,
-      COUNT(*) FILTER (WHERE ${noAptosSql})::int AS no_aptos
+      COUNT(*) FILTER (WHERE ${noAptosSql})::int AS no_aptos,
+      COUNT(*) FILTER (WHERE cabina_norm = 'INBOUND' AND ${aptosSql})::int AS inbound_aptas,
+      COUNT(*) FILTER (WHERE cabina_norm = 'INBOUND' AND ${noAptosSql})::int AS inbound_no_aptas,
+      COUNT(*) FILTER (WHERE cabina_norm = 'INBOUND' AND ${RETENIDOS_SQL})::int AS inbound_retenciones,
+      COUNT(*) FILTER (WHERE cabina_norm = 'OUTBOUND' AND ${aptosSql})::int AS outbound_aptas,
+      COUNT(*) FILTER (WHERE cabina_norm = 'OUTBOUND' AND ${noAptosSql})::int AS outbound_no_aptas,
+      COUNT(*) FILTER (WHERE cabina_norm = 'OUTBOUND' AND ${RETENIDOS_SQL})::int AS outbound_retenciones
      FROM ${VISTA} WHERE ${w} AND mes_norm IS NOT NULL GROUP BY mes_norm ORDER BY ${ORDEN_MES_SQL}`,
     params,
   );
@@ -322,6 +335,12 @@ export async function getDashboardMensual(f: Filtros): Promise<FilaDashboardMens
       aptos,
       noAptos: Number(r.no_aptos ?? 0),
       pct: aptos > 0 ? Math.round((retenidos / aptos) * 1000) / 10 : 0,
+      inboundAptas: Number(r.inbound_aptas ?? 0),
+      inboundNoAptas: Number(r.inbound_no_aptas ?? 0),
+      inboundRetenciones: Number(r.inbound_retenciones ?? 0),
+      outboundAptas: Number(r.outbound_aptas ?? 0),
+      outboundNoAptas: Number(r.outbound_no_aptas ?? 0),
+      outboundRetenciones: Number(r.outbound_retenciones ?? 0),
     };
   });
 }
