@@ -40,7 +40,12 @@ export const METADATOS_VACIOS: Metadatos = {
 };
 
 export function filtrosPorDefecto(): Filtros {
-  return { desde: '2026-01-01', hasta: '2026-12-31' };
+  // Sin rango de fechas implícito: la columna Mes de la base ya define el
+  // corte 2026. Un rango por defecto por fecha_ejecucion excluía en silencio
+  // filas con año tecleado distinto (2025/2024/206) aunque su MES era 2026,
+  // y el total dejaba de cuadrar con el Excel. Solo se filtra por fechas
+  // si el usuario lo pide explícitamente en la URL (?desde=...&hasta=...).
+  return {};
 }
 
 export function parseFiltros(url: URL): Filtros {
@@ -53,8 +58,8 @@ export function parseFiltros(url: URL): Filtros {
     return v.length ? v : undefined;
   };
   return {
-    desde: g('desde') ?? '2026-01-01',
-    hasta: g('hasta') ?? '2026-12-31',
+    desde: g('desde'),
+    hasta: g('hasta'),
     mes: gl('mes'),
     gasera: gl('gasera'),
     aseguradora: gl('aseguradora'),
@@ -68,11 +73,21 @@ export function parseFiltros(url: URL): Filtros {
 
 // El grano mensual del reporte es la columna MES de la base (mes_norm),
 // en el orden ENERO → DICIEMBRE.
-const ORDEN_MES_SQL = `CASE mes_norm WHEN 'ENERO' THEN 1 WHEN 'FEBRERO' THEN 2 WHEN 'MARZO' THEN 3 WHEN 'ABRIL' THEN 4 WHEN 'MAYO' THEN 5 WHEN 'JUNIO' THEN 6 WHEN 'JULIO' THEN 7 WHEN 'AGOSTO' THEN 8 WHEN 'SEPTIEMBRE' THEN 9 WHEN 'OCTUBRE' THEN 10 WHEN 'NOVIEMBRE' THEN 11 WHEN 'DICIEMBRE' THEN 12 ELSE 99 END`;
+//
+// Mes efectivo: si la columna MES viene vacía pero la fila tiene
+// fecha_ejecucion, el mes se deriva de la fecha. Así ninguna fila se
+// pierde de los totales solo porque MES esté vacío (ej. 14 filas SURTIGAS).
+// Solo si AMBOS faltan, la fila cae en el grupo 'SIN MES' (sigue contando).
+const MES_EFECTIVO_SQL = `COALESCE(NULLIF(TRIM(mes_norm),''), CASE EXTRACT(MONTH FROM fecha_ejecucion) WHEN 1 THEN 'ENERO' WHEN 2 THEN 'FEBRERO' WHEN 3 THEN 'MARZO' WHEN 4 THEN 'ABRIL' WHEN 5 THEN 'MAYO' WHEN 6 THEN 'JUNIO' WHEN 7 THEN 'JULIO' WHEN 8 THEN 'AGOSTO' WHEN 9 THEN 'SEPTIEMBRE' WHEN 10 THEN 'OCTUBRE' WHEN 11 THEN 'NOVIEMBRE' WHEN 12 THEN 'DICIEMBRE' END, 'SIN MES')`;
+const ORDEN_MES_SQL = `CASE (${MES_EFECTIVO_SQL}) WHEN 'ENERO' THEN 1 WHEN 'FEBRERO' THEN 2 WHEN 'MARZO' THEN 3 WHEN 'ABRIL' THEN 4 WHEN 'MAYO' THEN 5 WHEN 'JUNIO' THEN 6 WHEN 'JULIO' THEN 7 WHEN 'AGOSTO' THEN 8 WHEN 'SEPTIEMBRE' THEN 9 WHEN 'OCTUBRE' THEN 10 WHEN 'NOVIEMBRE' THEN 11 WHEN 'DICIEMBRE' THEN 12 ELSE 99 END`;
 
 function whereGestion(f: Filtros, params: unknown[]): string {
   const cond: string[] = ['1=1'];
   const tieneMes = Boolean(f.mes && f.mes.length > 0);
+  // Rango de fechas solo si se pidió explícitamente en la URL. Por defecto
+  // cada merge trae desde/hasta = undefined y ninguna fila se excluye por
+  // fecha_ejecucion: el Excel tiene fechas con año distinto al de MES
+  // (2025, 2024, 206) y esas filas deben seguir contando.
   if (f.desde && !tieneMes) { params.push(f.desde); cond.push(`(fecha_ejecucion IS NULL OR fecha_ejecucion >= $${params.length}::date)`); }
   if (f.hasta && !tieneMes) { params.push(f.hasta); cond.push(`(fecha_ejecucion IS NULL OR fecha_ejecucion <= $${params.length}::date)`); }
   const lista = (col: string, vals?: string[]) => {
@@ -81,7 +96,10 @@ function whereGestion(f: Filtros, params: unknown[]): string {
     params.push(l);
     cond.push(`${col} = ANY($${params.length})`);
   };
-  lista('mes_norm', f.mes);
+  // El filtro por Mes compara contra el MES EFECTIVO (con respaldo por
+  // fecha): una fila sin MES pero con fecha en ENERO sí entra al filtrar
+  // por ENERO.
+  lista(`(${MES_EFECTIVO_SQL})`, f.mes);
   lista('gasera_norm', f.gasera);
   lista('aseguradora_norm', f.aseguradora);
   lista('canal_norm', f.canal);
@@ -140,10 +158,12 @@ export async function getMetadatos(f: Filtros): Promise<Metadatos> {
 
   // Los meses van en orden natural (ENERO -> DICIEMBRE), no alfabético: con
   // DISTINCT, Postgres exige que la expresión del ORDER BY esté en la lista de
-  // resultados, así que aquí se agrupa en vez de usar DISTINCT.
+  // resultados, así que aquí se agrupa en vez de usar DISTINCT. Se agrupa por
+  // el MES EFECTIVO para que las filas sin MES pero con fecha aparezcan en su
+  // mes (si no, filtrar por ese mes las seguiría excluyendo).
   const pMeses: unknown[] = [];
   const filasMeses = await query<{ v: string }>(
-    `SELECT mes_norm AS v FROM ${VISTA} WHERE mes_norm IS NOT NULL AND ${whereGestion(sinDimension(f, 'mes'), pMeses)} GROUP BY mes_norm ORDER BY ${ORDEN_MES_SQL}`,
+    `SELECT (${MES_EFECTIVO_SQL}) AS v FROM ${VISTA} WHERE ${whereGestion(sinDimension(f, 'mes'), pMeses)} GROUP BY 1 ORDER BY ${ORDEN_MES_SQL}`,
     pMeses,
   );
 
@@ -193,10 +213,12 @@ const ASEG_CANON = `CASE
 export async function getMensualPorAseguradora(f: Filtros): Promise<FilaMensualAseguradora[]> {
   const params: unknown[] = [];
   const w = whereGestion(f, params);
+  // Sin "mes_norm IS NOT NULL": ninguna fila se pierde del total solo por
+  // tener MES vacío; se agrupa por el MES EFECTIVO (respaldo por fecha).
   return query(
-    `SELECT mes_norm AS mes, ${ASEG_CANON} AS aseguradora, COUNT(*)::int AS total
-     FROM ${VISTA} WHERE ${w} AND mes_norm IS NOT NULL
-     GROUP BY mes_norm, ${ASEG_CANON}
+    `SELECT (${MES_EFECTIVO_SQL}) AS mes, ${ASEG_CANON} AS aseguradora, COUNT(*)::int AS total
+     FROM ${VISTA} WHERE ${w}
+     GROUP BY 1, 2
      HAVING COUNT(*) > 0
       ORDER BY ${ORDEN_MES_SQL}, 2`,
     params,
@@ -254,10 +276,12 @@ export async function getResultadosPorMes(f: Filtros, esApto: boolean): Promise<
   const aptosSql = getAptosSql(f);
   const noAptosSql = getNoAptosSql(f);
   const condicion = esApto ? aptosSql : noAptosSql;
+  // Sin "mes_norm IS NOT NULL": se agrupa por MES EFECTIVO para no perder
+  // filas con MES vacío (TOTAL del Excel debe cuadrar).
   return query(
-    `SELECT estado_norm AS resultado, mes_norm AS mes, COUNT(*)::int AS total
-     FROM ${VISTA} WHERE ${w} AND mes_norm IS NOT NULL AND ${condicion}
-     GROUP BY estado_norm, mes_norm
+    `SELECT estado_norm AS resultado, (${MES_EFECTIVO_SQL}) AS mes, COUNT(*)::int AS total
+     FROM ${VISTA} WHERE ${w} AND ${condicion}
+     GROUP BY estado_norm, (${MES_EFECTIVO_SQL})
      ORDER BY estado_norm, ${ORDEN_MES_SQL}`,
     params,
   );
@@ -275,9 +299,11 @@ export async function getDetalleResultadosMensual(f: Filtros, esApto: boolean): 
   const params: unknown[] = [];
   const w = whereGestion(f, params);
   const condicion = esApto ? getAptosSql(f) : getNoAptosSql(f);
+  // Sin "mes_norm IS NOT NULL": MES EFECTIVO (respaldo por fecha) para que
+  // ninguna fila falte del total.
   return query<FilaDetalleResultadoMensual>(
-    `SELECT COALESCE(estado_norm, 'SIN DATO') AS estado, mes_norm AS mes, COUNT(*)::int AS total
-     FROM ${VISTA} WHERE ${w} AND mes_norm IS NOT NULL AND ${condicion}
+    `SELECT COALESCE(estado_norm, 'SIN DATO') AS estado, (${MES_EFECTIVO_SQL}) AS mes, COUNT(*)::int AS total
+     FROM ${VISTA} WHERE ${w} AND ${condicion}
      GROUP BY 1, 2
      ORDER BY 1, ${ORDEN_MES_SQL}`,
     params,
@@ -308,7 +334,7 @@ export async function getDashboardMensual(f: Filtros): Promise<FilaDashboardMens
   const aptosSql = getAptosSql(f);
   const noAptosSql = getNoAptosSql(f);
   const rows = await query<any>(
-    `SELECT mes_norm AS mes, COUNT(*)::int AS total,
+    `SELECT (${MES_EFECTIVO_SQL}) AS mes, COUNT(*)::int AS total,
       COUNT(*) FILTER (WHERE cabina_norm = 'INBOUND')::int AS inbound,
       COUNT(*) FILTER (WHERE cabina_norm = 'OUTBOUND')::int AS outbound,
       COUNT(*) FILTER (WHERE ${RETENIDOS_SQL})::int AS retenidos,
@@ -320,7 +346,7 @@ export async function getDashboardMensual(f: Filtros): Promise<FilaDashboardMens
       COUNT(*) FILTER (WHERE cabina_norm = 'OUTBOUND' AND ${aptosSql})::int AS outbound_aptas,
       COUNT(*) FILTER (WHERE cabina_norm = 'OUTBOUND' AND ${noAptosSql})::int AS outbound_no_aptas,
       COUNT(*) FILTER (WHERE cabina_norm = 'OUTBOUND' AND ${RETENIDOS_SQL})::int AS outbound_retenciones
-     FROM ${VISTA} WHERE ${w} AND mes_norm IS NOT NULL GROUP BY mes_norm ORDER BY ${ORDEN_MES_SQL}`,
+     FROM ${VISTA} WHERE ${w} GROUP BY 1 ORDER BY ${ORDEN_MES_SQL}`,
     params,
   );
   return rows.map((r: any) => {

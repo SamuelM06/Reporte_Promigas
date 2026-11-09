@@ -48,7 +48,11 @@ function parseFecha(v) {
   if (m) {
     let y = m[3];
     if (y.length === 2) y = '20' + y;
-    const iso = `${y}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+    else if (y.length === 3) y = '2026';
+    let mes, dia;
+    if (Number(m[2]) > 12 && Number(m[1]) <= 12) { mes = m[1]; dia = m[2]; }
+    else { dia = m[1]; mes = m[2]; }
+    const iso = `${y}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
     const d = new Date(iso);
     if (!Number.isNaN(d.getTime())) return { date: iso, raw: s };
     return { date: null, raw: s };

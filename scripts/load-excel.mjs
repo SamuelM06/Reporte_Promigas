@@ -44,18 +44,27 @@ function parseFecha(v) {
   }
   const s = String(v).trim();
   if (!s || /^N\/?A$/i.test(s)) return { date: null, raw: s };
-  // 13/012026 -> 13/01/2026
+  // Formato compacto 13/012026 -> 13/01/2026 (sin / antes del año).
   let m = s.match(/^(\d{1,2})\/(\d{2})(\d{4})$/);
   if (m) {
     const iso = `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
     const d = new Date(iso);
     if (!Number.isNaN(d.getTime())) return { date: iso, raw: s };
   }
+  // dd/mm/aaaa o dd-mm-aaaa, con año de 2, 3 o 4 dígitos. El Excel trae
+  // algunos en formato EE.UU. (ej. 1/13/2026): si la segunda parte no puede
+  // ser mes (>12), se interpreta como mm/dd.
   m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
   if (m) {
     let y = m[3];
     if (y.length === 2) y = '20' + y;
-    const iso = `${y}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+    // Año de 3 dígitos (ej. 206 o 026 por 2026): el Excel pierde un dígito
+    // de 2026, así que se completa como 2026 (coincide con MES y BASE).
+    else if (y.length === 3) y = '2026';
+    let mes, dia;
+    if (Number(m[2]) > 12 && Number(m[1]) <= 12) { mes = m[1]; dia = m[2]; }
+    else { dia = m[1]; mes = m[2]; }
+    const iso = `${y}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
     const d = new Date(iso);
     if (!Number.isNaN(d.getTime())) return { date: iso, raw: s };
     return { date: null, raw: s };
@@ -113,12 +122,18 @@ async function main() {
       const [dist, aseg, medio, contrato, localidad, operador, canal, producto, tipo, estado, subt, motivo, fEjec, base, fVenta, asesor, mes, cabina, anio, clasif] = r;
       const fe = parseFecha(fEjec);
       const fv = parseFecha(fVenta);
+      // Respaldo de MES: si la columna Mes viene vacía pero hay fecha de
+      // ejecución, mes_norm se deriva de la fecha para que la fila no se
+      // pierda de los totales (ya la capa de consultas hace lo mismo, queda
+      // guardado en la base para que cualquier consulta cuadre).
+      const SES = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+      const mesNorm = normUpper(mes) ?? (fe.date ? SES[Number(fe.date.slice(5, 7)) - 1] ?? null : null);
       const row = [
         clean(dist), clean(aseg), clean(medio), clean(contrato), clean(localidad), clean(operador), clean(canal), clean(producto), clean(tipo), clean(estado), clean(subt), clean(motivo),
         fe.date, clean(base) ?? (fEjec != null ? String(fEjec) : null),
         fv.date, fv.raw,
         clean(asesor), clean(mes), clean(cabina), parseAnio(anio), clean(clasif),
-        normUpper(dist), normUpper(aseg), normUpper(canal), normUpper(cabina), normUpper(estado), normUpper(mes), normUpper(clasif),
+        normUpper(dist), normUpper(aseg), normUpper(canal), normUpper(cabina), normUpper(estado), mesNorm, normUpper(clasif),
       ];
       const base_idx = bi * row.length;
       ph.push(`(${row.map((_, k) => `$${base_idx + k + 1}`).join(',')})`);
