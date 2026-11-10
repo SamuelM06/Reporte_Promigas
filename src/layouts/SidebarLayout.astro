@@ -11,12 +11,25 @@ interface Props {
 const { title = 'Gestión Diaria Promigas 2026', corteTexto = 'Corte · Enero a Diciembre 2026' } = Astro.props;
 const actual = Astro.url.pathname;
 
+// Parámetros de filtro actuales (mes, gasera, cabina, etc.) para que la
+// navegación entre páginas los conserve. Solo se propagan claves de filtro,
+// nunca 'page' ni otros.
+const CLAVES_FILTRO = ['mes', 'gasera', 'aseguradora', 'canal', 'cabina', 'estado', 'clasificacion', 'desde', 'hasta', 'q'];
+const paramsFiltros = new URLSearchParams();
+CLAVES_FILTRO.forEach((k) => {
+  const v = Astro.url.searchParams.get(k);
+  if (v) paramsFiltros.set(k, v);
+});
+const qsFiltros = paramsFiltros.toString();
+
 const nav = [
-  { href: ruta('/'), label: 'Inicio', desc: 'Portada del reporte', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>' },
-  { href: ruta('/dashboard'), label: 'Dashboard', desc: 'KPIs y tendencias', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg>' },
-  { href: ruta('/por-gasera'), label: 'Por Gasera', desc: 'Mensual por gasera', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M8 10h.01"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 14h.01"/><path d="M16 14h.01"/><path d="M12 14h.01"/></svg>' },
-  { href: ruta('/detalle'), label: 'Detalle', desc: 'Tabla de gestión', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>' },
-  { href: ruta('/resultados'), label: 'Resultados', desc: 'Aptos y no aptos', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' },
+  { href: ruta('/') + (qsFiltros ? '?' + qsFiltros : ''), label: 'Inicio', desc: 'Portada del reporte', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>' },
+  { href: ruta('/dashboard') + (qsFiltros ? '?' + qsFiltros : ''), label: 'Dashboard', desc: 'KPIs y tendencias', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg>' },
+  { href: ruta('/por-gasera') + (qsFiltros ? '?' + qsFiltros : ''), label: 'Por Gasera', desc: 'Mensual por gasera', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M8 10h.01"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 14h.01"/><path d="M16 14h.01"/><path d="M12 14h.01"/></svg>' },
+  { href: ruta('/detalle') + (qsFiltros ? '?' + qsFiltros : ''), label: 'Detalle', desc: 'Tabla de gestión', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>' },
+  { href: ruta('/resultados') + (qsFiltros ? '?' + qsFiltros : ''), label: 'Resultados', desc: 'Aptos y no aptos', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' },
+  { href: ruta('/tendencia-retenciones') + (qsFiltros ? '?' + qsFiltros : ''), label: 'Tendencia', desc: 'Retenciones por mes', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V3"/><path d="M5 12h14"/><path d="M12 3l7 7-7 7"/></svg>' },
+  { href: ruta('/analisis-solicitudes') + (qsFiltros ? '?' + qsFiltros : ''), label: 'Análisis', desc: 'Productos y motivos', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="16 13 18 15 22 10"/></svg>' },
 ];
 ---
 

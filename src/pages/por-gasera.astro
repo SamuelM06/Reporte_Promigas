@@ -1,7 +1,7 @@
 ---
 import { ruta } from '../lib/base';
 import SidebarLayout from '../layouts/SidebarLayout.astro';
-import FiltrosPanel from '../components/filtros/FiltrosPanel.astro';
+import FiltrosGlobales from '../components/filtros/FiltrosGlobales.astro';
 import MensualChart from '../components/charts/MensualChart.astro';
 import { FILTROS } from '../components/filtros/filtros';
 import { cargaSSR, filtrosPorDefecto, getDashboardMensual, getMetadatos, METADATOS_VACIOS, parseFiltros } from '../lib/query';
@@ -72,7 +72,7 @@ const resumen = (datos: any[]) => {
     <h1 class="text-2xl font-extrabold md:text-3xl">Gestión por <span class="texto-brillo">Gasera</span></h1>
   </div>
 
-  <FiltrosPanel
+  <FiltrosGlobales
     action={ruta('/por-gasera')}
     defs={defsPanel}
     opciones={{ mes: mesesFiltro, cabina: cabinas, aseguradora: aseguradoras, clasificacion: clasificaciones }}

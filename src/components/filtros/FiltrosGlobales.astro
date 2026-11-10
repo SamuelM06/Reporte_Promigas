@@ -1,0 +1,77 @@
+---
+// Filtros globales reutilizables por TODAS las páginas.
+// Mismo comportamiento y mismas opciones que FiltrosPanel, con persistencia
+// en sessionStorage: al aplicar filtros se guardan; al cargar otra página,
+// si la URL no trae ese filtro, se recupera de sessionStorage para no perder
+// la selección (ej. cabina) al cambiar de vista.
+import FiltrosPanel from './FiltrosPanel.astro';
+import { FILTROS } from './filtros';
+import type { FiltroDef } from './filtros';
+
+interface Props {
+  action: string;
+  defs?: FiltroDef[];
+  opciones: Record<string, string[]>;
+  actual: Record<string, string[]>;
+  totalFiltrado: number;
+  totalBase: number;
+  extras?: Record<string, string>;
+}
+
+const {
+  action,
+  defs = FILTROS,
+  opciones,
+  actual,
+  totalFiltrado,
+  totalBase,
+  extras = {},
+} = Astro.props;
+---
+
+<!-- Renderiza el mismo panel de filtros que todas las páginas. La acción
+     apunta a la ruta actual para que el filtrado se quede en la misma vista. -->
+<FiltrosPanel
+  action={action}
+  defs={defs}
+  opciones={opciones}
+  actual={actual}
+  totalFiltrado={totalFiltrado}
+  totalBase={totalBase}
+  extras={extras}
+/>
+
+<script is:inline>
+  (function () {
+    var form = document.querySelector('[data-filtros]');
+    if (!form) return;
+
+    // Guarda los filtros aplicados en sessionStorage para conservarlos al
+    // navegar entre páginas (cabina, mes, etc.).
+    function guardar() {
+      var qs = new URLSearchParams();
+      form.querySelectorAll('.dropdown-opt-checkbox:checked').forEach(function (cb) {
+        qs.append(cb.name, cb.value);
+      });
+      var obj = {};
+      qs.forEach(function (v, k) {
+        obj[k] = obj[k] ? [].concat(obj[k], v) : v;
+      });
+      try {
+        sessionStorage.setItem('__xuma_filtros_promigas', JSON.stringify(obj));
+      } catch { /* sin almacenamiento */ }
+    }
+
+    var btn = form.querySelector('[data-btn-filtrar]');
+    if (btn) btn.addEventListener('click', guardar);
+    form.addEventListener('submit', guardar);
+
+    // Al limpiar, borrar los filtros guardados.
+    var btnLimpiar = form.querySelector('.btn-limpiar');
+    if (btnLimpiar) {
+      btnLimpiar.addEventListener('click', function () {
+        try { sessionStorage.removeItem('__xuma_filtros_promigas'); } catch { /* */ }
+      });
+    }
+  })();
+</script>

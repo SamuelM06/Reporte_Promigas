@@ -1,7 +1,7 @@
 ---
 import { ruta } from '../lib/base';
 import SidebarLayout from '../layouts/SidebarLayout.astro';
-import FiltrosPanel from '../components/filtros/FiltrosPanel.astro';
+import FiltrosGlobales from '../components/filtros/FiltrosGlobales.astro';
 import { cargaSSR, filtrosPorDefecto, getDashboardMensual, getMetadatos, METADATOS_VACIOS, parseFiltros } from '../lib/query';
 import { KPI_COLORS, type KpiKey } from '../lib/kpi-colors';
 import EmbudoGestion from '../components/charts/EmbudoGestion.astro';
@@ -123,7 +123,7 @@ const kpis: KpiCard[] = (['total', 'inbound', 'outbound', 'aptos', 'noAptos', 'r
   </div>
 
 
-  <FiltrosPanel
+  <FiltrosGlobales
     action={ruta('/dashboard')}
     opciones={{ mes: mesesFiltro, gasera: gaseras, aseguradora: aseguradoras, cabina: cabinas, estado: estados, clasificacion: clasificaciones }}
     actual={{ mes: selMes, gasera: selGas, aseguradora: selAseg, cabina: selCabina, estado: selEstado, clasificacion: selClasif }}

@@ -239,6 +239,14 @@ const APTOS_BASE_SQL = `(estado_norm IN ('CANCELADO', 'CANCELADO + REINTEGRO', '
 // (más los estados NULL) para que Total = Aptos + No Aptos siempre cuadre.
 const NO_APTOS_BASE_SQL = `(estado_norm IS NULL OR estado_norm NOT IN ('CANCELADO', 'CANCELADO + REINTEGRO', 'CANCELADO + VENTA', 'CANCELADA + VENTA', 'RETENIDO'))`;
 
+/** ============================================================================
+   ESTADOS DE RETENCIÓN — ÚNICA FUENTE DE VERDAD.
+   Se usa en: embudo, tendencia, dona. Las cifras siempre cuadran.
+   Retenidos = RETENIDO + CANCELADO + VENTA (ambas variantes de género).
+   ============================================================================ */
+export const ESTADOS_RETENCION = ['RETENIDO', 'CANCELADO + VENTA', 'CANCELADA + VENTA'] as const;
+const ESTADOS_RETENCION_SQL = `estado_norm IN ('RETENIDO', 'CANCELADO + VENTA', 'CANCELADA + VENTA')`;
+
 // Aseguradoras que para CEO se consideran NO APTOS aunque tengan estado de apto
 const CEO_NO_APTOS_ASEG = `('GNP', 'PROEXEQUIAL', 'IKE')`;
 
@@ -370,6 +378,101 @@ export async function getDashboardMensual(f: Filtros): Promise<FilaDashboardMens
     };
   });
 }
+
+// ============================================================================
+// NUEVAS FUNCIONES DE DATOS (FASE 0.2) — agregaciones puras para las vistas
+// de análisis. Todas aplican el filtro de cabina y demás filtros globales
+// a través de whereGestion. Los gráficos solo pintan; no calculan nada.
+// ============================================================================
+
+export interface FilaRetenidoMes { periodo: string; retenidos: number; }
+
+/** Retenciones por mes (periodo), ordenado cronológicamente. */
+export async function getRetenidosPorMes(f: Filtros): Promise<FilaRetenidoMes[]> {
+  const params: unknown[] = [];
+  const w = whereGestion(f, params);
+  const rows = await query<{ mes: string; anio: number | null; retenidos: number }>(
+    `SELECT (${MES_EFECTIVO_SQL}) AS mes,
+            EXTRACT(YEAR FROM fecha_ejecucion)::int AS anio,
+            COUNT(*)::int AS retenidos
+     FROM ${VISTA} WHERE ${w} AND ${ESTADOS_RETENCION_SQL}
+     GROUP BY 1, 2
+     ORDER BY 2, ${ORDEN_MES_SQL}`,
+    params,
+  );
+  // Detectar si hay más de un año distinto para decidir el formato del eje.
+  const anos = new Set(rows.map((r) => r.anio).filter((a): a is number => a != null && Number.isFinite(a)));
+  const multiAnio = anos.size > 1;
+  const NOMBRE_MES: Record<string, string> = {
+    ENERO: 'Ene', FEBRERO: 'Feb', MARZO: 'Mar', ABRIL: 'Abr', MAYO: 'May', JUNIO: 'Jun',
+    JULIO: 'Jul', AGOSTO: 'Ago', SEPTIEMBRE: 'Sep', OCTUBRE: 'Oct', NOVIEMBRE: 'Nov', DICIEMBRE: 'Dic',
+    'SIN MES': 'Sin mes',
+  };
+  return rows.map((r) => {
+    const nombre = NOMBRE_MES[r.mes] ?? r.mes;
+    const periodo = multiAnio && r.anio != null ? `${nombre} ${r.anio}` : nombre;
+    return { periodo, retenidos: Number(r.retenidos ?? 0) };
+  });
+}
+
+export interface ResultadoRetencion { retenido: number; canceladoVenta: number; total: number; }
+
+/** RETENIDO vs CANCELADO + VENTA (total = retenciones del embudo). */
+export async function getResultadosRetencion(f: Filtros): Promise<ResultadoRetencion> {
+  const params: unknown[] = [];
+  const w = whereGestion(f, params);
+  const filas = await query<{ resultado: string; n: number }>(
+    `SELECT estado_norm AS resultado, COUNT(*)::int AS n
+     FROM ${VISTA} WHERE ${w} AND ${ESTADOS_RETENCION_SQL}
+     GROUP BY estado_norm`,
+    params,
+  );
+  let retenido = 0;
+  let canceladoVenta = 0;
+  for (const r of filas) {
+    const n = Number(r.n ?? 0);
+    if (r.resultado === 'RETENIDO') retenido = n;
+    else if (r.resultado === 'CANCELADO + VENTA' || r.resultado === 'CANCELADA + VENTA') canceladoVenta += n;
+  }
+  return { retenido, canceladoVenta, total: retenido + canceladoVenta };
+}
+
+export interface ItemConCasos { nombre: string; casos: number; }
+
+export interface RankingConTotal { items: ItemConCasos[]; total: number; }
+
+/** Solicitudes por producto, ordenadas de mayor a menor, con total general. */
+export async function getSolicitudesPorProducto(f: Filtros): Promise<RankingConTotal> {
+  const params: unknown[] = [];
+  const w = whereGestion(f, params);
+  const filas = await query<{ nombre: string; casos: number }>(
+    `SELECT producto AS nombre, COUNT(*)::int AS casos
+     FROM ${VISTA} WHERE ${w} AND producto IS NOT NULL AND TRIM(producto) <> ''
+     GROUP BY producto
+     ORDER BY casos DESC, nombre ASC`,
+    params,
+  );
+  const items = filas.map((r) => ({ nombre: r.nombre, casos: Number(r.casos ?? 0) }));
+  const total = items.reduce((s, i) => s + i.casos, 0);
+  return { items, total };
+}
+
+/** Motivos de cancelación, ordenados de mayor a menor, con total. */
+export async function getMotivosCancelacion(f: Filtros): Promise<RankingConTotal> {
+  const params: unknown[] = [];
+  const w = whereGestion(f, params);
+  const filas = await query<{ nombre: string; casos: number }>(
+    `SELECT motivo AS nombre, COUNT(*)::int AS casos
+     FROM ${VISTA} WHERE ${w} AND motivo IS NOT NULL AND TRIM(motivo) <> ''
+     GROUP BY motivo
+     ORDER BY casos DESC, nombre ASC`,
+    params,
+  );
+  const items = filas.map((r) => ({ nombre: r.nombre, casos: Number(r.casos ?? 0) }));
+  const total = items.reduce((s, i) => s + i.casos, 0);
+  return { items, total };
+}
+
 // Caché SSR acotada (evita golpear la DB compartida en cada request SIN crecer sin límite).
 // - TTL por entrada + borrado perezoso de vencidas al leer.
 // - Tope duro de entradas con desalojo FIFO (las claves incluyen página y filtros,
