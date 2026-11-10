@@ -127,6 +127,7 @@ const mejorValor = maxValor;
       <span class="kpi-body">
         <span class="kpi-label">Total retenciones</span>
         <span class="kpi-num text-blue-700 dark:text-blue-300" data-count={res.total}>{fmtInt(res.total)}</span>
+        <span class="kpi-sep"> </span>
         <span class="kpi-nota">del corte seleccionado</span>
       </span>
     </article>
@@ -136,6 +137,7 @@ const mejorValor = maxValor;
       <span class="kpi-body">
         <span class="kpi-label">Inbound · mes pico</span>
         <span class="kpi-num text-green-600 dark:text-green-400" data-count={totalInbound}>{fmtInt(totalInbound)}</span>
+        <span class="kpi-sep"> </span>
         <span class="kpi-nota">{mejorPeriodo}</span>
       </span>
     </article>
@@ -145,6 +147,7 @@ const mejorValor = maxValor;
       <span class="kpi-body">
         <span class="kpi-label">Outbound · mes pico</span>
         <span class="kpi-num text-teal-600 dark:text-teal-400" data-count={totalOutbound}>{fmtInt(totalOutbound)}</span>
+        <span class="kpi-sep"> </span>
         <span class="kpi-nota">{mejorPeriodo}</span>
       </span>
     </article>
@@ -327,6 +330,7 @@ const mejorValor = maxValor;
     .donut-svg text { font-family: 'Raleway', sans-serif; }
     .kpi-ico-sm { width: 2rem; height: 2rem; border-radius: 0.7rem; }
     .kpi-ico-sm :global(svg) { width: 1rem; height: 1rem; }
+    .kpi-sep { margin: 0 4px; opacity: .4; }
     @media (max-width: 1000px) {
       .lg\:col-span-9 { grid-column: 1 / -1; }
       .lg\:col-span-3 { grid-column: 1 / -1; }
