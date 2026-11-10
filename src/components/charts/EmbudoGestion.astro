@@ -1,7 +1,9 @@
 ---
-// Embudo de gestión — silueta única, bordes alineados.
-// Layout: [etiquetas ~200px] [embudo flexible] [métricas ~220px].
-// Todo se calcula con las variables existentes; sin valores hardcodeados.
+// Embudo de gestión — estilo 3D (capas apiladas con efecto de volumen)
+// Layout: [embudo ~40% | panel detalle ~60%]
+// Props: total, inbound, outbound, aptas, noAptas, retenciones, pct,
+//        inboundAptas, inboundNoAptas, inboundRetenciones,
+//        outboundAptas, outboundNoAptas, outboundRetenciones
 interface Props {
   total: number;
   inbound: number;
@@ -17,6 +19,7 @@ interface Props {
   outboundNoAptas?: number;
   outboundRetenciones?: number;
 }
+
 const {
   total, inbound, outbound, aptas, noAptas, retenciones, pct,
   inboundAptas, inboundNoAptas, inboundRetenciones,
@@ -24,349 +27,500 @@ const {
 } = Astro.props;
 
 const fmt = new Intl.NumberFormat('es-CO');
-const fmtPct = (v: number) => new Intl.NumberFormat('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(v) + ' %';
-const n = (v: number | undefined) => Number(v ?? 0) || 0;
+const fmtPct = (v: number) => new Intl.NumberFormat('es-CO', {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+}).format(v) + ' %';
+
+import { fmtInt } from '../../lib/util';
+
+const n = (v: unknown) => Number(v ?? 0) || 0;
 
 const T = n(total);
 const IN = n(inbound);
 const OUT = n(outbound);
 const APT = n(aptas);
-// Respaldo para el bug de mapeo: si noAptas llega 0/undefined, derivarla
 const NOAP = noAptas != null ? n(noAptas) : Math.max(0, T - APT);
 const RET = n(retenciones);
-const PCT = n(pct);
 
-const APT_IN = n(inboundAptas);
-const NOAP_IN = inboundNoAptas != null ? n(inboundNoAptas) : Math.max(0, IN - APT_IN);
-const RET_IN = n(inboundRetenciones);
-const APT_OUT = n(outboundAptas);
-const NOAP_OUT = outboundNoAptas != null ? n(outboundNoAptas) : Math.max(0, OUT - APT_OUT);
-const RET_OUT = n(outboundRetenciones);
-
-// Derivados (protegidos contra división por 0)
-const pctInbound  = T > 0 ? (IN / T) * 100 : 0;
-const pctOutbound = T > 0 ? (OUT / T) * 100 : 0;
+// Derivados protegidos contra división por 0
 const pctAptas    = T > 0 ? (APT / T) * 100 : 0;
 const pctNoAptas  = T > 0 ? (NOAP / T) * 100 : 0;
 const aptasSinRetener = Math.max(0, APT - RET);
 const pctSinRetenerSobreAptas = APT > 0 ? (aptasSinRetener / APT) * 100 : 0;
 const tasaRetencion = APT > 0 ? (RET / APT) * 100 : 0;
 const retencionSobreTotal = T > 0 ? (RET / T) * 100 : 0;
+const pctInbound  = T > 0 ? (IN / T) * 100 : 0;
+const pctOutbound = T > 0 ? (OUT / T) * 100 : 0;
 
-// Mínimo ~10 % solo si el valor es mayor a 0 pero muy pequeño; normalizado a 100
-const minBlock = 10;
-const norm2 = (a: number, b: number) => {
-  const ra = a > 0 ? Math.max(minBlock, a) : 0;
-  const rb = b > 0 ? Math.max(minBlock, b) : 0;
-  const s = ra + rb;
-  if (s <= 0) return { a: 50, b: 50 };
-  return { a: (ra / s) * 100, b: (rb / s) * 100 };
-};
-const { a: wIn, b: wOut } = norm2(pctInbound, pctOutbound);
-const { a: wApt, b: wNoA } = norm2(pctAptas, pctNoAptas);
+// Anchos relativos de las 4 capas (mínimo 35% para que quepa el texto)
+const minAncho = 35;
+const wTotal = 100;
+const wApt = Math.max(minAncho, pctAptas);
+const wNoA = Math.max(minAncho, pctNoAptas);
+const wRet = Math.max(minAncho, (T > 0 ? (RET / T) * 100 : 0));
 
-// Retenidos: ancho = ancho del bloque Aptas
-const wRet = wApt;
+// Altura del embudo (px)
+const H_FUNNEL = 360;
+const GAP_ENTRE_CAPAS = 14;
+const altCapa = (H_FUNNEL - GAP_ENTRE_CAPAS * 3) / 4;
+const ANCHO_MAX = 260;
+const escala = ANCHO_MAX / 100;
 
-// Tabla "Detalle por cabina"
-const filasCabina = [
-  { label: 'Inbound', color: '#8b5cf6', llamadas: IN, aptas: APT_IN, noAptas: NOAP_IN, retenciones: RET_IN },
-  { label: 'Outbound', color: '#06b6d4', llamadas: OUT, aptas: APT_OUT, noAptas: NOAP_OUT, retenciones: RET_OUT },
-  { label: 'Total', color: '#3b82f6', llamadas: T, aptas: APT, noAptas: NOAP, retenciones: RET },
-];
-const pctRetSobreAptas = (r: { aptas: number; retenciones: number }) => r.aptas > 0 ? (r.retenciones / r.aptas) * 100 : 0;
-const pctRetSobreTotal = (r: { llamadas: number; retenciones: number }) => r.llamadas > 0 ? (r.retenciones / r.llamadas) * 100 : 0;
+// Posiciones Y de cada capa (apiladas)
+let yActual = 0;
+const posiciones: Array<{ y: number; h: number; w: number }> = [];
+const anchosCapas = [wTotal, wApt, wNoA, wRet];
+for (let i = 0; i < 4; i++) {
+  posiciones.push({ y: yActual, h: altCapa, w: anchosCapas[i]! });
+  yActual += altCapa + GAP_ENTRE_CAPAS;
+}
+
+// Paths SVG para cada capa (trapecio con elipse superior y borde inferior curvo)
+function pathCuerpo(wSup: number, wInf: number, y: number, h: number): string {
+  return `
+    M ${-wSup/2},${y}
+    Q 0,${y} ${wSup/2},${y}
+    L ${-wInf/2},${y + h}
+    Q 0,${y + h + 10} ${wInf/2},${y + h}
+    L ${wSup/2},${y} Z
+  `.trim();
+}
+
+// Tapa elíptica superior de cada capa
+function pathTapa(wSup: number, y: number): string {
+  const rx = wSup / 2;
+  const ry = 12;
+  return `
+    M ${-rx},${y}
+    Q ${-rx*0.55},${y} ${rx*0.55},${y} ${rx},${y}
+    Q ${rx*0.55},${y} ${-rx*0.55},${y} ${-rx},${y} Z
+  `.trim();
+}
+
+// Banda de sombra entre capas
+function pathSombra(wSup: number, y: number): string {
+  const rx = wSup / 2;
+  return `
+    M ${-rx},${y}
+    Q 0,${y - 6} ${rx},${y}
+    Q 0,${y + 4} ${-rx},${y} Z
+  `.trim();
+}
+
+const capas = [
+  { key: 'total',   label: 'TOTAL DE LLAMADAS', valor: T, w: wTotal, color: '#3b82f6', dark: '#2563eb' },
+  { key: 'aptas',   label: 'APTAS',             valor: APT, w: wApt,  color: '#10a37f', dark: '#0f7a58' },
+  { key: 'noaptas', label: 'NO APTAS',          valor: NOAP, w: wNoA,  color: '#d97706', dark: '#b45309' },
+  { key: 'retenc',  label: 'RETENCIONES',       valor: RET, w: wRet,  color: '#0f7a58', dark: '#065f46' },
+] as const;
+
+// Sombra de suelo
+const sueloW = wRet * escala * 0.9;
+const sueloCY = posiciones[3]!.y + altCapa + 20;
 ---
-<section class="embudo-card">
-  <!-- Encabezado -->
-  <div class="embudo-head">
+
+<article class="embudo-contenedor">
+  <header class="embudo-head">
     <h2 class="embudo-titulo">Embudo de gestión</h2>
-    <p class="embudo-subtitulo">Total → Aptas → Retenciones</p>
+    <span class="embudo-subtitulo">Total → Aptas → Retenciones</span>
+  </header>
+
+  <div class="embudo-layout">
+    <!-- Columna izquierda: Embudo 3D -->
+    <div class="embudo-columna-izq">
+      <svg class="embudo-svg" viewBox="-140 0 280 420" aria-label="Embudo de gestión 3D">
+        <defs>
+          {capas.map((c) => (
+            <linearGradient id={`grad-${c.key}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color={c.color} stop-opacity="0.95" />
+              <stop offset="100%" stop-color={c.dark} stop-opacity="0.95" />
+            </linearGradient>
+          ))}
+        </defs>
+
+        <!-- Sombra de suelo -->
+        <ellipse cx="0" cy={sueloCY} rx={sueloW/2} ry={10} class="suelo" />
+
+        <!-- Capas del embudo (de arriba hacia abajo) -->
+        {capas.map((c, i) => {
+          const pos = posiciones[i]!;
+          const esUltima = i === capas.length - 1;
+          const wSup = pos.w * escala;
+          const wInf = i < capas.length - 1 ? posiciones[i + 1]!.w * escala : wSup * 0.55;
+          const esRetenc = c.key === 'retenc';
+          const esAptas = c.key === 'aptas';
+          const esNoAptas = c.key === 'noaptas';
+          const esTotal = c.key === 'total';
+          return (
+            <g class="capa">
+              <!-- Tapa elíptica superior (más oscura) -->
+              <path d={pathTapa(wSup, pos.y)} class="tapa" />
+              <!-- Cuerpo de la capa (trapecio con degradado) -->
+              <path d={pathCuerpo(wSup, wInf, pos.y, altCapa)} class="cuerpo" style={{ fill: `url(#grad-${c.key})` }} />
+              <!-- Banda de sombra debajo de la capa (excepto la última) -->
+              {!esUltima && (
+                <path d={pathSombra(wSup, pos.y + altCapa)} class="banda-sombra" />
+              )}
+              <!-- Etiqueta -->
+              <text x="0" y={pos.y + altCapa/2 + 6} class="texto-etiqueta">{c.label}</text>
+              <!-- Valor -->
+              <text x="0" y={pos.y + altCapa/2 + 26} class="texto-valor">{fmt.format(c.valor)}</text>
+              <!-- Porcentaje segunda línea -->
+              {esRetenc && (
+                <text x="0" y={pos.y + altCapa/2 + 46} class="texto-pct">{fmtPct(tasaRetencion)} de retención</text>
+              )}
+              {!esRetenc && !esTotal && (
+                <text x="0" y={pos.y + altCapa/2 + 46} class="texto-pct">{esAptas ? fmtPct(pctAptas) : fmtPct(pctNoAptas)} del total</text>
+              )}
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+
+    <!-- Columna derecha: Panel de detalle -->
+    <div class="embudo-columna-der">
+      <!-- Métricas clave -->
+      <section class="metricas">
+        <div class="metrica">
+          <span class="metrica-label">Tasa de retención</span>
+          <span class="metrica-valor">{fmtPct(tasaRetencion)}</span>
+          <span class="metrica-nota">retenciones ÷ aptas</span>
+        </div>
+        <div class="metrica">
+          <span class="metrica-label">Retención sobre total</span>
+          <span class="metrica-valor">{fmtPct(retencionSobreTotal)}</span>
+          <span class="metrica-nota">sobre el total de llamadas</span>
+        </div>
+        <div class="metrica metrica-amarilla">
+          <span class="metrica-label">Aptas sin retener</span>
+          <span class="metrica-valor">{fmtInt(aptasSinRetener)}</span>
+          <span class="metrica-nota">{fmtPct(pctSinRetenerSobreAptas)} de las aptas</span>
+        </div>
+      </section>
+
+      <!-- Composición Inbound / Outbound -->
+      <section class="composicion">
+        <div class="fila-composicion">
+          <span class="punto" style={{ background: '#8b5cf6' }}></span>
+          <span class="etiqueta">Inbound</span>
+          <span class="valor">{fmt.format(IN)}</span>
+          <span class="porcentaje">{fmtPct(pctInbound)}</span>
+        </div>
+        <div class="fila-composicion">
+          <span class="punto" style={{ background: '#06b6d4' }}></span>
+          <span class="etiqueta">Outbound</span>
+          <span class="valor">{fmt.format(OUT)}</span>
+          <span class="porcentaje">{fmtPct(pctOutbound)}</span>
+        </div>
+      </section>
+
+      <!-- Tabla detalle por cabina -->
+      <section class="detalle-tabla">
+        <div class="tabla-head">DETALLE POR CABINA</div>
+        <table class="tabla-cabina">
+          <thead>
+            <tr>
+              <th>CABINA</th>
+              <th class="num">LLAMADAS</th>
+              <th class="num">APTAS</th>
+              <th class="num">NO APTAS</th>
+              <th class="num">RETENCIONES</th>
+              <th class="num">% RET. S/ APTAS</th>
+              <th class="num">% RET. S/ TOTAL</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[
+              { label: 'Inbound', color: '#8b5cf6', llamadas: IN, aptas: n(inboundAptas), noAptas: n(inboundNoAptas), retenciones: n(inboundRetenciones) },
+              { label: 'Outbound', color: '#06b6d4', llamadas: OUT, aptas: n(outboundAptas), noAptas: n(outboundNoAptas), retenciones: n(outboundRetenciones) },
+              { label: 'Total', color: '#3b82f6', llamadas: T, aptas: APT, noAptas: NOAP, retenciones: RET, esTotal: true },
+            ].map((r, i) => {
+              const pctRetAptas = r.aptas > 0 ? (r.retenciones / r.aptas) * 100 : 0;
+              const pctRetTotal = r.llamadas > 0 ? (r.retenciones / r.llamadas) * 100 : 0;
+              return (
+                <tr class={r.esTotal ? 'fila-total' : ''}>
+                  <td><span class="punto-tabla" style={{ background: r.color }}></span>{r.label}</td>
+                  <td class="num">{fmt.format(r.llamadas)}</td>
+                  <td class="num">{fmt.format(r.aptas)}</td>
+                  <td class="num">{fmt.format(r.noAptas)}</td>
+                  <td class="num">{fmt.format(r.retenciones)}</td>
+                  <td class="num">{fmtPct(pctRetAptas)}</td>
+                  <td class="num">{fmtPct(pctRetTotal)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </section>
+
+      <p class="nota-pie">
+        Las no aptas no generan retención. Retenidos = RETENIDO + CANCELADO + VENTA.
+      </p>
+    </div>
   </div>
-
-  <!-- Layout 3 columnas -->
-  <div class="embudo-grid">
-    <!-- Fila 1: Total -->
-    <div class="embudo-funnel-cell" style="grid-row:1; grid-column:2;">
-      <div class="embudo-row embudo-row-total">
-        <div class="embudo-block embudo-total" style="width:100%">
-          <div class="embudo-bg"></div>
-          <div class="embudo-content embudo-content-total">
-            <span class="embudo-nombre">TOTAL DE LLAMADAS</span>
-            <span class="embudo-valor">{fmt.format(T)}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Fila 2: Cabina -->
-    <div class="embudo-label-cell" style="grid-row:2; grid-column:1;">
-      <span class="embudo-label">Cabina</span>
-      <span class="embudo-sub">inbound + outbound</span>
-    </div>
-    <div class="embudo-funnel-cell" style="grid-row:2; grid-column:2;">
-      <div class="embudo-row embudo-row-cabina">
-        <div class="embudo-block embudo-inbound" style={`flex:${wIn} 1 0`}>
-          <div class="embudo-bg"></div>
-          <div class="embudo-content">
-            <span class="embudo-nombre">INBOUND</span>
-            <span class="embudo-valor">{fmt.format(IN)}</span>
-            <span class="embudo-pct">{fmtPct(pctInbound)}</span>
-          </div>
-        </div>
-        <div class="embudo-block embudo-outbound" style={`flex:${wOut} 1 0`}>
-          <div class="embudo-bg"></div>
-          <div class="embudo-content">
-            <span class="embudo-nombre">OUTBOUND</span>
-            <span class="embudo-valor">{fmt.format(OUT)}</span>
-            <span class="embudo-pct">{fmtPct(pctOutbound)}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Fila 3: Clasificación -->
-    <div class="embudo-label-cell" style="grid-row:3; grid-column:1;">
-      <span class="embudo-label">Clasificación</span>
-      <span class="embudo-sub">aptas + no aptas</span>
-    </div>
-    <div class="embudo-funnel-cell" style="grid-row:3; grid-column:2;">
-      <div class="embudo-row embudo-row-clasif">
-        <div class="embudo-block embudo-aptas" style={`flex:${wApt} 1 0`}>
-          <div class="embudo-bg"></div>
-          <div class="embudo-content">
-            <span class="embudo-nombre">APTAS</span>
-            <span class="embudo-valor">{fmt.format(APT)}</span>
-            <span class="embudo-pct">{fmtPct(pctAptas)}</span>
-          </div>
-        </div>
-        <div class="embudo-block embudo-noaptas" style={`flex:${wNoA} 1 0`}>
-          <div class="embudo-bg"></div>
-          <div class="embudo-content">
-            <span class="embudo-nombre">NO APTAS</span>
-            <span class="embudo-valor">{fmt.format(NOAP)}</span>
-            <span class="embudo-pct">{fmtPct(pctNoAptas)}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="embudo-metric-cell" style="grid-row:3; grid-column:3;">
-      <span class="embudo-metric-valor embudo-metric-amarillo">{fmt.format(aptasSinRetener)}</span>
-      <span class="embudo-metric-txt">aptas sin retener · {fmtPct(pctSinRetenerSobreAptas)} de las aptas</span>
-    </div>
-
-    <!-- Fila 4: Retención (trapecio + nota a la derecha) -->
-    <div class="embudo-label-cell" style="grid-row:4; grid-column:1;">
-      <span class="embudo-label">Retención</span>
-      <span class="embudo-sub">solo sobre las aptas</span>
-    </div>
-    <div class="embudo-funnel-cell" style="grid-row:4; grid-column:2;">
-      <div class="embudo-row embudo-row-ret">
-        <div class="embudo-block embudo-retenidos" style={`width:${wApt}%`}>
-          <div class="embudo-bg"></div>
-          <div class="embudo-content">
-            <span class="embudo-nombre">RETENCIONES</span>
-            <span class="embudo-valor">{fmt.format(RET)}</span>
-            <span class="embudo-pct">{fmtPct(pctAptas > 0 ? (RET / APT) * 100 : 0)} del total</span>
-          </div>
-        </div>
-        <div class="embudo-noaptas-note">Las no aptas no generan retención.</div>
-      </div>
-    </div>
-    <div class="embudo-metric-cell" style="grid-row:4; grid-column:3;">
-      <span class="embudo-metric-valor">{fmtPct(tasaRetencion)}</span>
-      <span class="embudo-metric-txt">tasa de retención (retenciones ÷ aptas)</span>
-      <span class="embudo-metric-valor embudo-metric-small">{fmtPct(retencionSobreTotal)}</span>
-      <span class="embudo-metric-txt">sobre el total de llamadas</span>
-    </div>
-  </div>
-
-  <!-- Tabla "Detalle por cabina" -->
-  <div class="embudo-tabla">
-    <div class="embudo-tabla-titulo">DETALLE POR CABINA</div>
-    <table class="embudo-tbl">
-      <thead>
-        <tr>
-          <th>DETALLE POR CABINA</th>
-          <th>LLAMADAS</th>
-          <th>APTAS</th>
-          <th>NO APTAS</th>
-          <th>RETENCIONES</th>
-          <th>% RET. S/ APTAS</th>
-          <th>% RET. S/ TOTAL</th>
-        </tr>
-      </thead>
-      <tbody>
-        {filasCabina.map((r, i) => (
-          <tr class={i === 2 ? 'embudo-tbl-total' : ''}>
-            <td>
-              <span class="embudo-dot" style={`background:${r.color}`}></span>
-              {r.label}
-            </td>
-            <td>{fmt.format(r.llamadas)}</td>
-            <td>{fmt.format(r.aptas)}</td>
-            <td>{fmt.format(r.noAptas)}</td>
-            <td>{fmt.format(r.retenciones)}</td>
-            <td>{fmtPct(pctRetSobreAptas(r))}</td>
-            <td>{fmtPct(pctRetSobreTotal(r))}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
-</section>
+</article>
 
 <style>
-  /* Variables de tema (mecanismo existente: clase .dark) */
   :global(:root) {
-    --card-bg: #ffffff;
-    --text-primary: #0f172a;
-    --text-secondary: #475569;
-    --text-muted: #64748b;
-    --border: #e2e8f0;
-    --gap-color: #e2e8f0;
-    --amarillo-aptas: #b45309;
+    --suelo-opacity: 0.25;
+    --banda-opacity: 0.15;
   }
   :global(.dark) {
-    --card-bg: #1c1f3a;
-    --text-primary: #ffffff;
-    --text-secondary: #cbd5e1;
-    --text-muted: #94a3b8;
-    --border: rgba(255, 255, 255, 0.1);
-    --gap-color: #1c1f3a;
-    --amarillo-aptas: #fcd34d;
+    --suelo-opacity: 0.45;
+    --banda-opacity: 0.35;
   }
 
-  .embudo-card {
-    background-color: var(--card-bg);
-    border: 1px solid var(--border);
+  .embudo-contenedor {
+    background: var(--cpanel-fondo);
+    background-image: var(--cglass-bg);
+    border: 1px solid var(--cglass-borde);
     border-radius: 1.5rem;
-    padding: 1rem 1.25rem;
-    font-family: 'Raleway', 'Inter', system-ui, sans-serif;
+    padding: 1.25rem 1.5rem;
+    box-shadow: var(--csombra-panel);
+    backdrop-filter: blur(18px);
   }
-  .embudo-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
-  .embudo-titulo { font-size: 16px; font-weight: 800; color: var(--text-primary); margin: 0; }
-  .embudo-subtitulo { font-size: 11px; font-weight: 600; color: var(--text-muted); margin: 0; }
-
-  .embudo-grid {
+  .embudo-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  .embudo-titulo {
+    font-size: 1.1rem;
+    font-weight: 800;
+    margin: 0;
+    color: var(--ctinta);
+  }
+  .embudo-subtitulo {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: color-mix(in srgb, currentColor 50%, transparent);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .embudo-layout {
     display: grid;
-    grid-template-columns: 200px 1fr 220px;
-    grid-template-rows: auto auto auto auto;
-    gap: 3px 14px;
+    grid-template-columns: 42% 58%;
+    gap: 1.5rem;
+    align-items: start;
+  }
+  .embudo-columna-izq {
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    background: var(--gap-color);
-    border-radius: 8px;
-    overflow: hidden;
-    --inset: 4%;
+    max-width: 420px;
   }
-  .embudo-label-cell {
-    display: flex; flex-direction: column; align-items: flex-end; justify-content: center;
-    text-align: right; padding-right: 6px;
+  .embudo-columna-der {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
   }
-  .embudo-label { font-size: 13px; font-weight: 800; color: var(--text-primary); letter-spacing: 0.02em; }
-  .embudo-sub { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
-
-  .embudo-funnel-cell { display: flex; flex-direction: column; gap: 3px; background: var(--gap-color); }
-  .embudo-row { display: flex; gap: 3px; height: 72px; align-items: stretch; background: var(--gap-color); }
-  .embudo-row-total { height: 78px; }
-  .embudo-row-ret { height: auto; min-height: 72px; }
-
-  .embudo-block {
-    position: relative;
+  .embudo-svg {
+    width: 100%;
+    max-width: 280px;
+    height: auto;
+    display: block;
     overflow: visible;
-    border-radius: 4px;
-    min-width: 40px;
-    box-sizing: border-box;
-    border: 0;
-    outline: 0;
-    box-shadow: none;
-    filter: none;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
   }
-  .embudo-bg {
-    position: absolute; inset: 0; z-index: 0;
-  }
-  .embudo-content {
-    position: relative; z-index: 1;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    height: 100%; padding: 0 4px;
-    white-space: nowrap;
-    background: transparent;
-    -webkit-background-clip: border-box;
-    background-clip: border-box;
+
+  /* Capas del embudo */
+  .tapa { fill: var(--ctinta-dim); }
+  .cuerpo { stroke: none; }
+  .banda-sombra { fill: #000000; fill-opacity: var(--banda-opacity); }
+  .suelo { fill: #000000; fill-opacity: var(--suelo-opacity); }
+
+  .texto-etiqueta {
+    fill: #ffffff;
+    font-weight: 800;
+    font-size: 11px;
+    font-family: 'Raleway', sans-serif;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    text-anchor: middle;
     user-select: none;
-    line-height: 1.15;
   }
-  /* textos dentro de figuras saturadas: blancos en ambos temas */
-  .embudo-content .embudo-nombre { color: #ffffff; }
-  .embudo-content .embudo-valor { color: #ffffff; }
-  .embudo-content .embudo-pct { color: rgba(255,255,255,0.88); }
-
-  .embudo-nombre { font-size: clamp(9px, 0.8vw, 11px); font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
-  .embudo-valor { font-size: clamp(18px, 2vw, 26px); font-weight: 800; font-variant-numeric: tabular-nums; margin-top: 2px; }
-  .embudo-pct { font-size: clamp(9px, 0.75vw, 10px); font-weight: 600; margin-top: 2px; }
-
-  /* colores de fondo por figura (en la capa .embudo-bg) */
-  .embudo-total .embudo-bg { background: linear-gradient(135deg, #3b82f6, #2563eb); border-radius: 10px 10px 0 0; }
-  .embudo-inbound .embudo-bg { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
-  .embudo-outbound .embudo-bg { background: linear-gradient(135deg, #06b6d4, #0891b2); }
-  .embudo-aptas .embudo-bg { background: linear-gradient(135deg, #10a37f, #0f7a58); }
-  .embudo-noaptas .embudo-bg { background: linear-gradient(135deg, #d97706, #b45309); }
-  .embudo-retenidos { display: flex; flex-direction: column; gap: 3px; background: transparent; margin-left: calc(var(--inset) / 4); }
-  .embudo-retenidos .embudo-bg { background: linear-gradient(135deg, #0f7a58, #065f46); clip-path: polygon(0 0, 100% 0, 85% 100%, 15% 100%); }
-  .embudo-content-total { flex-direction: row; gap: 12px; }
-
-  /* silueta única: clip-path en la FILA completa (no en cada bloque) */
-  .embudo-row-cabina { clip-path: polygon(0 0, 100% 0, calc(100% - var(--inset)/4) 100%, calc(var(--inset)/4) 100%); }
-  .embudo-row-clasif { clip-path: polygon(calc(var(--inset)/4) 0, calc(100% - var(--inset)/4) 0, calc(100% - var(--inset)/2) 100%, calc(var(--inset)/2) 100%); }
-
-  .embudo-trap { position: relative; height: 72px; overflow: visible; border-radius: 4px; box-sizing: border-box; border: 0; outline: 0; box-shadow: none; filter: none; }
-
-  .embudo-noaptas-note {
-    display: flex; align-items: center;
-    font-size: 10px; color: var(--text-muted);
-    border-left: 1px dotted var(--border);
-    padding-left: 8px; margin-left: 4px;
-    white-space: nowrap; user-select: none;
-    flex: 1 1 auto; min-width: 0;
+  .texto-valor {
+    fill: #ffffff;
+    font-weight: 800;
+    font-size: 20px;
+    font-family: 'Raleway', sans-serif;
+    text-anchor: middle;
+    user-select: none;
+  }
+  .texto-pct {
+    fill: #ffffff;
+    font-weight: 600;
+    font-size: 11px;
+    font-family: 'Raleway', sans-serif;
+    text-anchor: middle;
+    opacity: 0.9;
+    user-select: none;
   }
 
-  .embudo-metric-cell {
-    display: flex; flex-direction: column; justify-content: center; gap: 2px;
-    padding-left: 8px;
+  /* Métricas clave */
+  .metricas {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
   }
-  .embudo-metric-valor { font-size: 20px; font-weight: 800; color: var(--text-primary); font-variant-numeric: tabular-nums; line-height: 1; }
-  .embudo-metric-amarillo { color: var(--amarillo-aptas); }
-  .embudo-metric-small { font-size: 16px; margin-top: 6px; }
-  .embudo-metric-txt { font-size: 10px; color: var(--text-muted); margin-top: 2px; line-height: 1.2; }
+  .metrica {
+    border: 1px solid var(--cglass-borde);
+    border-radius: 1rem;
+    padding: 0.75rem;
+    background: color-mix(in srgb, currentColor 4%, transparent);
+    text-align: center;
+  }
+  .metrica-label {
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: color-mix(in srgb, currentColor 50%, transparent);
+    display: block;
+    margin-bottom: 0.25rem;
+  }
+  .metrica-valor {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--ctinta);
+    font-variant-numeric: tabular-nums;
+    display: block;
+    margin-bottom: 0.15rem;
+  }
+  .metrica-nota {
+    font-size: 0.65rem;
+    color: color-mix(in srgb, currentColor 50%, transparent);
+    display: block;
+  }
+  .metrica-amarilla .metrica-valor { color: #b45309; }
+  :global(.dark) .metrica-amarilla .metrica-valor { color: #fcd34d; }
 
-  /* Tabla Detalle por cabina */
-  .embudo-tabla { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px; }
-  .embudo-tabla-titulo { font-size: 10px; font-weight: 800; letter-spacing: 0.18em; color: var(--text-muted); margin-bottom: 8px; }
-  .embudo-tbl { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12px; font-variant-numeric: tabular-nums; }
-  .embudo-tbl th { font-size: 9px; font-weight: 800; letter-spacing: 0.08em; color: var(--text-muted); padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--border); background: transparent; }
-  .embudo-tbl th:first-child { text-align: left; }
-  .embudo-tbl td { padding: 8px; text-align: right; border-bottom: 1px solid var(--border); color: var(--text-secondary); background: transparent; }
-  .embudo-tbl td:first-child { text-align: left; font-weight: 700; display: flex; align-items: center; gap: 6px; color: var(--text-primary); }
-  .embudo-tbl .embudo-tbl-total td { font-weight: 800; color: var(--text-primary); border-top: 1px solid var(--border); }
-  .embudo-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  /* Composición Inbound / Outbound */
+  .composicion {
+    border: 1px solid var(--cglass-borde);
+    border-radius: 1rem;
+    padding: 0.75rem;
+    background: color-mix(in srgb, currentColor 4%, transparent);
+  }
+  .fila-composicion {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+  .fila-composicion:last-child { margin-bottom: 0; }
+  .punto {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .etiqueta {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--ctinta);
+    min-width: 55px;
+  }
+  .valor {
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: var(--ctinta);
+    font-variant-numeric: tabular-nums;
+    margin-left: auto;
+  }
+  .porcentaje {
+    font-size: 0.75rem;
+    color: color-mix(in srgb, currentColor 50%, transparent);
+    margin-left: auto;
+    margin-right: 0.5rem;
+  }
+
+  /* Tabla detalle por cabina */
+  .detalle-tabla { display: flex; flex-direction: column; gap: 0.5rem; }
+  .tabla-head {
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: color-mix(in srgb, currentColor 50%, transparent);
+  }
+  .tabla-cabina {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .tabla-cabina th {
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: color-mix(in srgb, currentColor 50%, transparent);
+    padding: 0.5rem 0.4rem;
+    text-align: right;
+    border-bottom: 1px solid var(--cglass-borde);
+  }
+  .tabla-cabina th:first-child { text-align: left; padding-left: 0.4rem; }
+  .tabla-cabina td {
+    padding: 0.5rem 0.4rem;
+    border-bottom: 1px solid color-mix(in srgb, currentColor 10%, transparent);
+    color: color-mix(in srgb, currentColor 70%, transparent);
+  }
+  .tabla-cabina td:first-child {
+    text-align: left;
+    padding-left: 0.4rem;
+    font-weight: 700;
+    color: var(--ctinta);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .tabla-cabina td .punto-tabla {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .tabla-cabina td.num { text-align: right; font-weight: 700; color: var(--ctinta); }
+  .tabla-cabina .fila-total td {
+    font-weight: 800;
+    color: var(--ctinta);
+    border-top: 1.5px solid var(--cglass-borde);
+    border-bottom: none;
+    background: color-mix(in srgb, currentColor 6%, transparent);
+  }
+
+  .nota-pie {
+    font-size: 0.7rem;
+    color: color-mix(in srgb, currentColor 50%, transparent);
+    margin-top: 0.25rem;
+    line-height: 1.4;
+  }
 
   /* Responsive */
   @media (max-width: 900px) {
-    .embudo-grid { grid-template-columns: 1fr; }
-    .embudo-label-cell { display: none; }
-    .embudo-metric-cell { grid-column: 1; display: block; margin-top: 10px; padding-left: 0; }
-    .embudo-noaptas-note { display: none; }
+    .embudo-layout {
+      grid-template-columns: 1fr;
+      gap: 1.25rem;
+    }
+    .embudo-columna-izq {
+      max-width: none;
+      align-items: center;
+    }
+    .embudo-svg {
+      max-width: 240px;
+    }
+    .metricas {
+      grid-template-columns: repeat(3, 1fr);
+    }
   }
-  @media (max-width: 480px) {
-    .embudo-valor { font-size: clamp(16px, 4vw, 20px); }
-    .embudo-nombre { font-size: clamp(8px, 2vw, 10px); }
-    .embudo-row { height: 62px; }
-    .embudo-row-total { height: 68px; }
+  @media (max-width: 600px) {
+    .embudo-svg { max-width: 200px; }
+    .metricas { grid-template-columns: 1fr; }
+    .tabla-cabina { font-size: 0.7rem; }
+    .tabla-cabina th, .tabla-cabina td { padding: 0.4rem 0.2rem; }
   }
-  /* Prevención de recorte de texto y selección azul */
-  .embudo-content span { white-space: nowrap; background: transparent; -webkit-background-clip: border-box; background-clip: border-box; user-select: none; padding: 0 4px; }
-  .embudo-content span::selection { background: transparent; color: inherit; }
-  :global(::selection) { background: rgba(59,130,246,0.3); }
 </style>
