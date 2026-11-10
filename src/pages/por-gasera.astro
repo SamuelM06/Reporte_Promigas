@@ -1,7 +1,7 @@
 ---
 import { ruta } from '../lib/base';
 import SidebarLayout from '../layouts/SidebarLayout.astro';
-import FiltrosPanel from '../components/filtros/FiltrosPanel.astro';
+import FiltrosGlobales from '../components/filtros/FiltrosGlobales.astro';
 import MensualChart from '../components/charts/MensualChart.astro';
 import { FILTROS } from '../components/filtros/filtros';
 import { cargaSSR, filtrosPorDefecto, getDashboardMensual, getMetadatos, METADATOS_VACIOS, parseFiltros } from '../lib/query';
@@ -37,7 +37,9 @@ const selAseg = f.aseguradora ?? [];
 const mesesFiltro = (metadatos.meses ?? []).filter((m) => m !== 'SIN DATO');
 const cabinas = metadatos.cabinas ?? [];
 const aseguradoras = metadatos.aseguradoras ?? [];
-const defsPanel = FILTROS.filter((d) => d.key === 'mes' || d.key === 'cabina' || d.key === 'aseguradora');
+const clasificaciones = metadatos.clasificaciones ?? [];
+const selClasif = f.clasificacion ?? [];
+const defsPanel = FILTROS.filter((d) => d.key === 'mes' || d.key === 'cabina' || d.key === 'aseguradora' || d.key === 'clasificacion');
 
 // Corte dinámico para layout
 const mesesDisponibles = (metadatos.meses ?? []).filter(m => m !== 'SIN DATO');
@@ -51,6 +53,7 @@ const qs = (p: number) => {
   for (const m of selMes) q.append('mes', m);
   for (const c of selCabina) q.append('cabina', c);
   for (const a of selAseg) q.append('aseguradora', a);
+  for (const c of selClasif) q.append('clasificacion', c);
   if (p === 2) q.set('page', '2');
   const s = q.toString();
   return s ? ruta(`/por-gasera?${s}`) : ruta('/por-gasera');
@@ -69,11 +72,11 @@ const resumen = (datos: any[]) => {
     <h1 class="text-2xl font-extrabold md:text-3xl">Gestión por <span class="texto-brillo">Gasera</span></h1>
   </div>
 
-  <FiltrosPanel
+  <FiltrosGlobales
     action={ruta('/por-gasera')}
     defs={defsPanel}
-    opciones={{ mes: mesesFiltro, cabina: cabinas, aseguradora: aseguradoras }}
-    actual={{ mes: selMes, cabina: selCabina, aseguradora: selAseg }}
+    opciones={{ mes: mesesFiltro, cabina: cabinas, aseguradora: aseguradoras, clasificacion: clasificaciones }}
+    actual={{ mes: selMes, cabina: selCabina, aseguradora: selAseg, clasificacion: selClasif }}
     totalFiltrado={gaseras.reduce((a, g) => a + resumen(datosPorGasera[g] ?? []).total, 0)}
     totalBase={metadatos.total ?? 0}
     extras={page === 2 ? { page: '2' } : {}}

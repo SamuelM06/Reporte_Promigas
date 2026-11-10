@@ -5,7 +5,7 @@
 // muestren los ítems de la base de datos.
 
 export interface FiltroDef {
-  key: 'mes' | 'gasera' | 'aseguradora' | 'cabina' | 'estado';
+  key: 'mes' | 'gasera' | 'aseguradora' | 'cabina' | 'estado' | 'clasificacion';
   label: string;
   param: string;
   columnaDb: string;
@@ -24,6 +24,7 @@ export const ICONOS = {
   idaVuelta: svg('<path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/>'),
   etiqueta: svg('<path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/>'),
   embudo: svg('<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>'),
+  clasificacion: svg('<path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4"/>'),
 };
 
 export const FILTROS: FiltroDef[] = [
@@ -32,4 +33,5 @@ export const FILTROS: FiltroDef[] = [
   { key: 'aseguradora', label: 'Aseguradora', param: 'aseguradora', columnaDb: 'aseguradora_norm', placeholder: 'Todas', icon: ICONOS.etiqueta },
   { key: 'cabina', label: 'Cabina', param: 'cabina', columnaDb: 'cabina_norm', placeholder: 'Todas', icon: ICONOS.idaVuelta },
   { key: 'estado', label: 'Estado', param: 'estado', columnaDb: 'estado_norm', placeholder: 'Todos', icon: ICONOS.megafono },
+  { key: 'clasificacion', label: 'Clasificación', param: 'clasificacion', columnaDb: 'clasificacion_norm', placeholder: 'Todas', icon: ICONOS.clasificacion },
 ];

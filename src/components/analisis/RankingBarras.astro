@@ -1,0 +1,123 @@
+---
+// RankingBarras — Componente genérico para listas ordenadas de mayor a menor.
+// Usado dos veces: solicitudes por producto (barras) y motivos de cancelación (tabla).
+// Recibe datos ya agregados; solo pinta. 3 estados: vacío, datos, error (fallback).
+import { pct, fmtInt, fmtPct } from '../../lib/util';
+
+interface Props {
+  titulo: string;
+  subtitulo: string;
+  etiquetaLider: string;
+  items: { nombre: string; casos: number }[];
+  limite?: number;
+  variante: 'barras' | 'tabla';
+  textoTotal?: string;
+}
+
+const { titulo, subtitulo, etiquetaLider, items = [], limite, variante = 'barras', textoTotal } = Astro.props;
+
+const datos = limite && limite > 0 ? items.slice(0, limite) : items;
+const total = items.reduce((s, i) => s + i.casos, 0);
+const lider = datos.length > 0 ? datos[0] : null;
+const pctLider = lider ? pct(lider.casos, total) : 0;
+
+const nombreCorto = (nombre: string): string => nombre.length > 28 ? nombre.slice(0, 28) + '…' : nombre;
+---
+
+<section class="ranking-card glass rounded-3xl p-4 md:p-5 flex flex-col">
+  <div class="mb-3">
+    <h2 class="text-lg font-extrabold md:text-xl">{titulo}</h2>
+    <p class="text-sm text-tinta/60">{subtitulo}</p>
+  </div>
+
+  {datos.length === 0 ? (
+    <div class="flex-1 flex flex-col items-center justify-center py-8 text-tinta/50">
+      <p>Sin datos para este filtro.</p>
+    </div>
+  ) : (
+    <>
+      <!-- Tarjeta del líder -->
+      <div class="mb-4 rounded-2xl border border-tinta/10 bg-tinta/5 p-4 md:p-6 flex flex-col sm:flex-row sm:items-center gap-4">
+        <div class="flex items-center gap-3">
+          <span class="w-10 h-10 rounded-2xl flex items-center justify-center bg-blue-50/60 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-extrabold text-sm">1</span>
+          <div>
+            <p class="text-[10px] font-extrabold uppercase tracking-wider text-tinta/50">{etiquetaLider}</p>
+            <p class="text-lg font-extrabold text-tinta">{lider?.nombre ?? '—'}</p>
+          </div>
+        </div>
+        <div class="flex flex-col items-end sm:self-start">
+          <span class="text-2xl font-extrabold text-blue-700 dark:text-blue-300 tabular-nums">{fmtInt(lider?.casos ?? 0)}</span>
+          <span class="text-xs font-bold text-green-600 dark:text-green-400">{fmtPct(pctLider)} del total</span>
+        </div>
+      </div>
+
+      {variante === 'barras' ? (
+        <div class="flex-1">
+          <div class="barras-lista flex flex-col gap-2">
+            {datos.map((d: { nombre: string; casos: number }, i: number) => {
+              const pctTotal = pct(d.casos, total);
+              const ancho = total > 0 ? Math.max(4, (d.casos / (lider?.casos || 1)) * 100) : 0;
+              return (
+                <div class="fila-barra flex items-center gap-3 group">
+                  <span class="ranking-num w-4 text-[10px] font-bold text-tinta/40">{i + 1}</span>
+                  <span class="nombre-barra flex-1 min-w-0 text-sm font-medium text-tinta truncate" title={d.nombre}>{nombreCorto(d.nombre)}</span>
+                  <div class="barra-carril w-48 h-2 rounded-full bg-tinta/10 overflow-hidden">
+                    <div class="barra-lleno h-full rounded-full bg-blue-600 dark:bg-blue-500" style="width: {ancho}%" />
+                  </div>
+                  <span class="casos-barra w-16 text-right text-sm font-bold tabular-nums text-tinta">{fmtInt(d.casos)}</span>
+                  <span class="pct-barra w-16 text-right text-xs text-green-600 dark:text-green-400 font-bold">{fmtPct(pctTotal)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <div class="flex-1 overflow-x-auto">
+          <table class="tabla-ranking w-full text-left border-collapse">
+            <thead>
+              <tr class="text-[10px] font-extrabold uppercase tracking-wider text-tinta/50 border-b border-tinta/10">
+                <th class="w-6 text-center">#</th>
+                <th class="text-left">Motivo de cancelación</th>
+                <th class="w-20 text-right">Casos</th>
+                <th class="w-24 text-right">% del total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {datos.map((d: { nombre: string; casos: number }, i: number) => {
+                const pctTotal = pct(d.casos, total);
+                return (
+                  <tr class="border-b border-tinta/5 hover:bg-tinta/5 transition-colors">
+                    <td class="text-[11px] font-bold text-tinta/40 py-3 text-center">{i + 1}</td>
+                    <td class="text-sm font-medium text-tinta py-3 truncate" title={d.nombre}>{nombreCorto(d.nombre)}</td>
+                    <td class="text-sm font-bold text-blue-600 dark:text-blue-400 tabular-nums py-3 text-right">{fmtInt(d.casos)}</td>
+                    <td class="text-sm font-bold text-green-600 dark:text-green-400 tabular-nums py-3 text-right">{fmtPct(pctTotal)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <!-- Pie con total -->
+      <div class="mt-4 border-t border-tinta/10 pt-3 flex flex-wrap items-center justify-between gap-2 text-sm font-bold">
+        <span class="text-tinta/60">{textoTotal ?? 'Total general'}</span>
+        <span class="text-tinta tabular-nums">{fmtInt(total)}</span>
+        {total > 0 && (
+          <span class="text-green-600 dark:text-green-400">{fmtPct(100)} del total</span>
+        )}
+      </div>
+    </>
+  )}
+</section>
+
+<style>
+  .ranking-card { position: relative; }
+  .fila-barra { transition: background 0.15s ease; }
+  .fila-barra:hover { background: color-mix(in srgb, currentColor 4%, transparent); }
+  .barra-carril { background: #e2e8f0; }
+  :global(.dark) .barra-carril { background: rgba(255,255,255,0.08); }
+  .tabla-ranking th { padding: 8px 12px; }
+  .tabla-ranking td { padding: 8px 12px; }
+  :global(.dark) .tabla-ranking { color: #e2e8f0; }
+</style>

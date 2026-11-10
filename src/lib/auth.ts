@@ -26,6 +26,7 @@ export function verificarJwt(token: string): HubClaims | null {
   const partes = token.split('.');
   if (partes.length !== 3) return null;
   const [h, p, sig] = partes;
+  if (!h || !p || !sig) return null;
   try {
     if (b64json(h).alg !== 'HS256') return null;
     const esperado = createHmac('sha256', ENV.jwtSecret).update(`${h}.${p}`).digest();
