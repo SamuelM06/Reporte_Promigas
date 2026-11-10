@@ -1,18 +1,18 @@
 ---
 // Página: Tendencia de retenciones.
-// Tendencia mensual de retenciones + dona de participación por resultado.
-// Todos los datos vienen de la capa de consulta (query.ts); el componente solo pinta.
+// Tendencia mensual de retenciones (una o dos líneas: Inbound/Outbound) + dona de participación.
+// Datos de la capa de consulta; el componente solo pinta.
 import { ruta } from '../lib/base';
 import SidebarLayout from '../layouts/SidebarLayout.astro';
 import FiltrosGlobales from '../components/filtros/FiltrosGlobales.astro';
-import { cargaSSR, filtrosPorDefecto, getRetenidosPorMes, getResultadosRetencion, getMetadatos, METADATOS_VACIOS, parseFiltros } from '../lib/query';
+import { cargaSSR, filtrosPorDefecto, getRetenidosPorMesCabina, getResultadosRetencion, getMetadatos, METADATOS_VACIOS, parseFiltros } from '../lib/query';
 import { fmtInt, fmtPct, pct } from '../lib/util';
 
 const f = { ...filtrosPorDefecto(), ...parseFiltros(Astro.url) };
 const claveFiltros = JSON.stringify(f);
 
 const metadatos = await cargaSSR(`tendencia/metadatos/${claveFiltros}`, getMetadatos(f), METADATOS_VACIOS, 300_000);
-const tendencia: { periodo: string; retenidos: number }[] = await cargaSSR(`tendencia/mes/${claveFiltros}`, getRetenidosPorMes(f), []);
+const tendenciaCabina: { periodo: string; cabina: string; retenidos: number }[] = await cargaSSR(`tendencia/mes-cabina/${claveFiltros}`, getRetenidosPorMesCabina(f), []);
 const res: { retenido: number; canceladoVenta: number; total: number } = await cargaSSR(`tendencia/resultados/${claveFiltros}`, getResultadosRetencion(f), { retenido: 0, canceladoVenta: 0, total: 0 });
 
 const selMes = f.mes ?? [];
@@ -34,34 +34,71 @@ const corteTexto = mesesDisponibles.length > 0
   ? `Corte · ${mesesDisponibles[0]} a ${mesesDisponibles[mesesDisponibles.length - 1]} 2026`
   : 'Corte · Enero a Diciembre 2026';
 
-// --- Cálculos de tarjetas resumen ---
-const totalRet = res.total;
-const mejorMes: { periodo: string; retenidos: number } = tendencia.length > 0
-  ? tendencia.reduce((a: { periodo: string; retenidos: number }, b: { periodo: string; retenidos: number }) => (b.retenidos > a.retenidos ? b : a), tendencia[0] ?? { periodo: '-', retenidos: 0 })
-  : { periodo: '-', retenidos: 0 };
-const promedioMensual = tendencia.length > 0
-  ? Math.round(totalRet / tendencia.length)
-  : 0;
-
-// --- Geometría del gráfico de línea/área ---
-const H = 220;
-const n = Math.max(1, tendencia.length);
-const stepX = 100 / n;
-const maxR = Math.max(1, ...tendencia.map((r) => r.retenidos));
-const px = (i: number) => (stepX * i + stepX / 2).toFixed(2);
-const py = (v: number) => (H - 30 - (v / maxR) * (H - 70)).toFixed(1);
-const linePts = tendencia.map((r, i) => `${px(i)},${py(r.retenidos)}`).join(' ');
-const areaPts = `${linePts} 100,${H} 0,${H}`;
-
-// Índices de máximo y mínimo (para resaltar etiquetas)
-let idxMax = 0, idxMin = 0;
-for (let i = 1; i < tendencia.length; i++) {
-  if (tendencia[i]!.retenidos > tendencia[idxMax]!.retenidos) idxMax = i;
-  if (tendencia[i]!.retenidos < tendencia[idxMin]!.retenidos) idxMin = i;
+// --- Agrupar por periodo y cabina para las dos líneas ---
+const periodosOrdenados: string[] = [];
+const porPeriodo: Record<string, Record<string, number>> = {};
+for (const r of tendenciaCabina) {
+  const clave: Record<string, number> | undefined = porPeriodo[r.periodo];
+  if (!clave) {
+    porPeriodo[r.periodo] = { INBOUND: 0, OUTBOUND: 0 };
+    periodosOrdenados.push(r.periodo);
+  }
+  const c2: Record<string, number> = porPeriodo[r.periodo]!;
+  c2[r.cabina] = (c2[r.cabina] ?? 0) + r.retenidos;
 }
 
+// Orden cronológico: usar el orden original de tendenciaCabina (ya viene ordenado por mes/año)
+// Si no hay datos, periodo vacío.
+const n = Math.max(1, periodosOrdenados.length);
+const totalRet = res.total;
+const totalInbound = tendenciaCabina.filter((r) => r.cabina === 'INBOUND').reduce((s, r) => s + r.retenidos, 0);
+const totalOutbound = tendenciaCabina.filter((r) => r.cabina === 'OUTBOUND').reduce((s, r) => s + r.retenidos, 0);
+
+const mostrarDosLineas = selCabina.length !== 1; // sin filtro de cabina -> dos líneas
 const cabinaLabel = selCabina.length === 1 ? selCabina[0] : 'Todas las cabinas';
 const tituloGrafico = `Retenciones por mes · ${cabinaLabel}`;
+
+// --- Geometría SVG ---
+const H = 220;
+const stepX = 100 / n;
+const px = (i: number) => (stepX * i + stepX / 2).toFixed(2);
+const maxR = (() => {
+  let m = 1;
+  for (const p of periodosOrdenados) {
+    const celda: Record<string, number> | undefined = porPeriodo[p];
+    const vIn = celda?.INBOUND ?? 0;
+    const vOut = celda?.OUTBOUND ?? 0;
+    if (vIn > m) m = vIn;
+    if (vOut > m) m = vOut;
+  }
+  return m;
+})();
+const py = (v: number) => (H - 30 - (v / maxR) * (H - 70)).toFixed(1);
+
+const lineInbound = periodosOrdenados.map((p, i) => {
+  const celda: Record<string, number> | undefined = porPeriodo[p!];
+  return `${px(i)},${py(celda?.INBOUND ?? 0)}`;
+}).join(' ');
+const lineOutbound = periodosOrdenados.map((p, i) => {
+  const celda: Record<string, number> | undefined = porPeriodo[p!];
+  return `${px(i)},${py(celda?.OUTBOUND ?? 0)}`;
+}).join(' ');
+
+// Índices de máximo global (para etiqueta)
+let idxMax = 0;
+let maxValor = 0;
+let ii = 0;
+for (const p of periodosOrdenados) {
+  const celda: Record<string, number> | undefined = porPeriodo[p];
+  const vIn = celda?.INBOUND ?? 0;
+  const vOut = celda?.OUTBOUND ?? 0;
+  const v = mostrarDosLineas ? Math.max(vIn, vOut) : (vIn + vOut);
+  if (v > maxValor) { maxValor = v; idxMax = ii; }
+  ii++;
+}
+
+const mejorPeriodo = periodosOrdenados[idxMax] ?? '-';
+const mejorValor = maxValor;
 ---
 
 <SidebarLayout title="Tendencia de Retenciones · Promigas 2026" corteTexto={corteTexto}>
@@ -97,18 +134,18 @@ const tituloGrafico = `Retenciones por mes · ${cabinaLabel}`;
       <span class="kpi-glow" aria-hidden="true"></span>
       <span class="kpi-ico kpi-ico-sm" set:html='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 10V3L4 14h7v7l9-11h-9z"/></svg>' />
       <span class="kpi-body">
-        <span class="kpi-label">Mejor mes</span>
-        <span class="kpi-num text-green-600 dark:text-green-400" data-count={mejorMes.retenidos}>{fmtInt(mejorMes.retenidos)}</span>
-        <span class="kpi-nota">{mejorMes.periodo}</span>
+        <span class="kpi-label">Inbound · mes pico</span>
+        <span class="kpi-num text-green-600 dark:text-green-400" data-count={totalInbound}>{fmtInt(totalInbound)}</span>
+        <span class="kpi-nota">{mejorPeriodo}</span>
       </span>
     </article>
     <article class="kpi-card kpi-teal fade-up" style="animation-delay:0.3s">
       <span class="kpi-glow" aria-hidden="true"></span>
       <span class="kpi-ico kpi-ico-sm" set:html='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19V6h12v13"/><path d="M16 15h4"/><path d="M10 11h6"/></svg>' />
       <span class="kpi-body">
-        <span class="kpi-label">Promedio mensual</span>
-        <span class="kpi-num text-teal-600 dark:text-teal-400" data-count={promedioMensual}>{fmtInt(promedioMensual)}</span>
-        <span class="kpi-nota">por mes con datos</span>
+        <span class="kpi-label">Outbound · mes pico</span>
+        <span class="kpi-num text-teal-600 dark:text-teal-400" data-count={totalOutbound}>{fmtInt(totalOutbound)}</span>
+        <span class="kpi-nota">{mejorPeriodo}</span>
       </span>
     </article>
   </section>
@@ -120,70 +157,98 @@ const tituloGrafico = `Retenciones por mes · ${cabinaLabel}`;
         <h2 class="flex items-center gap-2 text-base font-bold md:text-lg">
           <span class="kpi-ico kpi-ico-sm" set:html='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"/><path d="M7 20v-8"/><path d="M12 20v-12"/><path d="M17 20v-5"/></svg>' /> {tituloGrafico}
         </h2>
-        <p class="text-xs text-tinta/60">{tendencia.length} mes{(tendencia.length !== 1 ? 's' : '')} con datos</p>
+        <p class="text-xs text-tinta/60">{periodosOrdenados.length} mes{(periodosOrdenados.length !== 1 ? 's' : '')} con datos</p>
       </div>
 
-      {tendencia.length === 0 ? (
+      {periodosOrdenados.length === 0 ? (
         <p class="mt-6 text-sm text-tinta/60">Sin datos para los filtros seleccionados.</p>
       ) : (
-        <div class="chart-wrap mt-2 flex-1 min-h-[260px]">
-          <svg class="trend-svg" viewBox={`0 0 100 ${H}`} preserveAspectRatio="none" aria-label="Tendencia de retenciones por mes">
-            <!-- Área degradada -->
+        <div class="chart-wrap mt-2 flex-1 min-h-[260px] relative">
+          <svg class="trend-svg text-tinta" viewBox={`0 0 100 ${H}`} preserveAspectRatio="none" aria-label="Tendencia de retenciones por mes">
             <defs>
-              <linearGradient id="gradArea" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#1e40af" stop-opacity="0.35" />
+              <linearGradient id="gradIn" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#059669" stop-opacity="0.30" />
+                <stop offset="100%" stop-color="#059669" stop-opacity="0.05" />
+              </linearGradient>
+              <linearGradient id="gradOut" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#1e40af" stop-opacity="0.30" />
                 <stop offset="100%" stop-color="#1e40af" stop-opacity="0.05" />
               </linearGradient>
             </defs>
-            <path d={`M${areaPts}`} fill="url(#gradArea)" />
-            <!-- Línea -->
-            <polyline points={linePts} fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-              <animate attributeName="stroke-dashoffset" from="600" to="0" dur="1.2s" fill="freeze" />
-            </polyline>
-            <!-- Puntos -->
-            {tendencia.map((r, i) => {
+
+            {mostrarDosLineas && (
+              <>
+                <!-- Área Inbound -->
+                <path d={`M${lineInbound} 100,${H} 0,${H}`} fill="url(#gradIn)" />
+                <!-- Área Outbound -->
+                <path d={`M${lineOutbound} 100,${H} 0,${H}`} fill="url(#gradOut)" />
+              </>
+            )}
+
+            <!-- Línea Inbound (verde) -->
+            {mostrarDosLineas ? (
+              <polyline points={lineInbound} fill="none" stroke="#059669" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <animate attributeName="stroke-dashoffset" from="600" to="0" dur="1.2s" fill="freeze" />
+              </polyline>
+            ) : (
+              <polyline points={lineInbound} fill="none" stroke="#059669" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                <animate attributeName="stroke-dashoffset" from="600" to="0" dur="1.2s" fill="freeze" />
+              </polyline>
+            )}
+
+            <!-- Línea Outbound (azul) solo si dos líneas -->
+            {mostrarDosLineas && (
+              <polyline points={lineOutbound} fill="none" stroke="#1e40af" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <animate attributeName="stroke-dashoffset" from="600" to="0" dur="1.2s" fill="freeze" />
+              </polyline>
+            )}
+
+            <!-- Puntos destacados (máximo) -->
+            {periodosOrdenados.map((p, i) => {
+              const celda: Record<string, number> | undefined = porPeriodo[p!];
+              const vIn = celda?.INBOUND ?? 0;
+              const vOut = celda?.OUTBOUND ?? 0;
               const esMax = i === idxMax;
-              const esMin = i === idxMin;
-              const esDestacado = esMax || esMin;
               return (
-                <circle
-                  class="trend-dot"
-                  cx={px(i)}
-                  cy={py(r.retenidos)}
-                  r={esDestacado ? 5 : 3}
-                  fill="#2563eb"
-                  stroke="#ffffff"
-                  stroke-width={esDestacado ? 2 : 1}
-                />
+                <>
+                  {mostrarDosLineas && vIn > 0 && (
+                    <circle class="trend-dot" cx={px(i)} cy={py(vIn)} r={esMax ? 5 : 3} fill="#059669" stroke="currentColor" stroke-width={esMax ? 2 : 1} />
+                  )}
+                  {mostrarDosLineas && vOut > 0 && (
+                    <circle class="trend-dot" cx={px(i)} cy={py(vOut)} r={esMax ? 5 : 3} fill="#1e40af" stroke="currentColor" stroke-width={esMax ? 2 : 1} />
+                  )}
+                  {!mostrarDosLineas && (vIn + vOut) > 0 && (
+                    <circle class="trend-dot" cx={px(i)} cy={py(vIn + vOut)} r={esMax ? 5 : 3} fill="#059669" stroke="currentColor" stroke-width={esMax ? 2 : 1} />
+                  )}
+                </>
               );
             })}
           </svg>
 
-          <!-- Eje X con etiquetas de mes -->
+          <!-- Eje X -->
           <div class="trend-axis mt-3 flex justify-between text-[10px] font-bold uppercase tracking-wider opacity-75">
-            {tendencia.map((r) => (
-              <span style="text-align:center;flex:1">{String(r.periodo).slice(0, 6)}</span>
+            {periodosOrdenados.map((p) => (
+              <span style="text-align:center;flex:1">{String(p).slice(0, 6)}</span>
             ))}
           </div>
 
-          <!-- Etiquetas máximo/mínimo -->
+          <!-- Etiquetas máximo -->
           <div class="trend-labels mt-2 flex justify-between gap-2 text-xs font-bold">
-            {tendencia.length > 0 && (
-              <>
-                <span class="trend-label-max" style="text-align:center;flex:1;color:#059669">
-                  ▲ {fmtInt(tendencia[idxMax]?.retenidos ?? 0)} · {tendencia[idxMax]?.periodo ?? '-'}
-                </span>
-                <span class="trend-label-min" style="text-align:center;flex:1;color:#dc2626">
-                  ▼ {fmtInt(tendencia[idxMin]?.retenidos ?? 0)} · {tendencia[idxMin]?.periodo ?? '-'}
-                </span>
-              </>
+            <span class="trend-label-max" style="text-align:center;flex:1;color:#059669">
+              ▲ {fmtInt(mejorValor)} · {mejorPeriodo}
+            </span>
+            {mostrarDosLineas && (
+              <span class="trend-label-min" style="text-align:center;flex:1;color:#1e40af">
+                Inbound {fmtInt(totalInbound)} · Outbound {fmtInt(totalOutbound)}
+              </span>
             )}
           </div>
         </div>
       )}
 
       <p class="mt-3 text-[11px] leading-relaxed text-tinta/55">
-        Fórmula: <strong>Retenidos = RETENIDO + CANCELADO + VENTA</strong> (según estado de gestión). Serie muestra el total de retenciones por mes.
+        Fórmula: <strong>Retenidos = RETENIDO + CANCELADO + VENTA</strong> (estado de gestión).
+        {mostrarDosLineas ? 'Verde = Inbound · Azul = Outbound' : 'Una sola cabina filtrada.'}
       </p>
     </div>
 
@@ -194,7 +259,7 @@ const tituloGrafico = `Retenciones por mes · ${cabinaLabel}`;
           <span class="kpi-ico kpi-ico-sm" set:html='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>' /> Participación por resultado
         </h2>
         <div class="flex-1 flex flex-col items-center justify-center relative min-h-[240px]">
-          <svg class="donut-svg w-full max-w-[260px] max-h-[260px] viewbox-square" viewBox="0 0 200 200">
+          <svg class="donut-svg w-full max-w-[260px] max-h-[260px]" viewBox="0 0 200 200">
             <defs>
               {res.total > 0 ? (
                 <>
@@ -209,7 +274,6 @@ const tituloGrafico = `Retenciones por mes · ${cabinaLabel}`;
                 </>
               ) : null}
             </defs>
-            <!-- Fondo de dona (carril) -->
             {res.total > 0 ? (
               <>
                 <circle cx="100" cy="100" r="80" fill="none" stroke="#e2e8f0" stroke-width="16" stroke-linecap="round" />
@@ -225,25 +289,24 @@ const tituloGrafico = `Retenciones por mes · ${cabinaLabel}`;
             ) : (
               <circle cx="100" cy="100" r="80" fill="none" stroke="#cbd5e1" stroke-width="16" stroke-linecap="round" />
             )}
-            <!-- Centro: total + etiqueta -->
-            <text x="100" y="100" text-anchor="middle" dy=".35em" fill="#10142e" font-weight="800" font-size="22">{fmtInt(res.total)}</text>
-            <text x="100" y="122" text-anchor="middle" dy=".35em" fill="#64748b" font-weight="700" font-size="12">Retenciones</text>
+            <!-- Centro: total + etiqueta (color de tema, no blanco fijo) -->
+            <text x="100" y="100" text-anchor="middle" dy=".35em" fill="currentColor" font-weight="800" font-size="22" class="text-tinta">{fmtInt(res.total)}</text>
+            <text x="100" y="122" text-anchor="middle" dy=".35em" fill="currentColor" font-weight="700" font-size="12" class="text-tinta/70">Retenciones</text>
           </svg>
         </div>
 
-        <!-- Leyenda -->
         <div class="mt-3 flex flex-wrap gap-3 text-sm">
           <span class="flex items-center gap-2">
             <span class="w-3 h-3 rounded-full" style="background:#059669"></span>
-            <span>Retenido {fmtInt(res.retenido)} · {fmtPct(pct(res.retenido, res.total))}</span>
+            <span class="text-tinta">Retenido {fmtInt(res.retenido)} · {fmtPct(pct(res.retenido, res.total))}</span>
           </span>
           <span class="flex items-center gap-2">
             <span class="w-3 h-3 rounded-full" style="background:#dc2626"></span>
-            <span>Cancelado + Venta {fmtInt(res.canceladoVenta)} · {fmtPct(pct(res.canceladoVenta, res.total))}</span>
+            <span class="text-tinta">Cancelado + Venta {fmtInt(res.canceladoVenta)} · {fmtPct(pct(res.canceladoVenta, res.total))}</span>
           </span>
           {res.total > 0 && (
             <span class="flex items-center gap-2 opacity-60">
-              <span>Total {fmtInt(res.total)}</span>
+              <span class="text-tinta">Total {fmtInt(res.total)}</span>
             </span>
           )}
         </div>
@@ -257,7 +320,7 @@ const tituloGrafico = `Retenciones por mes · ${cabinaLabel}`;
   <style>
     .trend-svg { width: 100%; height: 100%; display: block; }
     .trend-dot { cursor: pointer; transition: r 0.2s ease; }
-    .trend-dot:hover { r: 6; fill: #3b82f6; }
+    .trend-dot:hover { r: 6; }
     .trend-axis { user-select: none; }
     .trend-label-max, .trend-label-min { background: color-mix(in srgb, Canvas 90%, transparent); padding: 2px 6px; border-radius: 6px; border: 1px solid color-mix(in srgb, currentColor 20%, transparent); }
     .donut-svg { width: 100%; height: auto; display: block; }
@@ -271,7 +334,6 @@ const tituloGrafico = `Retenciones por mes · ${cabinaLabel}`;
   </style>
 
   <script is:inline>
-    // Conteo animado de los KPI numéricos.
     (function () {
       var els = document.querySelectorAll('.kpi-num[data-count]');
       if (!els.length) return;

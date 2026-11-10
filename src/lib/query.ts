@@ -415,6 +415,36 @@ export async function getRetenidosPorMes(f: Filtros): Promise<FilaRetenidoMes[]>
   });
 }
 
+export interface FilaRetenidoMesCabina { periodo: string; cabina: string; retenidos: number; }
+
+/** Retenciones por mes y cabina (INBOUND/OUTBOUND), ordenado cronológicamente. */
+export async function getRetenidosPorMesCabina(f: Filtros): Promise<FilaRetenidoMesCabina[]> {
+  const params: unknown[] = [];
+  const w = whereGestion(f, params);
+  const rows = await query<{ mes: string; anio: number | null; cabina: string; retenidos: number }>(
+    `SELECT (${MES_EFECTIVO_SQL}) AS mes,
+            EXTRACT(YEAR FROM fecha_ejecucion)::int AS anio,
+            cabina_norm AS cabina,
+            COUNT(*)::int AS retenidos
+     FROM ${VISTA} WHERE ${w} AND ${ESTADOS_RETENCION_SQL} AND cabina_norm IN ('INBOUND','OUTBOUND')
+     GROUP BY 1, 2, 3
+     ORDER BY 2, ${ORDEN_MES_SQL}, 3`,
+    params,
+  );
+  const anos = new Set(rows.map((r) => r.anio).filter((a): a is number => a != null && Number.isFinite(a)));
+  const multiAnio = anos.size > 1;
+  const NOMBRE_MES: Record<string, string> = {
+    ENERO: 'Ene', FEBRERO: 'Feb', MARZO: 'Mar', ABRIL: 'Abr', MAYO: 'May', JUNIO: 'Jun',
+    JULIO: 'Jul', AGOSTO: 'Ago', SEPTIEMBRE: 'Sep', OCTUBRE: 'Oct', NOVIEMBRE: 'Nov', DICIEMBRE: 'Dic',
+    'SIN MES': 'Sin mes',
+  };
+  return rows.map((r) => {
+    const nombre = NOMBRE_MES[r.mes] ?? r.mes;
+    const periodo = multiAnio && r.anio != null ? `${nombre} ${r.anio}` : nombre;
+    return { periodo, cabina: r.cabina, retenidos: Number(r.retenidos ?? 0) };
+  });
+}
+
 export interface ResultadoRetencion { retenido: number; canceladoVenta: number; total: number; }
 
 /** RETENIDO vs CANCELADO + VENTA (total = retenciones del embudo). */
