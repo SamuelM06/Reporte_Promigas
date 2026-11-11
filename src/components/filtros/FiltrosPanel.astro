@@ -140,8 +140,9 @@ const chips = defs
 
     <div class="filtros-acciones">
       {Object.entries(extras).map(([k, v]) => (<input type="hidden" name={k} value={v} />))}
+      <span class="pendiente-hint" data-pendiente-hint hidden>Cambios sin aplicar</span>
       <button type="submit" class="btn-filtrar" data-btn-filtrar>Filtrar</button>
-      <a href={action} class="glass glass-hover btn-limpiar">Limpiar</a>
+      <a href={action} class="glass glass-hover btn-limpiar">Limpiar filtros</a>
     </div>
   </div>
 
@@ -523,7 +524,7 @@ const chips = defs
   /* Acciones del panel */
   .filtros-acciones {
     display: flex;
-    align-items: end;
+    align-items: center;
     gap: .5rem;
     flex-shrink: 0;
   }
@@ -535,6 +536,7 @@ const chips = defs
   }
 
   .btn-filtrar {
+    position: relative;
     height: 2.75rem;
     border-radius: .85rem;
     padding: 0 1.25rem;
@@ -553,6 +555,30 @@ const chips = defs
   }
   .btn-filtrar:hover { transform: scale(1.03); }
   .btn-filtrar.is-loading { opacity: .7; pointer-events: none; }
+  /* Cambios pendientes de aplicar: punto ámbar + halo sutil */
+  .btn-filtrar.is-dirty { box-shadow: 0 0 0 2px #f59e0b, 0 14px 28px -14px rgba(18,1,128,.55); }
+  .btn-filtrar.is-dirty::after {
+    content: '';
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    width: .8rem;
+    height: .8rem;
+    border-radius: 999px;
+    background: #f59e0b;
+    border: 2px solid Canvas;
+  }
+  .pendiente-hint {
+    font-size: .68rem;
+    font-weight: 800;
+    color: #b45309;
+    background: rgba(245, 158, 11, .14);
+    border: 1px solid rgba(245, 158, 11, .4);
+    padding: .2rem .5rem;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  :global(.dark) .pendiente-hint { color: #fcd34d; background: rgba(245, 158, 11, .18); border-color: rgba(245, 158, 11, .45); }
 
   .btn-limpiar {
     display: inline-flex;
@@ -667,25 +693,20 @@ const chips = defs
       }
     }
 
-    // Aplica los filtros del desplegable dado: navega a su URL con los
-    // checkboxes marcados como query params (sin pasar por requestSubmit,
-    // que no funciona de forma fiable con el router de cliente de Astro).
-    function aplicarFiltrosDesde(dd) {
-      var form = dd.closest('[data-filtros]');
-      if (!form) return;
+    // Marca el botón "Filtrar" como pendiente cuando el usuario cambió algo
+    // pero aún no aplicó. Solo es una señal visual: nada dispara nada.
+    function marcarSucio(form) {
       var btn = form.querySelector('[data-btn-filtrar]');
-      if (btn) {
-        if (!btn.dataset.etiqueta) btn.dataset.etiqueta = btn.textContent;
-        btn.classList.add('is-loading');
-        btn.textContent = 'Filtrando…';
-      }
-      var qs = new URLSearchParams();
-      form.querySelectorAll('.dropdown-opt-checkbox:checked').forEach(function (c) {
-        qs.append(c.name, c.value);
-      });
-      var sep = form.action.indexOf('?') === -1 ? '?' : '&';
-      location.href = form.action + sep + qs.toString();
-      tapando();
+      if (btn) btn.classList.add('is-dirty');
+      var hint = form.querySelector('[data-pendiente-hint]');
+      if (hint) hint.hidden = false;
+    }
+
+    function limpiarSucio(form) {
+      var btn = form.querySelector('[data-btn-filtrar]');
+      if (btn) btn.classList.remove('is-dirty');
+      var hint = form.querySelector('[data-pendiente-hint]');
+      if (hint) hint.hidden = true;
     }
 
     // Delegación de clicks para abrir/cerrar menús y acciones rápidas
@@ -722,7 +743,8 @@ const chips = defs
           }
         });
         actualizarTrigger(dd);
-        aplicarFiltrosDesde(dd);
+        var formAll = dd.closest('[data-filtros]');
+        if (formAll) marcarSucio(formAll);
         return;
       }
 
@@ -736,7 +758,8 @@ const chips = defs
           if (label) label.classList.remove('is-selected');
         });
         actualizarTrigger(dd);
-        aplicarFiltrosDesde(dd);
+        var formClear = dd.closest('[data-filtros]');
+        if (formClear) marcarSucio(formClear);
         return;
       }
 
@@ -744,10 +767,11 @@ const chips = defs
       if (btnApply) {
         var dd = btnApply.closest('[data-dropdown]');
         if (dd) {
+          // "Listo" solo cierra el desplegable. Los filtros NO se aplican
+          // hasta que el usuario pulse "Filtrar" (estado pendiente).
           dd.classList.remove('is-open');
           var t = dd.querySelector('[data-dropdown-trigger]');
           if (t) t.setAttribute('aria-expanded', 'false');
-          aplicarFiltrosDesde(dd);
         }
         return;
       }
@@ -782,7 +806,9 @@ const chips = defs
       });
     });
 
-    // Cambio en checkbox: sincronizar clases, etiqueta de trigger y filtrar al instante.
+    // Cambio en checkbox: sincronizar clases, etiqueta de trigger y contador.
+    // NO aplica filtros ni recarga: solo actualiza el estado pendiente
+    // hasta que el usuario pulse "Filtrar".
     document.addEventListener('change', function (e) {
       var cb = e.target;
       if (!cb || !cb.classList || !cb.classList.contains('dropdown-opt-checkbox')) return;
@@ -794,26 +820,35 @@ const chips = defs
         else label.classList.remove('is-selected');
       }
       actualizarTrigger(dd);
-
-      // Cierra el desplegable y aplica los filtros inmediatamente.
-      dd.classList.remove('is-open');
-      var t = dd.querySelector('[data-dropdown-trigger]');
-      if (t) t.setAttribute('aria-expanded', 'false');
-      aplicarFiltrosDesde(dd);
+      var form = cb.closest('[data-filtros]');
+      if (form) marcarSucio(form);
     });
 
-    // Submit del formulario
+    // Submit del formulario: aquí SÍ se aplican todos los filtros juntos.
+    // El router de cliente de Astro no propaga fiable los submits de formularios
+    // GET, así que se navega explícitamente a la URL con los checks marcados
+    // (mismo mecanismo que ya usa el portal) y se muestra la animación de
+    // carga una sola vez.
     document.addEventListener('submit', function (e) {
       var form = e.target;
       if (!form || !form.closest || !form.closest('[data-filtros]')) return;
+      e.preventDefault();
       cerrarTodosDropdowns();
+      limpiarSucio(form);
       var btn = form.querySelector('[data-btn-filtrar]');
       if (btn) {
         if (!btn.dataset.etiqueta) btn.dataset.etiqueta = btn.textContent;
         btn.classList.add('is-loading');
         btn.textContent = 'Filtrando…';
       }
+      var qs = new URLSearchParams();
+      form.querySelectorAll('.dropdown-opt-checkbox:checked').forEach(function (c) {
+        qs.append(c.name, c.value);
+      });
+      var sep = form.action.indexOf('?') === -1 ? '?' : '&';
+      var destino = form.action + sep + qs.toString();
       tapando();
+      location.href = destino;
     });
 
     window.addEventListener('pageshow', apagar);
